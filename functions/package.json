@@ -1,0 +1,29 @@
+{
+  "name": "functions",
+  "description": "Cloud Functions for Firebase",
+  "scripts": {
+    "serve": "firebase emulators:start --only functions",
+    "shell": "firebase functions:shell",
+    "start": "npm run shell",
+    "test": "node tests/resetPasswordAccess.test.js",
+    "migrate:remove-keyboard:dry-run": "node scripts/removeKeyboardSectionMigration.js --mode=dry-run",
+    "migrate:remove-keyboard:apply": "node scripts/removeKeyboardSectionMigration.js --mode=apply --confirm",
+    "migrate:remove-keyboard:rollback": "node scripts/removeKeyboardSectionMigration.js --mode=rollback",
+    "deploy": "firebase deploy --only functions",
+    "logs": "firebase functions:log"
+  },
+  "engines": {
+    "node": "20"
+  },
+  "main": "index.js",
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "firebase-admin": "^12.7.0",
+    "firebase-functions": "^4.9.0"
+  },
+  "devDependencies": {
+    "firebase-functions-test": "^0.2.0",
+    "firebase-tools": "^15.13.0"
+  },
+  "private": true
+}

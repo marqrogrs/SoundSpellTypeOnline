@@ -1,0 +1,63 @@
+:root {
+  --green: #91bb18;
+  --blue: #73cfff;
+  --navy: #002ca0;
+  --gold: #e0c23e;
+  --grey: #586168;
+  --white: #fff;
+}
+
+.pressed {
+  background-color: red;
+}
+
+.simple-keyboard.hg-layout-default .hg-button {
+  font-size: 25px;
+  cursor: default;
+}
+
+.simple-keyboard.hg-layout-default .hg-button.hg-activeButton {
+  transform: translateY(2px);
+  filter: brightness(0.78) saturate(1.2);
+  box-shadow:
+    inset 0 0 0 3px rgba(255, 255, 255, 0.65),
+    inset 0 0 14px rgba(0, 0, 0, 0.25);
+}
+
+.simple-keyboard.hg-layout-default .hg-button.dark {
+  color: var(--white);
+}
+
+.simple-keyboard.hg-layout-default .hg-button.green.dark {
+  background: var(--green);
+}
+
+.simple-keyboard.hg-layout-default .hg-button.blue.dark {
+  background: var(--blue);
+}
+.simple-keyboard.hg-layout-default .hg-button.gold.dark {
+  background: var(--gold);
+}
+.simple-keyboard.hg-layout-default .hg-button.navy.dark {
+  background: var(--navy);
+}
+
+.simple-keyboard.hg-layout-default .hg-button.grey.light {
+  color: var(--grey);
+}
+
+.simple-keyboard.hg-layout-default .hg-button.blue.light {
+  color: var(--blue);
+}
+
+.simple-keyboard.hg-layout-default .hg-button.navy.light {
+  color: var(--navy);
+}
+
+.simple-keyboard.hg-layout-default .hg-button.gold.light {
+  color: var(--gold);
+}
+
+.simple-keyboard.hg-layout-default .hg-button.green.light {
+  color: var(--green);
+}

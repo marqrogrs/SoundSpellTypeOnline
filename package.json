@@ -1,0 +1,86 @@
+{
+  "name": "sound-spell-type-online",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": ">=20 <21",
+    "npm": ">=10"
+  },
+  "resolutions": {
+    "@apollo/react-common": "3.1.0"
+  },
+  "overrides": {
+    "immutable": "3.8.3",
+    "@ardatan/relay-compiler": {
+      "immutable": "3.8.3"
+    }
+  },
+  "dependencies": {
+    "@apollo/client": "^3.0.0-rc.12",
+    "@apollo/react-common": "^3.1.4",
+    "@graphql-codegen/import-types-preset": "^4.0.0",
+    "@material-ui/core": "^4.11.0",
+    "@material-ui/icons": "^4.9.1",
+    "@material-ui/lab": "^4.0.0-alpha.56",
+    "@testing-library/jest-dom": "^4.2.4",
+    "@testing-library/react": "^9.3.2",
+    "@testing-library/user-event": "^7.1.2",
+    "ajv": "^8.18.0",
+    "apollo-boost": "^0.4.9",
+    "apollo-link-context": "^1.0.20",
+    "autoprefixer": "^10.4.27",
+    "dotenv": "^8.2.0",
+    "firebase": "^12.11.0",
+    "formik": "^2.2.1",
+    "graphql": "^15.3.0",
+    "lodash": "^4.17.20",
+    "mixin-deep": "^2.0.1",
+    "mongodb": "^3.5.9",
+    "mongodb-client-encryption": "^1.1.0",
+    "notistack": "^1.0.1",
+    "react": "^16.13.1",
+    "react-dom": "^16.13.1",
+    "react-keyboard-event-handler": "^1.5.4",
+    "react-router-dom": "^5.2.0",
+    "react-scripts": "^5.0.1",
+    "react-simple-keyboard": "^2.3.97",
+    "realm-web": "^0.6.0",
+    "speak-tts": "^2.0.8",
+    "sweetalert": "^2.1.2",
+    "typescript": "^4.9.5"
+  },
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject",
+    "codegen": "graphql-codegen --config codegen.yml",
+    "migrate:remove-keyboard:dry-run": "npm --prefix functions run migrate:remove-keyboard:dry-run",
+    "migrate:remove-keyboard:apply": "npm --prefix functions run migrate:remove-keyboard:apply",
+    "migrate:remove-keyboard:rollback": "npm --prefix functions run migrate:remove-keyboard:rollback"
+  },
+  "eslintConfig": {
+    "extends": "react-app"
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "devDependencies": {
+    "@graphql-codegen/cli": "^6.2.1",
+    "@graphql-codegen/introspection": "^1.16.3",
+    "@graphql-codegen/typescript": "^5.0.9",
+    "@graphql-codegen/typescript-operations": "^5.0.9",
+    "@graphql-codegen/typescript-react-apollo": "^4.4.1",
+    "immutable": "^3.8.3",
+    "simulate-event": "^1.4.0"
+  }
+}

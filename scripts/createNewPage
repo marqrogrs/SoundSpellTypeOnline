@@ -1,0 +1,94 @@
+#!/bin/bash
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+SS_DIR="$(dirname "$SCRIPT_DIR")"
+
+echo "This script will generate all files necessary in order to create a new page and add a link to it in the left-hand drop-down menu in the SoundSpeller app. After running this script, you can navigate to the newly created file and edit it with whatever html you would like."
+while [[ ! $confirmed == "Y" ]]; do
+
+  echo "1. What would you like the route of this page to be? www.soundspeller.com/_________"
+  route=""
+  allowed_chars=^[A-Za-z0-9]+
+  while ! [[ "$route" =~ ${allowed_chars} ]]; do
+    read route
+  done
+
+
+  # validate
+  title=""
+  echo "2. What would you like the title of this page to be? This is what will be seen on the drop-down menu."
+
+  read title
+
+  #validate
+  # visibility=""
+  # echo "3. Enter 'private' if this page should only be seen by signed in users. Enter 'public' if this page can be seen by anybody."
+  # while [[ $visibility != "public" && $visibility != "private" ]]; do
+  #   read visibility
+  # done
+  # route="${route// /-}"
+  visibility="Public"
+
+  #validate
+
+  echo "Please confirm the entered data: "
+  echo "route: $route"
+  echo "title: $title"
+  echo "visibility: $visibility"
+  echo "Is this correct? (Y\n): "
+  read confirmed
+done
+
+file_name="$(tr '[:lower:]' '[:upper:]' <<<${title:0:1})${title:1}"
+file_name="${file_name// /}"
+route="${route// /-}"
+
+# Create page file
+page_file="$SS_DIR/src/pages/${file_name}.js"
+template="$SCRIPT_DIR/SamplePage.js"
+
+page_file_contents=""
+
+while IFS= read -r line; do
+  if [[ $line =~ .*SamplePage.* ]]; then
+    page_file_contents+="export default function ${file_name}() {"$'\n'
+  else
+    page_file_contents+=$line$'\n'
+  fi
+done <"$template"
+
+echo "$page_file_contents" >$page_file
+
+# Update Routes File
+visibility="$(tr '[:lower:]' '[:upper:]' <<<${visibility:0:1})${visibility:1}"
+
+input="$SS_DIR/src/routes/${visibility}Routes.js"
+
+new_file=""
+
+while IFS= read -r line; do
+  if [[ $line =~ .*export\ default.* ]]; then
+    new_file+="import ${file_name} from '../pages/${file_name}.js'"$'\n'$'\n'
+  fi
+  new_file+=$line$'\n'
+  if [[ $line =~ .*\<Switch\>.* ]]; then
+    new_file+=$'\t'"<Route exact path='/${route}'>"$'\n'$'\t'"  <${file_name}/>"$'\n'$'\t'"</Route>"$'\n'
+  fi
+done <"$input"
+
+echo "$new_file" >$input
+
+#Update AppBar
+app_bar="$SS_DIR/src/components/AppBar.js"
+new_app_bar=""
+
+while IFS= read -r line; do
+  if [[ $line =~ .*\</Menu\>.* ]]; then
+    new_app_bar+=$'\t'$'\t'"<MenuItem onClick={() => history.push('/${route}')}>"$'\n'$'\t'$'\t'$title$'\n'$'\t'"</MenuItem>"$'\n'
+  fi
+  new_app_bar+=$line$'\n'
+done <"$app_bar"
+
+echo "$new_app_bar" >$app_bar
+
+echo "Page created at ${page_file}"

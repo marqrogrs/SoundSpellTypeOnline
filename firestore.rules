@@ -1,0 +1,23 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /lessons/{lesson} {
+      allow read: if request.auth.uid != null;
+    }
+    match /lessonSection/{section} {
+      allow read: if request.auth.uid != null;
+    }
+    match /phonemes/{phoneme} {
+      allow read: if request.auth.uid != null;
+    }
+    match /words/{word} {
+      allow read: if request.auth.uid != null;
+    }
+    match /users/{user} {
+      allow read, write: if request.auth.uid == user || request.auth.uid == resource.data.username;
+    	match /classes/{class} {
+      	allow read, write: if request.auth.uid == user;
+      }
+    }
+  }
+}
