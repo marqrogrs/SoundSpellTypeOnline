@@ -6,7 +6,7 @@ import {
   triggerEmailVerificationAlert2,
   triggerResetPasswordAlert,
 } from "../util/alerts";
-import { auth, authenticateStudent, db } from "../firebase";
+import { auth, authenticateStudent, db, ensureInitialAdmin } from "../firebase";
 
 const AuthContext = React.createContext();
 
@@ -14,6 +14,9 @@ const Auth = ({ children }) => {
   const [authLoaded, setIsLoaded] = React.useState(false);
   const [user, setUser] = React.useState(auth.currentUser);
   const [isEducator, setIsEducator] = React.useState(false);
+  const [role, setRole] = React.useState("student");
+  const [isSchoolAdmin, setIsSchoolAdmin] = React.useState(false);
+  const [isAdmin, setIsAdmin] = React.useState(false);
 
   const history = useHistory();
 
@@ -30,10 +33,72 @@ const Auth = ({ children }) => {
   }, [history]);
 
   React.useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((user) => {
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
       if (user) {
+        const normalizedEmail = String(user.email || "")
+          .trim()
+          .toLowerCase();
+        const isBootstrapAdminEmail = normalizedEmail === "mark@birdhaven.us";
+
+        let tokenRole = user.email ? "educator" : "student";
+        let tokenIsAdmin = false;
+        let tokenIsSchoolAdmin = false;
+
+        try {
+          const tokenResult = await user.getIdTokenResult();
+          const claims = tokenResult?.claims || {};
+          tokenIsAdmin = Boolean(claims.admin);
+          tokenIsSchoolAdmin = Boolean(claims.schoolAdmin);
+          tokenRole =
+            claims.role ||
+            (tokenIsAdmin
+              ? "admin"
+              : tokenIsSchoolAdmin
+                ? "schoolAdmin"
+                : user.email
+                  ? "educator"
+                  : "student");
+        } catch (error) {
+          console.error("Failed to read auth claims", error);
+        }
+
+        setRole(tokenRole);
+        setIsAdmin(tokenIsAdmin || tokenRole === "admin");
+        setIsSchoolAdmin(
+          tokenIsSchoolAdmin ||
+            tokenRole === "schoolAdmin" ||
+            tokenRole === "admin",
+        );
+
+        // Keep legacy educator behavior while allowing admin/schoolAdmin accounts.
+        setIsEducator(
+          user.email !== null ||
+            tokenRole === "admin" ||
+            tokenRole === "schoolAdmin",
+        );
+
+        // Safe bootstrap: mark@birdhaven.us becomes initial top-level admin.
+        if (isBootstrapAdminEmail) {
+          try {
+            const seedResult = await ensureInitialAdmin({});
+            if (seedResult?.data?.role === "admin") {
+              const refreshedToken = await user.getIdTokenResult(true);
+              const refreshedClaims = refreshedToken?.claims || {};
+              setRole(deriveRoleFromClaims(user, refreshedClaims));
+              setIsAdmin(Boolean(refreshedClaims.admin));
+              setIsSchoolAdmin(
+                Boolean(refreshedClaims.schoolAdmin || refreshedClaims.admin),
+              );
+            }
+          } catch (error) {
+            // Ignore permission-denied once already seeded; log unexpected issues.
+            if (String(error?.code || "") !== "permission-denied") {
+              console.warn("ensureInitialAdmin failed", error);
+            }
+          }
+        }
+
         // console.log('User signed in: ', user.metadata)
-        setIsEducator(user.email !== null);
         //do things
         const firstSignIn =
           user.metadata.creationTime === user.metadata.lastSignInTime;
@@ -51,6 +116,10 @@ const Auth = ({ children }) => {
           return;
         }
       } else {
+        setRole("student");
+        setIsAdmin(false);
+        setIsSchoolAdmin(false);
+        setIsEducator(false);
         // do other things
       }
       setUser(user);
@@ -118,6 +187,9 @@ const Auth = ({ children }) => {
   const context = {
     user,
     isEducator,
+    role,
+    isAdmin,
+    isSchoolAdmin,
     authLoaded,
     resetPassword,
     createUserWithEmailAndPassword,
@@ -129,6 +201,13 @@ const Auth = ({ children }) => {
     <AuthContext.Provider value={context}>{children}</AuthContext.Provider>
   );
 };
+
+function deriveRoleFromClaims(user, claims) {
+  if (claims?.admin) return "admin";
+  if (claims?.schoolAdmin) return "schoolAdmin";
+  if (claims?.role) return claims.role;
+  return user?.email ? "educator" : "student";
+}
 
 export default Auth;
 
