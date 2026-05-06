@@ -6,9 +6,20 @@
     "shell": "firebase functions:shell",
     "start": "npm run shell",
     "test": "node tests/resetPasswordAccess.test.js",
+    "migrate:aw-ao-grapheme:dry-run": "node scripts/fixAwAoGraphemeMigration.js --mode=dry-run",
+    "migrate:aw-ao-grapheme:apply": "node scripts/fixAwAoGraphemeMigration.js --mode=apply --confirm",
+    "migrate:aw-ao-grapheme:rollback-preview": "node scripts/fixAwAoGraphemeMigration.js --mode=rollback-preview",
+    "migrate:aw-ao-grapheme:rollback": "node scripts/fixAwAoGraphemeMigration.js --mode=rollback",
     "migrate:remove-keyboard:dry-run": "node scripts/removeKeyboardSectionMigration.js --mode=dry-run",
     "migrate:remove-keyboard:apply": "node scripts/removeKeyboardSectionMigration.js --mode=apply --confirm",
     "migrate:remove-keyboard:rollback": "node scripts/removeKeyboardSectionMigration.js --mode=rollback",
+    "migrate:words-mastered:dry-run": "node scripts/backfillWordsMasteredByDifficulty.js --mode=dry-run",
+    "migrate:words-mastered:apply": "node scripts/backfillWordsMasteredByDifficulty.js --mode=apply --confirm",
+    "migrate:first-lesson-attempted:dry-run": "node scripts/backfillFirstLessonAttemptedAt.js --mode=dry-run",
+    "migrate:first-lesson-attempted:apply": "node scripts/backfillFirstLessonAttemptedAt.js --mode=apply --confirm",
+    "bench:collect": "node scripts/benchmarkCollect.js",
+    "bench:report": "node scripts/benchmarkReport.js",
+    "bench:check": "REGRESSION_P95_PCT=10 REGRESSION_AVG_PCT=8 HARD_MAX_MS=250 node scripts/benchmarkReport.js",
     "deploy": "firebase deploy --only functions",
     "logs": "firebase functions:log"
   },
@@ -19,7 +30,7 @@
   "dependencies": {
     "bcryptjs": "^2.4.3",
     "firebase-admin": "^12.7.0",
-    "firebase-functions": "^4.9.0"
+    "firebase-functions": "^5.1.1"
   },
   "devDependencies": {
     "firebase-functions-test": "^0.2.0",
