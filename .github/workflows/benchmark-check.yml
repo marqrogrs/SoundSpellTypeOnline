@@ -1,0 +1,103 @@
+name: Benchmark Check
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - master
+  push:
+    branches:
+      - develop
+      - master
+  workflow_dispatch:
+
+jobs:
+  benchmark-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout current branch
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: functions/package-lock.json
+
+      - name: Install functions dependencies
+        run: npm --prefix functions ci
+
+      - name: Generate current benchmark datasets
+        run: npm --prefix functions run bench:collect -- --runs 60
+
+      - name: Resolve current tidy file
+        id: current
+        run: |
+          set -euo pipefail
+          current_tidy=$(ls -t functions/benchmarks/module-load-tidy-*.csv | head -1)
+          echo "tidy=$current_tidy" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout baseline branch (PR only)
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.base_ref }}
+          path: baseline-src
+
+      - name: Setup Node for baseline branch (PR only)
+        if: github.event_name == 'pull_request'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: baseline-src/functions/package-lock.json
+
+      - name: Install baseline functions dependencies (PR only)
+        if: github.event_name == 'pull_request'
+        run: npm --prefix baseline-src/functions ci
+
+      - name: Generate baseline benchmark datasets (PR only)
+        if: github.event_name == 'pull_request'
+        run: npm --prefix baseline-src/functions run bench:collect -- --runs 60
+
+      - name: Resolve baseline tidy file (PR only)
+        if: github.event_name == 'pull_request'
+        id: baseline
+        run: |
+          set -euo pipefail
+          baseline_tidy=$(ls -t baseline-src/functions/benchmarks/module-load-tidy-*.csv | head -1)
+          echo "tidy=$baseline_tidy" >> "$GITHUB_OUTPUT"
+
+      - name: Run benchmark check without baseline (push)
+        if: github.event_name != 'pull_request'
+        run: npm --prefix functions run bench:check -- --input "${{ steps.current.outputs.tidy }}"
+
+      - name: Run benchmark check with baseline (PR)
+        if: github.event_name == 'pull_request'
+        run: npm --prefix functions run bench:check -- --input "${{ steps.current.outputs.tidy }}" --baseline "${{ steps.baseline.outputs.tidy }}"
+
+      - name: Upload current benchmark artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-artifacts-current-${{ github.run_id }}
+          path: |
+            functions/benchmarks/module-load-benchmark-*.csv
+            functions/benchmarks/module-load-derived-*.csv
+            functions/benchmarks/module-load-tidy-*.csv
+            functions/benchmarks/reports/*.html
+            functions/benchmarks/reports/*.json
+          if-no-files-found: warn
+
+      - name: Upload baseline benchmark artifacts (PR only)
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-artifacts-baseline-${{ github.run_id }}
+          path: |
+            baseline-src/functions/benchmarks/module-load-benchmark-*.csv
+            baseline-src/functions/benchmarks/module-load-derived-*.csv
+            baseline-src/functions/benchmarks/module-load-tidy-*.csv
+          if-no-files-found: warn
