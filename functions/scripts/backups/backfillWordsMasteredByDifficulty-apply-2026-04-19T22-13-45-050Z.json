@@ -1,0 +1,96 @@
+{
+  "mode": "apply",
+  "strategy": "full-only",
+  "includeEducators": false,
+  "totalUsersScanned": 2,
+  "usersWithProgress": 2,
+  "usersNeedingUpdate": 2,
+  "usersUpdated": 0,
+  "totalsAdded": {
+    "1": 135,
+    "2": 146,
+    "3": 146
+  },
+  "perUser": [
+    {
+      "userId": "Marcus",
+      "addedCounts": {
+        "1": 23,
+        "2": 10,
+        "3": 10
+      },
+      "addedPreview": {
+        "1": [
+          "CAD",
+          "CADS",
+          "DOCK",
+          "DOCKS",
+          "DOG",
+          "DOGS",
+          "FOG",
+          "FOGS"
+        ],
+        "2": [
+          "DAD",
+          "DADS",
+          "FAD",
+          "FADS",
+          "GAD",
+          "GADS",
+          "GAS",
+          "SAD"
+        ],
+        "3": [
+          "DAD",
+          "DADS",
+          "FAD",
+          "FADS",
+          "GAD",
+          "GADS",
+          "GAS",
+          "SAD"
+        ]
+      }
+    },
+    {
+      "userId": "student1",
+      "addedCounts": {
+        "1": 112,
+        "2": 136,
+        "3": 136
+      },
+      "addedPreview": {
+        "1": [
+          "CAD",
+          "CADS",
+          "DICK",
+          "DID",
+          "DOCK",
+          "DOCKS",
+          "DOG",
+          "DOGS"
+        ],
+        "2": [
+          "BACK",
+          "BACKS",
+          "BAD",
+          "BAG",
+          "BAGS",
+          "BECK",
+          "BECKS",
+          "BED"
+        ],
+        "3": [
+          "BACK",
+          "BACKS",
+          "BAD",
+          "BAG",
+          "BAGS",
+          "BECK",
+          "BECKS",
+          "BED"
+        ]
+      }
+    }
+  ]
+}

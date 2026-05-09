@@ -1,0 +1,27 @@
+# EW family grapheme normalization for Firebase Word Fix Admin
+# Source lesson set: Firebase lesson 9.5 (Long Teams 5)
+# Format: WORD | graphemes comma-separated | phonemes space-separated | syllables dot-separated
+BREW | B,R,EW | B R UW | brew
+BREWER | B,R,EW,ER | B R UW ER | brew.er
+BREWING | B,R,EW,I,NG | B R UW IH NG | brew.ing
+CHEW | CH,EW | CH UW | chew
+CHEWER | CH,EW,ER | CH UW ER | chew.er
+CHEWING | CH,EW,I,NG | CH UW IH NG | chew.ing
+DREW | D,R,EW | D R UW | drew
+FLEW | F,L,EW | F L UW | flew
+GREW | G,R,EW | G R UW | grew
+NEW | N,EW | N UW | new
+NEWT | N,EW,T | N UW T | newt
+NEWTON | N,EW,T,O,N | N UW T AA N | new.ton
+NEWSCAST | N,EW,S,C,A,S,T | N UW Z K AE S T | news.cast
+NEWSCASTER | N,EW,S,C,A,S,T,ER | N UW Z K AE S T ER | news.cast.er
+NEWSCASTS | N,EW,S,C,A,S,T,S | N UW Z K AE S T S | news.cast.s
+SCREW | S,C,R,EW | S K R UW | screw
+SCREWED | S,C,R,EW,ED | S K R UW D | screwed
+SCREWING | S,C,R,EW,I,NG | S K R UW IH NG | screw.ing
+SCREWS | S,C,R,EW,S | S K R UW Z | screws
+STEW | S,T,EW | S T UW | stew
+STEWARD | S,T,EW,AR,D | S T UW ER D | stew.ard
+STEWARDESS | S,T,EW,AR,D,E,SS | S T UW ER D EH S | stew.ard.ess
+STEWED | S,T,EW,ED | S T UW D | stewed
+STEWING | S,T,EW,I,NG | S T UW IH NG | stew.ing

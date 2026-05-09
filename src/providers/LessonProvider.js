@@ -1,25 +1,96 @@
-import React, { useState, useEffect, useContext, useCallback } from "react";
+import React, {
+  useState,
+  useEffect,
+  useContext,
+  useCallback,
+  useRef,
+  useMemo,
+} from "react";
+import { useLocation } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
-
+import firebase from "../firebase";
 import { db } from "../firebase";
 import { UserContext } from "./UserProvider";
 import { getLessonSubsection, buildActiveLessonWords } from "../util/functions";
-var _ = require("lodash");
+import { getCurrentPerfSessionId, setPerfMetric } from "../util/perfSession";
+import sortBy from "lodash/sortBy";
 
 const LessonContext = React.createContext({});
+const CUSTOM_LESSON_PREFIX = "custom:";
+const nowMs = () =>
+  typeof performance !== "undefined" && typeof performance.now === "function"
+    ? performance.now()
+    : Date.now();
 
 const LessonProvider = ({ children }) => {
   const [lessonsLoading, setLessonsLoading] = useState(true);
   const [lessons, setLessons] = useState([]);
   const [lessonSectionsLoading, setLessonSectionsLoading] = useState(true);
   const [lessonSections, setLessonSections] = useState({});
-  const { userData } = useContext(UserContext);
-  const { user, isEducator } = useAuth();
+  const [rules, setRules] = useState([]);
+  const [rulesLoading, setRulesLoading] = useState(false);
+  const { userData, registerMasteredWord } = useContext(UserContext);
+  const userDataRef = useRef(userData);
+  const location = useLocation();
+  const loadedLessonDataUserIdRef = useRef(null);
+  useEffect(() => {
+    userDataRef.current = userData;
+  }, [userData]);
+  const { user, isEducator, isAdmin, isSchoolAdmin, authLoaded, role } =
+    useAuth();
 
   const [currentLesson, setCurrentLesson] = useState();
   const [currentLessonProgress, setCurrentLessonProgress] = useState();
   const [currentLessonLevel, setCurrentLessonLevel] = useState();
   const [currentLessonLoading, setCurrentLessonLoading] = useState(false);
+
+  const shouldLoadLessonData = useMemo(() => {
+    const pathname = String(location?.pathname || "");
+    if (pathname.startsWith("/lessons")) return true;
+    if (pathname.startsWith("/progress")) return true;
+    if (pathname.startsWith("/student-progress")) return true;
+    if (pathname.startsWith("/students")) return true;
+    if (pathname.startsWith("/create-lesson")) return true;
+    if (pathname.startsWith("/custom-lessons")) return true;
+    if (pathname.startsWith("/create-custom-lesson")) return true;
+
+    // Home renders progress for students/educators, but not for admin roles.
+    if (pathname === "/" && !(isAdmin || isSchoolAdmin)) {
+      return true;
+    }
+
+    return false;
+  }, [location?.pathname, isAdmin, isSchoolAdmin]);
+
+  const loadRules = useCallback((source = "default") => {
+    const startedAt = nowMs();
+    setRulesLoading(true);
+    return db
+      .collection("rules")
+      .get()
+      .then((snap) => {
+        const rulesData = snap.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setRules(rulesData);
+        setRulesLoading(false);
+        console.info("[perf] lessonProvider.rulesLoaded", {
+          source,
+          count: rulesData.length,
+          ms: Math.round(nowMs() - startedAt),
+        });
+      })
+      .catch((error) => {
+        console.error("Failed to load rules:", error.code, error.message);
+        setRulesLoading(false);
+        console.info("[perf] lessonProvider.rulesLoadFailed", {
+          source,
+          ms: Math.round(nowMs() - startedAt),
+          code: error?.code || "unknown",
+        });
+      });
+  }, []);
 
   const cloneProgress = useCallback((progress = {}) => {
     return Object.keys(progress).reduce((acc, key) => {
@@ -49,18 +120,23 @@ const LessonProvider = ({ children }) => {
 
   const applyLessonSelection = useCallback(
     (selectedLesson) => {
+      const normalizedLessonId = String(selectedLesson.lesson_id ?? "").trim();
       const normalizedLesson = {
         ...selectedLesson,
-        lesson_id: String(selectedLesson.lesson_id ?? "").trim(),
-        words: buildActiveLessonWords(selectedLesson.words),
+        lesson_id: normalizedLessonId,
+        words: buildActiveLessonWords(selectedLesson.words, normalizedLessonId),
       };
 
       const lesson_section = String(normalizedLesson.lesson_section ?? "");
+      const totalWords = Array.isArray(normalizedLesson.words)
+        ? normalizedLesson.words.length
+        : 0;
 
       const defaultLevelProgress = () => ({
         score: 0,
         completed_words: 0,
         high_score: 0,
+        correct_words: [],
         completed: false,
       });
 
@@ -75,12 +151,46 @@ const LessonProvider = ({ children }) => {
 
         [0, 1, 2].forEach((idx) => {
           const incoming = rawProgress[idx] || rawProgress[String(idx)] || {};
+          const pointsPerCorrectWord = (idx + 1) * 5;
+          const legacyMaxLevelScore = totalWords * pointsPerCorrectWord;
+          const incomingScore = Number(incoming.score) || 0;
+          const incomingHighScore = Number(incoming.high_score) || 0;
+
+          // Backward-compatible migration:
+          // old score/high_score were points; new values are word-count and percent.
+          const normalizedScore = Math.min(
+            totalWords,
+            incomingScore > totalWords
+              ? Math.floor(incomingScore / pointsPerCorrectWord)
+              : incomingScore,
+          );
+
+          const normalizedHighScore =
+            incomingHighScore > 100 && legacyMaxLevelScore > 0
+              ? Math.round(
+                  (Math.min(incomingHighScore, legacyMaxLevelScore) /
+                    legacyMaxLevelScore) *
+                    100,
+                )
+              : Math.max(0, Math.min(100, incomingHighScore));
+
+          const incomingCorrectWords = Array.isArray(incoming.correct_words)
+            ? incoming.correct_words
+            : [];
+
           normalized[idx] = {
             ...normalized[idx],
             ...incoming,
-            score: Number(incoming.score) || 0,
+            score: normalizedScore,
             completed_words: Number(incoming.completed_words) || 0,
-            high_score: Number(incoming.high_score) || 0,
+            high_score: normalizedHighScore,
+            correct_words: incomingCorrectWords
+              .map((word) =>
+                String(word || "")
+                  .trim()
+                  .toUpperCase(),
+              )
+              .filter(Boolean),
             completed: Boolean(incoming.completed),
           };
         });
@@ -89,7 +199,7 @@ const LessonProvider = ({ children }) => {
       };
 
       const lesson_subsection = getLessonSubsection(normalizedLesson);
-      const userProgress = userData?.progress || {};
+      const userProgress = userDataRef.current?.progress || {};
       const savedLessonProgress =
         userProgress[lesson_section] &&
         userProgress[lesson_section][lesson_subsection]
@@ -111,7 +221,7 @@ const LessonProvider = ({ children }) => {
       setCurrentLessonProgress(currentLessonProgressObj);
       setCurrentLessonLevel(0);
     },
-    [cloneProgress, userData],
+    [cloneProgress],
   );
 
   const setLesson = useCallback(
@@ -126,6 +236,55 @@ const LessonProvider = ({ children }) => {
       }
 
       setCurrentLessonLoading(true);
+
+      if (requestedLessonId.startsWith(CUSTOM_LESSON_PREFIX)) {
+        const customLessonId = requestedLessonId.slice(
+          CUSTOM_LESSON_PREFIX.length,
+        );
+
+        if (!customLessonId) {
+          setCurrentLesson(undefined);
+          setCurrentLessonProgress(undefined);
+          setCurrentLessonLevel(0);
+          setCurrentLessonLoading(false);
+          return;
+        }
+
+        db.collection("customLessons")
+          .doc(customLessonId)
+          .get()
+          .then((doc) => {
+            if (!doc.exists) {
+              console.error("Custom lesson not found for id:", customLessonId);
+              setCurrentLesson(undefined);
+              setCurrentLessonProgress(undefined);
+              setCurrentLessonLevel(0);
+              return;
+            }
+
+            const data = doc.data() || {};
+            applyLessonSelection({
+              ...data,
+              lesson_id: requestedLessonId,
+              lesson_section: "custom",
+              lesson_name: data.name || "Custom Lesson",
+              isCustomLesson: true,
+              custom_lesson_id: customLessonId,
+              words: Array.isArray(data.words) ? data.words : [],
+            });
+          })
+          .catch((error) => {
+            console.error("Failed to load custom lesson:", error);
+            setCurrentLesson(undefined);
+            setCurrentLessonProgress(undefined);
+            setCurrentLessonLevel(0);
+          })
+          .finally(() => {
+            setCurrentLessonLoading(false);
+          });
+
+        return;
+      }
       const requestedLessonNumeric = Number(requestedLessonId);
       const selectedLesson = lessons.find((lesson) => {
         const candidateId = normalizeLessonId(lesson?.lesson_id ?? lesson?.id);
@@ -243,7 +402,7 @@ const LessonProvider = ({ children }) => {
     updateCurrentLesson({ level });
   };
 
-  const setProgress = (completed_words, scoreIncrement = 0) => {
+  const setProgress = (completed_words, updatePayload = {}) => {
     if (!currentLesson) {
       return null;
     }
@@ -252,15 +411,64 @@ const LessonProvider = ({ children }) => {
     const nextProgress = cloneProgress(progress);
     const total_words = currentLesson.lesson.words.length;
     const justFinishedLevel = completed_words === total_words;
-    const maxLevelScore = total_words * (level + 1) * 5;
 
-    // Update running score before checking level completion so the last
-    // submitted word is included in high_score when the level ends.
+    const isLegacyScoreIncrement =
+      typeof updatePayload === "number" && Number(updatePayload) > 0;
+    const isCorrect =
+      typeof updatePayload === "object"
+        ? Boolean(updatePayload.isCorrect)
+        : isLegacyScoreIncrement;
+    const submittedWord =
+      typeof updatePayload === "object" ? updatePayload.word : undefined;
+    const normalizedWord = String(submittedWord || "")
+      .trim()
+      .toUpperCase();
+
+    const currentCorrectWords = Array.isArray(nextProgress[level].correct_words)
+      ? nextProgress[level].correct_words
+      : [];
+    const nextCorrectWords = [...currentCorrectWords];
+
+    if (isCorrect && normalizedWord) {
+      if (!nextCorrectWords.includes(normalizedWord)) {
+        nextCorrectWords.push(normalizedWord);
+      }
+
+      // Persist mastered words as soon as they are earned so the AppBar
+      // counter updates during a lesson instead of waiting for manual save.
+      // Only write the words_mastered_by_difficulty counter immediately.
+      // Writing full progress per-word would trigger a Firestore snapshot that
+      // re-initialises the lesson and resets correct_words. Full progress
+      // (including correct_words) is persisted at lesson save/completion via
+      // saveProgress(), which already includes the correct_words array.
+      const difficultyLevel = String(Number(level || 0) + 1);
+      if (typeof registerMasteredWord === "function") {
+        registerMasteredWord(difficultyLevel, normalizedWord);
+      }
+      if (user?.uid) {
+        db.collection("users")
+          .doc(user.uid)
+          .set(
+            {
+              words_mastered_by_difficulty: {
+                [difficultyLevel]:
+                  firebase.firestore.FieldValue.arrayUnion(normalizedWord),
+              },
+            },
+            { merge: true },
+          )
+          .catch((error) => {
+            console.error("Failed to persist mastered word:", error);
+          });
+      }
+    }
+
     const nextScore = Math.min(
-      Number(nextProgress[level].score || 0) + Number(scoreIncrement || 0),
-      maxLevelScore,
+      total_words,
+      Number(nextProgress[level].score || 0) + (isCorrect ? 1 : 0),
     );
     nextProgress[level].score = nextScore;
+    nextProgress[level].correct_words = nextCorrectWords;
 
     // Set completed flag
     nextProgress[level].completed = nextProgress[level].completed
@@ -273,36 +481,88 @@ const LessonProvider = ({ children }) => {
       : completed_words;
 
     if (justFinishedLevel) {
-      // Update high score
+      // Track best lesson accuracy as a percentage.
       const boundedCurrentScore = Math.min(
         nextProgress[level].score,
-        maxLevelScore,
+        total_words,
       );
+      const levelPercent = total_words
+        ? Math.round((boundedCurrentScore / total_words) * 100)
+        : 0;
       nextProgress[level].high_score =
-        boundedCurrentScore > nextProgress[level].high_score
-          ? boundedCurrentScore
+        levelPercent > nextProgress[level].high_score
+          ? levelPercent
           : nextProgress[level].high_score;
 
       nextProgress[level].score = 0;
+      // Keep correct_words so the progress page can display cumulative unique
+      // words the student has successfully spelled at this difficulty level.
     }
 
     updateCurrentLesson({ progress: nextProgress });
     return nextProgress;
   };
 
-  const saveProgress = (progressOverride) => {
+  const saveProgress = (progressOverride, options = {}) => {
     console.log("Saving to: ", user);
     var { progress, lesson } = currentLesson;
     const progressToSave = progressOverride || progress;
     const lessonSection = lesson.lesson_section;
     const lessonSubsection = getLessonSubsection(lesson);
+
+    const updatePayload = {
+      progress: {
+        [lessonSection]: {
+          [lessonSubsection]: progressToSave,
+        },
+      },
+    };
+
+    const masteredWordsByLevel = options?.masteredWordsByLevel || {};
+    Object.keys(masteredWordsByLevel).forEach((difficultyLevel) => {
+      const words = Array.isArray(masteredWordsByLevel[difficultyLevel])
+        ? masteredWordsByLevel[difficultyLevel]
+            .map((word) =>
+              String(word || "")
+                .trim()
+                .toUpperCase(),
+            )
+            .filter(Boolean)
+        : [];
+
+      if (words.length > 0) {
+        updatePayload.words_mastered_by_difficulty = {
+          ...(updatePayload.words_mastered_by_difficulty || {}),
+          [difficultyLevel]: firebase.firestore.FieldValue.arrayUnion(...words),
+        };
+      }
+    });
+
     return db
       .collection("users")
       .doc(user.uid)
-      .update({
-        [`progress.${lessonSection}.${lessonSubsection}`]: progressToSave,
-      });
+      .set(updatePayload, { merge: true });
   };
+
+  const markFirstLessonAttempted = useCallback(async () => {
+    const uid = String(user?.uid || "").trim();
+    if (!uid) return;
+
+    const userRef = db.collection("users").doc(uid);
+    await db.runTransaction(async (tx) => {
+      const snap = await tx.get(userRef);
+      const data = snap.exists ? snap.data() || {} : {};
+      if (data.firstLessonAttemptedAt) return;
+      tx.set(
+        userRef,
+        {
+          firstLessonAttemptedAt:
+            firebase.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+    });
+  }, [user?.uid]);
 
   const updateScore = (word, isCorrect) => {
     console.log("updating score");
@@ -346,14 +606,43 @@ const LessonProvider = ({ children }) => {
   };
 
   useEffect(() => {
-    if (!user) {
-      console.log("LessonProvider: No user, skipping data load");
-      setLessons([]);
-      setLessonsLoading(true);
-      setLessonSections({});
-      setLessonSectionsLoading(true);
+    if (!user || !authLoaded) {
+      if (!user) {
+        console.log("LessonProvider: No user, skipping data load");
+        setLessons([]);
+        setLessonsLoading(true);
+        setLessonSections({});
+        setLessonSectionsLoading(true);
+        setRules([]);
+        loadedLessonDataUserIdRef.current = null;
+      }
       return;
     }
+
+    if (!shouldLoadLessonData) {
+      setLessonsLoading(false);
+      setLessonSectionsLoading(false);
+      const perfSessionId = getCurrentPerfSessionId();
+      if (perfSessionId) {
+        setPerfMetric("lessonInitialDataSkipped", true, {
+          sessionId: perfSessionId,
+        });
+        setPerfMetric("route", String(location?.pathname || ""), {
+          sessionId: perfSessionId,
+        });
+      }
+      return;
+    }
+
+    const cacheKey = `${user.uid}:${role}`;
+    if (loadedLessonDataUserIdRef.current === cacheKey) {
+      return;
+    }
+
+    loadedLessonDataUserIdRef.current = cacheKey;
+
+    const initialLoadStartedAt = nowMs();
+    const rulesPromise = loadRules("initial");
 
     console.log(
       "LessonProvider: Starting to load lessons and sections for user:",
@@ -363,7 +652,8 @@ const LessonProvider = ({ children }) => {
     setLessonsLoading(true);
     setLessonSectionsLoading(true);
 
-    db.collection("lessons")
+    const lessonsPromise = db
+      .collection("lessons")
       .get()
       .then((lessonDocs) => {
         var lessonData = lessonDocs.docs.map((doc) => {
@@ -376,7 +666,7 @@ const LessonProvider = ({ children }) => {
                 : doc.id,
           };
         });
-        lessonData = _.sortBy(lessonData, [
+        lessonData = sortBy(lessonData, [
           function (doc) {
             return parseInt(doc.lesson_id);
           },
@@ -392,11 +682,12 @@ const LessonProvider = ({ children }) => {
         setLessonsLoading(false);
       });
 
-    console.log("Attempting to load lessonSection collection...");
-    db.collection("lessonSection")
+    console.log("Attempting to load lessonSections collection...");
+    const sectionsPromise = db
+      .collection("lessonSections")
       .get()
       .then((sectionDocs) => {
-        console.log("Got lessonSection docs, count:", sectionDocs.docs.length);
+        console.log("Got lessonSections docs, count:", sectionDocs.docs.length);
         const sectionMap = sectionDocs.docs.reduce((acc, doc) => {
           const data = doc.data() || {};
 
@@ -418,6 +709,16 @@ const LessonProvider = ({ children }) => {
           console.log(`Loaded section ${sectionKey}: "${title}"`);
           acc[sectionKey] = { title, description };
 
+          // Firestore docs are commonly keyed 2-13 while lesson_section values are 1-12.
+          // Create an alias key (docId - 1) so consumers can read by part number directly.
+          const numericSectionKey = Number(sectionKey);
+          if (Number.isFinite(numericSectionKey) && numericSectionKey > 1) {
+            const aliasKey = String(numericSectionKey - 1);
+            if (!acc[aliasKey]?.description) {
+              acc[aliasKey] = { title, description };
+            }
+          }
+
           return acc;
         }, {});
 
@@ -430,10 +731,38 @@ const LessonProvider = ({ children }) => {
         setLessonSections({});
         setLessonSectionsLoading(false);
       });
+
+    Promise.allSettled([rulesPromise, lessonsPromise, sectionsPromise]).then(
+      (results) => {
+        const fulfilledCount = results.filter(
+          (result) => result.status === "fulfilled",
+        ).length;
+        const totalMs = Math.round(nowMs() - initialLoadStartedAt);
+        const perfSessionId = getCurrentPerfSessionId();
+        if (perfSessionId) {
+          setPerfMetric("lessonInitialDataSkipped", false, {
+            sessionId: perfSessionId,
+          });
+          setPerfMetric("lessonInitialDataMs", totalMs, {
+            sessionId: perfSessionId,
+          });
+          setPerfMetric("route", String(location?.pathname || ""), {
+            sessionId: perfSessionId,
+          });
+        }
+        console.info("[perf] lessonProvider.initialDataLoaded", {
+          route: String(location?.pathname || ""),
+          userId: user.uid,
+          fulfilled: fulfilledCount,
+          total: results.length,
+          ms: totalMs,
+        });
+      },
+    );
     // db.collection('customLessons').onSnapshot(queryRef => {
     //   console.log(queryRef)
     // })
-  }, [user]);
+  }, [user, authLoaded, role, loadRules, shouldLoadLessonData]);
 
   return (
     <LessonContext.Provider
@@ -446,10 +775,14 @@ const LessonProvider = ({ children }) => {
         currentLessonLevel,
         lessons, //All lessons
         lessonSections,
+        rules,
+        rulesLoading,
+        refreshRules: loadRules,
         setLesson,
         setLevel,
         setProgress,
         saveProgress,
+        markFirstLessonAttempted,
         updateScore,
         createLesson,
       }}

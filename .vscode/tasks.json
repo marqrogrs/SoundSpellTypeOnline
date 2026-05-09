@@ -1,0 +1,27 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "noop",
+			"type": "shell",
+			"command": "true",
+			"args": [],
+			"isBackground": false
+		},
+		{
+			"label": "build-and-deploy-hosting",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"run",
+				"build",
+				"&&",
+				"firebase",
+				"deploy",
+				"--only",
+				"hosting"
+			],
+			"isBackground": false
+		}
+	]
+}

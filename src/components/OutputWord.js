@@ -19,6 +19,12 @@ import {
   setPlayAudio,
 } from "../util/Audio";
 import { COMMON_PHONEMES, LESSON_FLOW_TIMING } from "../util/constants";
+import {
+  resolveExplicitGraphemePhonemeMap,
+  buildFallbackPhonemeSequence,
+  normalizeWordGraphemeSequence,
+} from "../util/wordAlignment";
+import { buildKeyboardCuePressPlan } from "../util/keyboardCue";
 import { db } from "../firebase";
 import simulateEvent from "simulate-event";
 
@@ -86,6 +92,7 @@ export default function OutputWord({
   const { currentLesson } = useContext(LessonContext);
   const lessonLevel = Number(currentLesson?.level ?? 0);
   const lessonSection = Number(currentLesson?.lesson?.lesson_section ?? 0);
+  const isCustomLesson = Boolean(currentLesson?.lesson?.isCustomLesson);
   const lessonId = String(currentLesson?.lesson?.lesson_id ?? "");
   const wordCacheRef = useRef(new Map());
   const activeFlowKeyRef = useRef(null);
@@ -214,45 +221,6 @@ export default function OutputWord({
     [],
   );
 
-  const normalizeGraphemeSequence = useCallback((graphemes) => {
-    return (Array.isArray(graphemes) ? graphemes : [])
-      .map((grapheme) => String(grapheme || "").trim())
-      .filter(Boolean)
-      .flatMap((grapheme) => {
-        const upper = grapheme.toUpperCase();
-
-        // Some legacy word records store "EDGE"/"ENDGE" as one grapheme,
-        // but lesson cueing expects "E" + "DGE".
-        if (upper === "EDGE" || upper === "ENDGE") {
-          return ["E", "DGE"];
-        }
-
-        return [upper];
-      })
-      .reduce((acc, g, i, arr) => {
-        // Collapse trailing Q, U, E into a single QUE grapheme.
-        if (
-          i >= arr.length - 3 &&
-          arr[arr.length - 3] === "Q" &&
-          arr[arr.length - 2] === "U" &&
-          arr[arr.length - 1] === "E"
-        ) {
-          if (i === arr.length - 3) acc.push("QUE");
-          // skip the U and E positions
-          return acc;
-        }
-
-        // Defend against malformed records that duplicate trailing W
-        // after an EW grapheme (e.g. KN,EW,W for "KNEW").
-        if (i === arr.length - 1 && arr[i - 1] === "EW" && g === "W") {
-          return acc;
-        }
-
-        acc.push(g);
-        return acc;
-      }, []);
-  }, []);
-
   const formatDisplayPhoneme = useCallback((phoneme) => {
     if (Array.isArray(phoneme)) {
       return phoneme
@@ -268,10 +236,15 @@ export default function OutputWord({
   }, []);
 
   const normalizePhoneme = useCallback((phoneme) => {
-    if (typeof phoneme !== "string") {
+    // Handle Firestore DocumentReference objects by extracting their document ID
+    const resolved =
+      phoneme && typeof phoneme === "object" && typeof phoneme.id === "string"
+        ? phoneme.id
+        : phoneme;
+    if (typeof resolved !== "string") {
       return null;
     }
-    const raw = phoneme.trim();
+    const raw = resolved.trim();
     if (!raw) {
       return null;
     }
@@ -286,7 +259,119 @@ export default function OutputWord({
     return cleaned.length > 0 ? cleaned : null;
   }, []);
 
+  const normalizePhonemeToken = useCallback((phoneme) => {
+    // Handle Firestore DocumentReference objects by extracting their document ID
+    const resolved =
+      phoneme && typeof phoneme === "object" && typeof phoneme.id === "string"
+        ? phoneme.id
+        : phoneme;
+    const raw = String(resolved || "").trim();
+    if (!raw) {
+      return "";
+    }
+    return raw
+      .toUpperCase()
+      .replace(/\.MP3$/i, "")
+      .replace(/[0-9]/g, "");
+  }, []);
+
+  const mergeTerminalNgGrapheme = useCallback(
+    (graphemes, phonemes) => {
+      const safeGraphemes = Array.isArray(graphemes) ? graphemes : [];
+      if (safeGraphemes.length < 2) {
+        return safeGraphemes;
+      }
+
+      const phonemeTokens = (Array.isArray(phonemes) ? phonemes : [])
+        .filter((phoneme) => phoneme !== "-")
+        .map((phoneme) => normalizePhonemeToken(phoneme))
+        .filter(Boolean);
+
+      if (!phonemeTokens.length) {
+        return safeGraphemes;
+      }
+
+      // Only count NG phonemes that are NOT immediately followed by a G phoneme.
+      // When NG is followed by G (e.g. FINGER, ANGLE, SINGLE), the N grapheme
+      // maps to NG and the G grapheme maps to G — those N,G pairs must stay
+      // separate.  Only "solo" NG phonemes (SING, SONGS, CHANGING, …) need a
+      // merged NG grapheme.
+      const ngSoloPhonemeCount = phonemeTokens.filter(
+        (token, i) => token === "NG" && phonemeTokens[i + 1] !== "G",
+      ).length;
+
+      if (ngSoloPhonemeCount === 0) {
+        return safeGraphemes;
+      }
+
+      const toUpper = (value) =>
+        String(value || "")
+          .trim()
+          .toUpperCase();
+      let merged = [...safeGraphemes];
+      let ngGraphemeCount = merged.filter(
+        (grapheme) => toUpper(grapheme) === "NG",
+      ).length;
+
+      if (ngGraphemeCount >= ngSoloPhonemeCount) {
+        return merged;
+      }
+
+      // Merge right-to-left so suffix-side NG pairs are handled first
+      // (e.g. SONGS, HANGING, CHANGING).
+      for (
+        let i = merged.length - 2;
+        i >= 0 && ngGraphemeCount < ngSoloPhonemeCount;
+        i -= 1
+      ) {
+        const current = toUpper(merged[i]);
+        const next = toUpper(merged[i + 1]);
+        if (current === "N" && next === "G") {
+          merged.splice(i, 2, "NG");
+          ngGraphemeCount += 1;
+        }
+      }
+
+      return merged;
+    },
+    [normalizePhonemeToken],
+  );
+
+  // Merge consecutive G,Z grapheme pairs back into a single X grapheme.
+  // Words like EXACT, EXAM, EXIST, etc. are stored in Firestore with the X
+  // letter split into separate G and Z graphemes.  This step restores the
+  // X so the display, keyboard cue, and phoneme playback all work correctly.
+  const mergeGZIntoXGrapheme = useCallback((graphemes) => {
+    const safeGraphemes = Array.isArray(graphemes) ? graphemes : [];
+    if (safeGraphemes.length < 2) {
+      return safeGraphemes;
+    }
+    const toUpper = (v) =>
+      String(v || "")
+        .trim()
+        .toUpperCase();
+    const result = [];
+    let i = 0;
+    while (i < safeGraphemes.length) {
+      const cur = toUpper(safeGraphemes[i]);
+      const next =
+        i + 1 < safeGraphemes.length ? toUpper(safeGraphemes[i + 1]) : "";
+      if (cur === "G" && next === "Z") {
+        result.push("X");
+        i += 2;
+      } else {
+        result.push(safeGraphemes[i]);
+        i += 1;
+      }
+    }
+    return result;
+  }, []);
+
   const coercePhonemeForGrapheme = useCallback((grapheme, phoneme) => {
+    if (Array.isArray(phoneme) || phoneme == null) {
+      return phoneme;
+    }
+
     const normalizedGrapheme = String(grapheme || "")
       .trim()
       .toLowerCase();
@@ -475,11 +560,18 @@ export default function OutputWord({
 
     const safeSpeakPhoneme = async (phoneme) => {
       try {
-        // Await the phoneme so we advance only after it finishes playing.
-        await Promise.race([
-          speakPhoneme(phoneme),
-          new Promise((resolve) => setTimeout(resolve, 1600)),
-        ]);
+        const phonemeList = Array.isArray(phoneme)
+          ? phoneme.filter(Boolean)
+          : [phoneme].filter(Boolean);
+
+        for (const phonemePart of phonemeList) {
+          // Await each phoneme so we advance only after playback has a chance to complete.
+          await Promise.race([
+            speakPhoneme(phonemePart),
+            new Promise((resolve) => setTimeout(resolve, 1600)),
+          ]);
+        }
+
         // Short pause after each phoneme before the key highlight.
         const postPhonemeGap = Math.max(
           LESSON_FLOW_TIMING.PHONEME_POST_GAP_MIN_MS,
@@ -501,39 +593,70 @@ export default function OutputWord({
     };
 
     const safeRenderKeyPress = async (grapheme, holdUntilPromise = null) => {
-      const letters = Array.from(String(grapheme || "").toLowerCase());
-      const pressDelay = Math.max(90, 180 / Math.max(SPEECH_RATE || 1, 0.1));
+      const cuePlan = buildKeyboardCuePressPlan(grapheme);
+      if (!cuePlan.length) {
+        return;
+      }
+      const normalizedLevel = Number.isFinite(lessonLevel) ? lessonLevel : 0;
+      const difficultyLevel =
+        normalizedLevel <= 2 ? normalizedLevel + 1 : normalizedLevel;
+      const isBeginnerDifficulty = difficultyLevel <= 2;
+      const tapHoldMs = Math.max(
+        isBeginnerDifficulty ? 120 : 90,
+        (isBeginnerDifficulty ? 230 : 170) / Math.max(SPEECH_RATE || 1, 0.1),
+      );
+      const interTapGapMs = Math.max(
+        isBeginnerDifficulty ? 70 : 50,
+        (isBeginnerDifficulty ? 120 : 90) / Math.max(SPEECH_RATE || 1, 0.1),
+      );
+      const bounceGapMs = Math.max(75, 140 / Math.max(SPEECH_RATE || 1, 0.1));
+      const postPhonemeExtraHoldMs = isBeginnerDifficulty ? 70 : 0;
       try {
-        for (const letter of letters) {
+        for (let stepIndex = 0; stepIndex < cuePlan.length; stepIndex += 1) {
+          const step = cuePlan[stepIndex];
+
+          if (step.bounceBeforePress) {
+            window.dispatchEvent(
+              new CustomEvent("soundspeller-key-release", {
+                detail: { key: step.key },
+              }),
+            );
+            await wait(bounceGapMs);
+          }
+
           window.dispatchEvent(
             new CustomEvent("soundspeller-key-press", {
-              detail: { key: letter },
+              detail: { key: step.key },
             }),
           );
+          await wait(tapHoldMs);
+
+          window.dispatchEvent(
+            new CustomEvent("soundspeller-key-release", {
+              detail: { key: step.key },
+            }),
+          );
+
+          if (stepIndex < cuePlan.length - 1) {
+            await wait(interTapGapMs);
+          }
         }
 
         if (holdUntilPromise) {
           await holdUntilPromise;
-        } else {
-          await new Promise((resolve) => setTimeout(resolve, pressDelay));
-        }
-
-        for (const letter of letters) {
-          window.dispatchEvent(
-            new CustomEvent("soundspeller-key-release", {
-              detail: { key: letter },
-            }),
-          );
+          if (postPhonemeExtraHoldMs > 0) {
+            await wait(postPhonemeExtraHoldMs);
+          }
         }
 
         reportFlowEvent("flow-grapheme-complete", {
           grapheme,
         });
       } catch (error) {
-        for (const letter of letters) {
+        for (const step of cuePlan) {
           window.dispatchEvent(
             new CustomEvent("soundspeller-key-release", {
-              detail: { key: letter },
+              detail: { key: step.key },
             }),
           );
         }
@@ -572,7 +695,7 @@ export default function OutputWord({
       const showGraphemeCue = difficultyLevel <= 1;
       const showKeyboardCue = difficultyLevel <= 2;
       const speakPhonemeCue = difficultyLevel <= 3;
-      const shouldLoadWordDoc = lessonSection > 0;
+      const shouldLoadWordDoc = lessonSection > 0 || isCustomLesson;
 
       let wordData = null;
       if (shouldLoadWordDoc) {
@@ -620,13 +743,23 @@ export default function OutputWord({
 
       const wordFromSource = wordData?.word || wordString;
       const graphemeSequence = Array.isArray(wordData?.graphemes)
-        ? normalizeGraphemeSequence(wordData.graphemes)
+        ? normalizeWordGraphemeSequence(wordData.graphemes)
         : Array.from(String(wordFromSource || ""));
+
+      const graphemeSequenceWithTerminalNg = mergeTerminalNgGrapheme(
+        graphemeSequence,
+        Array.isArray(wordData?.phonemes) ? wordData.phonemes : [],
+      );
+
+      const graphemeSequenceWithX = mergeGZIntoXGrapheme(
+        graphemeSequenceWithTerminalNg,
+      );
+
       const fallbackWordChars = Array.from(String(wordFromSource || "")).filter(
         Boolean,
       );
-      const safeGraphemeSequence = graphemeSequence.length
-        ? graphemeSequence
+      const safeGraphemeSequence = graphemeSequenceWithX.length
+        ? graphemeSequenceWithX
         : fallbackWordChars;
       const normalizedGraphemeSequence =
         formatDisplayGraphemes(safeGraphemeSequence);
@@ -675,67 +808,40 @@ export default function OutputWord({
         }),
       );
 
-      let phonemeSequence = [];
+      const explicitGraphemePhonemeMap = resolveExplicitGraphemePhonemeMap({
+        word: wordFromSource,
+        graphemes: safeGraphemeSequence,
+        wordData,
+      });
+
+      let basePhonemeSequence = [];
       if (Array.isArray(wordData?.phonemes)) {
-        phonemeSequence = wordData.phonemes
+        basePhonemeSequence = wordData.phonemes
           .filter((phoneme) => phoneme !== "-")
           .map((phoneme) => normalizePhoneme(phoneme))
           .filter(Boolean);
       } else {
-        phonemeSequence = safeGraphemeSequence.map(
+        basePhonemeSequence = safeGraphemeSequence.map(
           (g) => COMMON_PHONEMES[String(g || "").toLowerCase()],
         );
       }
 
-      if (!phonemeSequence.length) {
-        phonemeSequence = safeGraphemeSequence.map(
+      if (!basePhonemeSequence.length) {
+        basePhonemeSequence = safeGraphemeSequence.map(
           (g) => COMMON_PHONEMES[String(g || "").toLowerCase()],
         );
       }
 
-      phonemeSequence = safeGraphemeSequence.map((grapheme, index) => {
-        const normalizedGrapheme = String(grapheme || "")
-          .trim()
-          .toUpperCase();
-        const nextGrapheme = String(safeGraphemeSequence[index + 1] || "")
-          .trim()
-          .toUpperCase();
-        const isPenultimateGrapheme = index === safeGraphemeSequence.length - 2;
-        const isFinalGrapheme = index === safeGraphemeSequence.length - 1;
-        const isSilentFinalEInEPowerLesson =
-          (lessonSection === 6 ||
-            lessonSection === 9 ||
-            lessonSection === 11) &&
-          isFinalGrapheme &&
-          normalizedGrapheme === "E";
-        const isCodaLBeforeSilentEInEPowerLesson =
-          lessonSection === 6 &&
-          isPenultimateGrapheme &&
-          normalizedGrapheme === "L" &&
-          nextGrapheme === "E";
-        const isFinalLEInEPowerLesson =
-          lessonSection === 6 && isFinalGrapheme && normalizedGrapheme === "LE";
+      let phonemeSequence = explicitGraphemePhonemeMap;
 
-        if (isSilentFinalEInEPowerLesson) {
-          return null;
-        }
-
-        if (isCodaLBeforeSilentEInEPowerLesson || isFinalLEInEPowerLesson) {
-          return "LL";
-        }
-
-        // Final QUE is always pronounced as /k/ (antique, baroque, etc.)
-        if (isFinalGrapheme && normalizedGrapheme === "QUE") {
-          return "K";
-        }
-
-        const mappedPhoneme =
-          index < phonemeSequence.length ? phonemeSequence[index] : undefined;
-        return coercePhonemeForGrapheme(
-          grapheme,
-          mappedPhoneme === undefined ? null : mappedPhoneme,
+      if (!phonemeSequence) {
+        phonemeSequence = buildFallbackPhonemeSequence(
+          safeGraphemeSequence,
+          basePhonemeSequence,
+          lessonSection,
+          coercePhonemeForGrapheme,
         );
-      });
+      }
 
       if (showGraphemeCue) {
         setDisplayedGraphemeUnits(graphemeDisplayUnits);
@@ -803,10 +909,12 @@ export default function OutputWord({
           const mappedPhoneme =
             i < phonemeSequence.length ? phonemeSequence[i] : undefined;
           const isSilentFromMissingPhonemeIndex = mappedPhoneme === undefined;
-          const phoneme = coercePhonemeForGrapheme(
-            grapheme,
-            isSilentFromMissingPhonemeIndex ? null : mappedPhoneme,
-          );
+          const phoneme = Array.isArray(mappedPhoneme)
+            ? mappedPhoneme
+            : coercePhonemeForGrapheme(
+                grapheme,
+                isSilentFromMissingPhonemeIndex ? null : mappedPhoneme,
+              );
 
           if (isSilentFromMissingPhonemeIndex) {
             reportFlowEvent("flow-silent-grapheme-inferred", {
@@ -941,12 +1049,15 @@ export default function OutputWord({
     reportFlowEvent,
     renderKeyPress,
     formatDisplayGraphemes,
-    normalizeGraphemeSequence,
+    mergeTerminalNgGrapheme,
+    mergeGZIntoXGrapheme,
     formatDisplayPhoneme,
     normalizePhoneme,
+    normalizePhonemeToken,
     coercePhonemeForGrapheme,
     getWordDataBySyllable,
     signalReadyForInput,
+    isCustomLesson,
   ]);
 
   // useLayoutEffect runs before any useEffect, guaranteeing PLAY_AUDIO=true

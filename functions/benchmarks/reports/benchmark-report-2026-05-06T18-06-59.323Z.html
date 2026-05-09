@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Module Load Benchmark Report</title>
+  <style>
+    :root { --bg:#f7f9fc; --ink:#1f2937; --card:#ffffff; --line:#e5e7eb; }
+    body { margin:0; font:14px/1.4 -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif; background:var(--bg); color:var(--ink); }
+    main { max-width: 980px; margin: 24px auto; padding: 0 16px; }
+    h1 { font-size: 22px; margin: 0 0 8px; }
+    .meta { margin: 0 0 16px; color:#4b5563; }
+    .card { background: var(--card); border:1px solid var(--line); border-radius: 10px; padding: 14px; margin-bottom: 14px; }
+    .stats { margin: 0 0 10px; color:#374151; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    svg { width: 100%; height: 140px; background: #fbfdff; border:1px solid #eef2f7; border-radius: 8px; }
+    table { width:100%; border-collapse: collapse; background: var(--card); border:1px solid var(--line); }
+    th, td { text-align:left; border-bottom:1px solid var(--line); padding:8px; }
+    th { background:#f9fafb; }
+    .status-pass { color:#137333; }
+    .status-fail { color:#b42318; font-weight:600; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Module Load Benchmark Report</h1>
+    <p class="meta">input=/Users/markrogers/Desktop/sound-spell-type-online/functions/benchmarks/module-load-tidy-2026-05-06T18-06-58.109Z.csv baseline=none generatedAt=2026-05-06T18:06:59.324Z</p>
+    
+      <section class="card">
+        <h2>./index.js</h2>
+        <div class="stats">runs=5 min=94 p50=96 p95=96 p99=96 max=231 avg=122.2</div>
+        <svg viewBox="0 0 600 140" preserveAspectRatio="none" aria-label="./index.js ms trend"><polyline fill="none" stroke="#0b6efd" stroke-width="2" points="0.00,0.00 150.00,137.96 300.00,137.96 450.00,140.00 600.00,140.00" /></svg>
+      </section>
+
+      <section class="card">
+        <h2>@google-cloud/firestore</h2>
+        <div class="stats">runs=5 min=27 p50=27 p95=28 p99=28 max=29 avg=27.6</div>
+        <svg viewBox="0 0 600 140" preserveAspectRatio="none" aria-label="@google-cloud/firestore ms trend"><polyline fill="none" stroke="#198754" stroke-width="2" points="0.00,140.00 150.00,70.00 300.00,0.00 450.00,140.00 600.00,140.00" /></svg>
+      </section>
+    <section class="card">
+      <h2>Checks</h2>
+      <p class="status-pass">status=PASS</p>
+      <table>
+        <thead><tr><th>level</th><th>target</th><th>rule</th><th>message</th></tr></thead>
+        <tbody><tr><td>pass</td><td>./index.js</td><td>hard_max</td><td>max 231ms within HARD_MAX_MS 250ms</td></tr>
+<tr><td>info</td><td>./index.js</td><td>outliers</td><td>1/5 points > p95*1.25 (120ms)</td></tr>
+<tr><td>info</td><td>./index.js</td><td>baseline</td><td>No baseline provided; skipped p95/avg regression checks</td></tr>
+<tr><td>pass</td><td>@google-cloud/firestore</td><td>hard_max</td><td>max 29ms within HARD_MAX_MS 250ms</td></tr>
+<tr><td>info</td><td>@google-cloud/firestore</td><td>outliers</td><td>0/5 points > p95*1.25 (35ms)</td></tr>
+<tr><td>info</td><td>@google-cloud/firestore</td><td>baseline</td><td>No baseline provided; skipped p95/avg regression checks</td></tr></tbody>
+      </table>
+    </section>
+  </main>
+</body>
+</html>

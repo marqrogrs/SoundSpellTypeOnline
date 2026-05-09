@@ -6,14 +6,24 @@ import {
   triggerEmailVerificationAlert2,
   triggerResetPasswordAlert,
 } from "../util/alerts";
+import {
+  clearCurrentPerfSession,
+  setPerfMetric,
+  startPerfSession,
+} from "../util/perfSession";
 import { auth, authenticateStudent, db, ensureInitialAdmin } from "../firebase";
 
 const AuthContext = React.createContext();
+const nowMs = () =>
+  typeof performance !== "undefined" && typeof performance.now === "function"
+    ? performance.now()
+    : Date.now();
 
 const Auth = ({ children }) => {
   const [authLoaded, setIsLoaded] = React.useState(false);
   const [user, setUser] = React.useState(auth.currentUser);
   const [isEducator, setIsEducator] = React.useState(false);
+  const [isParent, setIsParent] = React.useState(false);
   const [role, setRole] = React.useState("student");
   const [isSchoolAdmin, setIsSchoolAdmin] = React.useState(false);
   const [isAdmin, setIsAdmin] = React.useState(false);
@@ -33,7 +43,11 @@ const Auth = ({ children }) => {
   }, [history]);
 
   React.useEffect(() => {
+    const observerStartedAt = nowMs();
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      const callbackStartedAt = nowMs();
+      let resolvedRole = "student";
+
       if (user) {
         const normalizedEmail = String(user.email || "")
           .trim()
@@ -63,12 +77,15 @@ const Auth = ({ children }) => {
         }
 
         setRole(tokenRole);
+        resolvedRole = tokenRole;
         setIsAdmin(tokenIsAdmin || tokenRole === "admin");
         setIsSchoolAdmin(
           tokenIsSchoolAdmin ||
             tokenRole === "schoolAdmin" ||
             tokenRole === "admin",
         );
+
+        setIsParent(tokenRole === "parent");
 
         // Keep legacy educator behavior while allowing admin/schoolAdmin accounts.
         setIsEducator(
@@ -78,7 +95,9 @@ const Auth = ({ children }) => {
         );
 
         // Safe bootstrap: mark@birdhaven.us becomes initial top-level admin.
-        if (isBootstrapAdminEmail) {
+        // Only call this when the admin claim is missing to avoid a slow
+        // network roundtrip (and token refresh) on every sign-in.
+        if (isBootstrapAdminEmail && !tokenIsAdmin) {
           try {
             const seedResult = await ensureInitialAdmin({});
             if (seedResult?.data?.role === "admin") {
@@ -103,6 +122,30 @@ const Auth = ({ children }) => {
         const firstSignIn =
           user.metadata.creationTime === user.metadata.lastSignInTime;
         if (user.email !== null && !user.emailVerified) {
+          const sessionId = startPerfSession({
+            uid: user.uid,
+            role: resolvedRole,
+            hasEmailUser: Boolean(user.email),
+          });
+          setPerfMetric(
+            "authCallbackMs",
+            Math.round(nowMs() - callbackStartedAt),
+            {
+              sessionId,
+            },
+          );
+          setPerfMetric(
+            "timeSinceAppOpenMs",
+            Math.round(nowMs() - observerStartedAt),
+            {
+              sessionId,
+            },
+          );
+          console.info("[perf] auth-blocked-unverified", {
+            callbackMs: Math.round(nowMs() - callbackStartedAt),
+            role: resolvedRole,
+            email: user.email || "",
+          });
           if (firstSignIn) {
             console.log("First sign in!");
             auth.currentUser
@@ -120,10 +163,41 @@ const Auth = ({ children }) => {
         setIsAdmin(false);
         setIsSchoolAdmin(false);
         setIsEducator(false);
+        setIsParent(false);
+        clearCurrentPerfSession();
         // do other things
       }
       setUser(user);
       setIsLoaded(true);
+      const sessionId = user
+        ? startPerfSession({
+            uid: user.uid,
+            role: resolvedRole,
+            hasEmailUser: Boolean(user.email),
+          })
+        : null;
+      if (sessionId) {
+        setPerfMetric(
+          "authCallbackMs",
+          Math.round(nowMs() - callbackStartedAt),
+          {
+            sessionId,
+          },
+        );
+        setPerfMetric(
+          "timeSinceAppOpenMs",
+          Math.round(nowMs() - observerStartedAt),
+          {
+            sessionId,
+          },
+        );
+      }
+      console.info("[perf] auth-ready", {
+        callbackMs: Math.round(nowMs() - callbackStartedAt),
+        timeSinceAppOpenMs: Math.round(nowMs() - observerStartedAt),
+        role: resolvedRole,
+        hasEmailUser: Boolean(user?.email),
+      });
     });
 
     return unsubscribe;
@@ -156,7 +230,7 @@ const Auth = ({ children }) => {
       .signInWithEmailAndPassword(email, password)
       .then(() => {
         console.log("Signed in");
-        history.push("/");
+        history.push("/student-progress");
       })
       .catch((error) => {
         console.log(error);
@@ -187,6 +261,7 @@ const Auth = ({ children }) => {
   const context = {
     user,
     isEducator,
+    isParent,
     role,
     isAdmin,
     isSchoolAdmin,

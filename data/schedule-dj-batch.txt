@@ -1,0 +1,12 @@
+# SCHEDULE-style D->(D JH) alignment fixes
+# Format: WORD | graphemes comma-separated | phonemes space-separated | syllables dot-separated
+MODULE | M,O,D,U,L,E | M AA D JH UW LL | mod.ule
+MODULES | M,O,D,U,L,E,S | M AA D JH UW LL S | mod.ule.s
+RESCHEDULE | R,E,S,CH,E,D,U,L,E | R IY S K EH D JH UW LL | re.sched.ule
+RESCHEDULED | R,E,S,CH,E,D,U,L,ED | R IY S K EH D JH UW LL D | re.sched.ule.d
+SCHEDULE | S,CH,E,D,U,L,E | S K EH D JH UW LL | sched.ule
+SCHEDULED | S,CH,E,D,U,L,ED | S K EH D JH UW LL D | sched.ule.d
+SCHEDULER | S,CH,E,D,U,L,ER | S K EH D JH UW LL ER | sched.ul.er
+SCHEDULERS | S,CH,E,D,U,L,ER,S | S K EH D JH UW LL ER Z | sched.ul.er.s
+SCHEDULES | S,CH,E,D,U,L,E,S | S K EH D JH UW LL Z | sched.ule.s
+UNSCHEDULED | U,N,S,CH,E,D,U,L,ED | AH N S K EH D JH UW LL D | un.sched.ule.d

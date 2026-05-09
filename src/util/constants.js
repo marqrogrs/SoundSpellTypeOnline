@@ -160,18 +160,21 @@ export const INIT_PROGRESS_OBJ = {
     score: 0,
     completed_words: 0,
     high_score: 0,
+    correct_words: [],
     completed: false,
   },
   1: {
     score: 0,
     completed_words: 0,
     high_score: 0,
+    correct_words: [],
     completed: false,
   },
   2: {
     score: 0,
     completed_words: 0,
     high_score: 0,
+    correct_words: [],
     completed: false,
   },
 };
@@ -332,4 +335,4 @@ export const FUN_FACTS = [
 export const PAYPAL_URL =
   "https://www.paypal.com/donate/?cmd=_donations&business=donate%40soundspeller.com&currency_code=USD";
 
-export const APP_URL = "https://www.soundspelltype.online/about";
+export const APP_URL = "https://soundspeller-c5e53.web.app/about";

@@ -1,0 +1,6553 @@
+{
+  "updates": [
+    {
+      "word": "AWFUL",
+      "before": {
+        "graphemes": [
+          "A",
+          "W",
+          "F",
+          "UL"
+        ],
+        "phonemes": [
+          "AO",
+          "-",
+          "F",
+          "LL"
+        ],
+        "syllables": [
+          "aw",
+          "ful"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "AW",
+          "F",
+          "UL"
+        ]
+      }
+    },
+    {
+      "word": "AWFULLY",
+      "before": {
+        "graphemes": [
+          "A",
+          "W",
+          "F",
+          "UL",
+          "L",
+          "Y"
+        ],
+        "phonemes": [
+          "AO",
+          "-",
+          "F",
+          "LL",
+          "-",
+          "L",
+          "IY"
+        ],
+        "syllables": [
+          "aw",
+          "ful",
+          "ly"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "AW",
+          "F",
+          "UL",
+          "L",
+          "Y"
+        ]
+      }
+    },
+    {
+      "word": "AWFULNESS",
+      "before": {
+        "graphemes": [
+          "A",
+          "W",
+          "F",
+          "UL",
+          "N",
+          "E",
+          "SS"
+        ],
+        "phonemes": [
+          "AO",
+          "-",
+          "F",
+          "LL",
+          "-",
+          "N",
+          "EH",
+          "S"
+        ],
+        "syllables": [
+          "aw",
+          "ful",
+          "ness"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "AW",
+          "F",
+          "UL",
+          "N",
+          "E",
+          "SS"
+        ]
+      }
+    },
+    {
+      "word": "AWKWARD",
+      "before": {
+        "graphemes": [
+          "A",
+          "W",
+          "K",
+          "W",
+          "AR",
+          "D"
+        ],
+        "phonemes": [
+          "AO",
+          "K",
+          "-",
+          "W",
+          "ER",
+          "D"
+        ],
+        "syllables": [
+          "awk",
+          "ward"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "AW",
+          "K",
+          "W",
+          "AR",
+          "D"
+        ]
+      }
+    },
+    {
+      "word": "AWKWARDLY",
+      "before": {
+        "graphemes": [
+          "A",
+          "W",
+          "K",
+          "W",
+          "AR",
+          "D",
+          "L",
+          "Y"
+        ],
+        "phonemes": [
+          "AO",
+          "K",
+          "-",
+          "W",
+          "ER",
+          "D",
+          "-",
+          "L",
+          "IY"
+        ],
+        "syllables": [
+          "awk",
+          "ward",
+          "ly"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "AW",
+          "K",
+          "W",
+          "AR",
+          "D",
+          "L",
+          "Y"
+        ]
+      }
+    },
+    {
+      "word": "AWKWARDNESS",
+      "before": {
+        "graphemes": [
+          "A",
+          "W",
+          "K",
+          "W",
+          "AR",
+          "D",
+          "N",
+          "E",
+          "SS"
+        ],
+        "phonemes": [
+          "AO",
+          "K",
+          "-",
+          "W",
+          "ER",
+          "D",
+          "-",
+          "N",
+          "EH",
+          "S"
+        ],
+        "syllables": [
+          "awk",
+          "ward",
+          "ness"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "AW",
+          "K",
+          "W",
+          "AR",
+          "D",
+          "N",
+          "E",
+          "SS"
+        ]
+      }
+    },
+    {
+      "word": "AWNING",
+      "before": {
+        "graphemes": [
+          "A",
+          "W",
+          "N",
+          "I",
+          "NG"
+        ],
+        "phonemes": [
+          "AO",
+          "N",
+          "-",
+          "IH",
+          "NG"
+        ],
+        "syllables": [
+          "awn",
+          "ing"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "AW",
+          "N",
+          "I",
+          "NG"
+        ]
+      }
+    },
+    {
+      "word": "BASHAW",
+      "before": {
+        "graphemes": [
+          "B",
+          "A",
+          "SH",
+          "A",
+          "W"
+        ],
+        "phonemes": [
+          "B",
+          "AE",
+          "-",
+          "SH",
+          "AO"
+        ],
+        "syllables": [
+          "ba",
+          "shaw"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "B",
+          "A",
+          "SH",
+          "AW"
+        ]
+      }
+    },
+    {
+      "word": "BAWD",
+      "before": {
+        "graphemes": [
+          "B",
+          "A",
+          "W",
+          "D"
+        ],
+        "phonemes": [
+          "B",
+          "AO",
+          "D"
+        ],
+        "syllables": [
+          "bawd"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "B",
+          "AW",
+          "D"
+        ]
+      }
+    },
+    {
+      "word": "BAWDY",
+      "before": {
+        "graphemes": [
+          "B",
+          "A",
+          "W",
+          "D",
+          "Y"
+        ],
+        "phonemes": [
+          "B",
+          "AO",
+          "D",
+          "-",
+          "IY"
+        ],
+        "syllables": [
+          "bawd",
+          "y"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "B",
+          "AW",
+          "D",
+          "Y"
+        ]
+      }
+    },
+    {
+      "word": "BAWL",
+      "before": {
+        "graphemes": [
+          "B",
+          "A",
+          "W",
+          "L"
+        ],
+        "phonemes": [
+          "B",
+          "AO",
+          "L"
+        ],
+        "syllables": [
+          "bawl"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "B",
+          "AW",
+          "L"
+        ]
+      }
+    },
+    {
+      "word": "BEDSTRAW",
+      "before": {
+        "graphemes": [
+          "B",
+          "E",
+          "D",
+          "S",
+          "T",
+          "R",
+          "A",
+          "W"
+        ],
+        "phonemes": [
+          "B",
+          "EH",
+          "D",
+          "-",
+          "S",
+          "T",
+          "R",
+          "AO"
+        ],
+        "syllables": [
+          "bed",
+          "straw"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "B",
+          "E",
+          "D",
+          "S",
+          "T",
+          "R",
+          "AW"
+        ]
+      }
+    },
+    {
+      "word": "BRADSHAW",
+      "before": {
+        "graphemes": [
+          "B",
+          "R",
+          "A",
+          "D",
+          "SH",
+          "A",
+          "W"
+        ],
+        "phonemes": [
+          "B",
+          "R",
+          "AE",
+          "D",
+          "-",
+          "SH",
+          "AO"
+        ],
+        "syllables": [
+          "brad",
+          "shaw"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "B",
+          "R",
+          "A",
+          "D",
+          "SH",
+          "AW"
+        ]
+      }
+    },
+    {
+      "word": "BRAWL",
+      "before": {
+        "graphemes": [
+          "B",
+          "R",
+          "A",
+          "W",
+          "L"
+        ],
+        "phonemes": [
+          "B",
+          "R",
+          "AO",
+          "L"
+        ],
+        "syllables": [
+          "brawl"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "B",
+          "R",
+          "AW",
+          "L"
+        ]
+      }
+    },
+    {
+      "word": "BRAWLEY",
+      "before": {
+        "graphemes": [
+          "B",
+          "R",
+          "A",
+          "W",
+          "L",
+          "EY"
+        ],
+        "phonemes": [
+          "B",
+          "R",
+          "AO",
+          "-",
+          "L",
+          "IY"
+        ],
+        "syllables": [
+          "braw",
+          "ley"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "B",
+          "R",
+          "AW",
+          "L",
+          "EY"
+        ]
+      }
+    },
+    {
+      "word": "BRAWN",
+      "before": {
+        "graphemes": [
+          "B",
+          "R",
+          "A",
+          "W",
+          "N"
+        ],
+        "phonemes": [
+          "B",
+          "R",
+          "AO",
+          "N"
+        ],
+        "syllables": [
+          "brawn"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "B",
+          "R",
+          "AW",
+          "N"
+        ]
+      }
+    },
+    {
+      "word": "BRAWNY",
+      "before": {
+        "graphemes": [
+          "B",
+          "R",
+          "A",
+          "W",
+          "N",
+          "Y"
+        ],
+        "phonemes": [
+          "B",
+          "R",
+          "AO",
+          "N",
+          "-",
+          "IY"
+        ],
+        "syllables": [
+          "brawn",
+          "y"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "B",
+          "R",
+          "AW",
+          "N",
+          "Y"
+        ]
+      }
+    },
+    {
+      "word": "BYLAW",
+      "before": {
+        "graphemes": [
+          "B",
+          "Y",
+          "L",
+          "A",
+          "W"
+        ],
+        "phonemes": [
+          "B",
+          "AY",
+          "-",
+          "L",
+          "AO"
+        ],
+        "syllables": [
+          "by",
+          "law"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "B",
+          "Y",
+          "L",
+          "AW"
+        ]
+      }
+    },
+    {
+      "word": "BYLAWS",
+      "before": {
+        "graphemes": [
+          "B",
+          "Y",
+          "L",
+          "A",
+          "W",
+          "S"
+        ],
+        "phonemes": [
+          "B",
+          "AY",
+          "-",
+          "L",
+          "AO",
+          "-",
+          "Z"
+        ],
+        "syllables": [
+          "by",
+          "law",
+          "s"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "B",
+          "Y",
+          "L",
+          "AW",
+          "S"
+        ]
+      }
+    },
+    {
+      "word": "CATAWBA",
+      "before": {
+        "graphemes": [
+          "C",
+          "A",
+          "T",
+          "A",
+          "W",
+          "B",
+          "A"
+        ],
+        "phonemes": [
+          "K",
+          "AE",
+          "-",
+          "T",
+          "AO",
+          "-",
+          "B",
+          "AH"
+        ],
+        "syllables": [
+          "ca",
+          "taw",
+          "ba"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "C",
+          "A",
+          "T",
+          "AW",
+          "B",
+          "A"
+        ]
+      }
+    },
+    {
+      "word": "CAW",
+      "before": {
+        "graphemes": [
+          "C",
+          "A",
+          "W"
+        ],
+        "phonemes": [
+          "K",
+          "AO"
+        ],
+        "syllables": [
+          "caw"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "C",
+          "AW"
+        ]
+      }
+    },
+    {
+      "word": "CAWLEY",
+      "before": {
+        "graphemes": [
+          "C",
+          "A",
+          "W",
+          "L",
+          "EY"
+        ],
+        "phonemes": [
+          "K",
+          "AO",
+          "-",
+          "L",
+          "IY"
+        ],
+        "syllables": [
+          "caw",
+          "ley"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "C",
+          "AW",
+          "L",
+          "EY"
+        ]
+      }
+    },
+    {
+      "word": "CHAINSAW",
+      "before": {
+        "graphemes": [
+          "CH",
+          "AI",
+          "N",
+          "S",
+          "A",
+          "W"
+        ],
+        "phonemes": [
+          "CH",
+          "EY",
+          "N",
+          "-",
+          "S",
+          "AO"
+        ],
+        "syllables": [
+          "chain",
+          "saw"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "CH",
+          "AI",
+          "N",
+          "S",
+          "AW"
+        ]
+      }
+    },
+    {
+      "word": "CHAINSAWS",
+      "before": {
+        "graphemes": [
+          "CH",
+          "AI",
+          "N",
+          "S",
+          "A",
+          "W",
+          "S"
+        ],
+        "phonemes": [
+          "CH",
+          "EY",
+          "N",
+          "-",
+          "S",
+          "AO",
+          "-",
+          "Z"
+        ],
+        "syllables": [
+          "chain",
+          "saw",
+          "s"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "CH",
+          "AI",
+          "N",
+          "S",
+          "AW",
+          "S"
+        ]
+      }
+    },
+    {
+      "word": "CHAW",
+      "before": {
+        "graphemes": [
+          "CH",
+          "A",
+          "W"
+        ],
+        "phonemes": [
+          "CH",
+          "AO"
+        ],
+        "syllables": [
+          "chaw"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "CH",
+          "AW"
+        ]
+      }
+    },
+    {
+      "word": "CHICKASAW",
+      "before": {
+        "graphemes": [
+          "CH",
+          "I",
+          "CK",
+          "A",
+          "S",
+          "A",
+          "W"
+        ],
+        "phonemes": [
+          "CH",
+          "IH",
+          "K",
+          "-",
+          "AE",
+          "-",
+          "S",
+          "AO"
+        ],
+        "syllables": [
+          "chick",
+          "a",
+          "saw"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "CH",
+          "I",
+          "CK",
+          "A",
+          "S",
+          "AW"
+        ]
+      }
+    },
+    {
+      "word": "CLAW",
+      "before": {
+        "graphemes": [
+          "C",
+          "L",
+          "A",
+          "W"
+        ],
+        "phonemes": [
+          "K",
+          "L",
+          "AO"
+        ],
+        "syllables": [
+          "claw"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "C",
+          "L",
+          "AW"
+        ]
+      }
+    },
+    {
+      "word": "CLAWED",
+      "before": {
+        "graphemes": [
+          "C",
+          "L",
+          "A",
+          "W",
+          "E",
+          "D"
+        ],
+        "phonemes": [
+          "K",
+          "L",
+          "AO",
+          "-",
+          "D"
+        ],
+        "syllables": [
+          "claw",
+          "ed"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "C",
+          "L",
+          "AW",
+          "E",
+          "D"
+        ]
+      }
+    },
+    {
+      "word": "CLAWING",
+      "before": {
+        "graphemes": [
+          "C",
+          "L",
+          "A",
+          "W",
+          "I",
+          "NG"
+        ],
+        "phonemes": [
+          "K",
+          "L",
+          "AO",
+          "-",
+          "IH",
+          "NG"
+        ],
+        "syllables": [
+          "claw",
+          "ing"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "C",
+          "L",
+          "AW",
+          "I",
+          "NG"
+        ]
+      }
+    },
+    {
+      "word": "CLAWS",
+      "before": {
+        "graphemes": [
+          "C",
+          "L",
+          "A",
+          "W",
+          "S"
+        ],
+        "phonemes": [
+          "K",
+          "L",
+          "AO",
+          "-",
+          "Z"
+        ],
+        "syllables": [
+          "claw",
+          "s"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "C",
+          "L",
+          "AW",
+          "S"
+        ]
+      }
+    },
+    {
+      "word": "CRAW",
+      "before": {
+        "graphemes": [
+          "C",
+          "R",
+          "A",
+          "W"
+        ],
+        "phonemes": [
+          "K",
+          "R",
+          "AO"
+        ],
+        "syllables": [
+          "craw"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "C",
+          "R",
+          "AW"
+        ]
+      }
+    },
+    {
+      "word": "CRAWFISH",
+      "before": {
+        "graphemes": [
+          "C",
+          "R",
+          "A",
+          "W",
+          "F",
+          "I",
+          "SH"
+        ],
+        "phonemes": [
+          "K",
+          "R",
+          "AO",
+          "-",
+          "F",
+          "IH",
+          "SH"
+        ],
+        "syllables": [
+          "craw",
+          "fish"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "C",
+          "R",
+          "AW",
+          "F",
+          "I",
+          "SH"
+        ]
+      }
+    },
+    {
+      "word": "CRAWFORD",
+      "before": {
+        "graphemes": [
+          "C",
+          "R",
+          "A",
+          "W",
+          "F",
+          "OR",
+          "D"
+        ],
+        "phonemes": [
+          "K",
+          "R",
+          "AO",
+          "-",
+          "F",
+          "ER",
+          "D"
+        ],
+        "syllables": [
+          "craw",
+          "ford"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "C",
+          "R",
+          "AW",
+          "F",
+          "OR",
+          "D"
+        ]
+      }
+    },
+    {
+      "word": "CRAWL",
+      "before": {
+        "graphemes": [
+          "C",
+          "R",
+          "A",
+          "W",
+          "L"
+        ],
+        "phonemes": [
+          "K",
+          "R",
+          "AO",
+          "L"
+        ],
+        "syllables": [
+          "crawl"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "C",
+          "R",
+          "AW",
+          "L"
+        ]
+      }
+    },
+    {
+      "word": "CRAWLEY",
+      "before": {
+        "graphemes": [
+          "C",
+          "R",
+          "A",
+          "W",
+          "L",
+          "EY"
+        ],
+        "phonemes": [
+          "K",
+          "R",
+          "AO",
+          "-",
+          "L",
+          "IY"
+        ],
+        "syllables": [
+          "craw",
+          "ley"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "C",
+          "R",
+          "AW",
+          "L",
+          "EY"
+        ]
+      }
+    },
+    {
+      "word": "CRAWLING",
+      "before": {
+        "graphemes": [
+          "C",
+          "R",
+          "A",
+          "W",
+          "L",
+          "I",
+          "NG"
+        ],
+        "phonemes": [
+          "K",
+          "R",
+          "AO",
+          "LL",
+          "-",
+          "IH",
+          "NG"
+        ],
+        "syllables": [
+          "crawl",
+          "ing"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "C",
+          "R",
+          "AW",
+          "L",
+          "I",
+          "NG"
+        ]
+      }
+    },
+    {
+      "word": "CRAWLY",
+      "before": {
+        "graphemes": [
+          "C",
+          "R",
+          "A",
+          "W",
+          "L",
+          "Y"
+        ],
+        "phonemes": [
+          "K",
+          "R",
+          "AO",
+          "LL",
+          "-",
+          "IY"
+        ],
+        "syllables": [
+          "crawl",
+          "y"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "C",
+          "R",
+          "AW",
+          "L",
+          "Y"
+        ]
+      }
+    },
+    {
+      "word": "DAW",
+      "before": {
+        "graphemes": [
+          "D",
+          "A",
+          "W"
+        ],
+        "phonemes": [
+          "D",
+          "AO"
+        ],
+        "syllables": [
+          "daw"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "D",
+          "AW"
+        ]
+      }
+    },
+    {
+      "word": "DAWDLE",
+      "before": {
+        "graphemes": [
+          "D",
+          "A",
+          "W",
+          "D",
+          "L",
+          "E"
+        ],
+        "phonemes": [
+          "D",
+          "AO",
+          "-",
+          "D",
+          "L"
+        ],
+        "syllables": [
+          "daw",
+          "dle"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "D",
+          "AW",
+          "D",
+          "L",
+          "E"
+        ]
+      }
+    },
+    {
+      "word": "DAWES",
+      "before": {
+        "graphemes": [
+          "D",
+          "A",
+          "W",
+          "E",
+          "S"
+        ],
+        "phonemes": [
+          "D",
+          "AO",
+          "-",
+          "Z"
+        ],
+        "syllables": [
+          "dawe",
+          "s"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "D",
+          "AW",
+          "E",
+          "S"
+        ]
+      }
+    },
+    {
+      "word": "DAWSON",
+      "before": {
+        "graphemes": [
+          "D",
+          "A",
+          "W",
+          "S",
+          "O",
+          "N"
+        ],
+        "phonemes": [
+          "D",
+          "AO",
+          "-",
+          "S",
+          "AA",
+          "N"
+        ],
+        "syllables": [
+          "daw",
+          "son"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "D",
+          "AW",
+          "S",
+          "O",
+          "N"
+        ]
+      }
+    },
+    {
+      "word": "DRAWBACK",
+      "before": {
+        "graphemes": [
+          "D",
+          "R",
+          "A",
+          "W",
+          "B",
+          "A",
+          "CK"
+        ],
+        "phonemes": [
+          "D",
+          "R",
+          "AO",
+          "-",
+          "B",
+          "AE",
+          "K"
+        ],
+        "syllables": [
+          "draw",
+          "back"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "D",
+          "R",
+          "AW",
+          "B",
+          "A",
+          "CK"
+        ]
+      }
+    },
+    {
+      "word": "DRAWBACKS",
+      "before": {
+        "graphemes": [
+          "D",
+          "R",
+          "A",
+          "W",
+          "B",
+          "A",
+          "CK",
+          "S"
+        ],
+        "phonemes": [
+          "D",
+          "R",
+          "AO",
+          "-",
+          "B",
+          "AE",
+          "K",
+          "-",
+          "S"
+        ],
+        "syllables": [
+          "draw",
+          "back",
+          "s"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "D",
+          "R",
+          "AW",
+          "B",
+          "A",
+          "CK",
+          "S"
+        ]
+      }
+    },
+    {
+      "word": "DRAWBRIDGE",
+      "before": {
+        "graphemes": [
+          "D",
+          "R",
+          "A",
+          "W",
+          "B",
+          "R",
+          "I",
+          "DGE"
+        ],
+        "phonemes": [
+          "D",
+          "R",
+          "AO",
+          "-",
+          "B",
+          "R",
+          "IH",
+          "JH"
+        ],
+        "syllables": [
+          "draw",
+          "bridge"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "D",
+          "R",
+          "AW",
+          "B",
+          "R",
+          "I",
+          "DGE"
+        ]
+      }
+    },
+    {
+      "word": "DRAWERS",
+      "before": {
+        "graphemes": [
+          "D",
+          "R",
+          "A",
+          "W",
+          "ER",
+          "S"
+        ],
+        "phonemes": [
+          "D",
+          "R",
+          "AO",
+          "-",
+          "ER",
+          "-",
+          "Z"
+        ],
+        "syllables": [
+          "draw",
+          "er",
+          "s"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "D",
+          "R",
+          "AW",
+          "ER",
+          "S"
+        ]
+      }
+    },
+    {
+      "word": "DRAWING",
+      "before": {
+        "graphemes": [
+          "D",
+          "R",
+          "A",
+          "W",
+          "I",
+          "NG"
+        ],
+        "phonemes": [
+          "D",
+          "R",
+          "AO",
+          "-",
+          "IH",
+          "NG"
+        ],
+        "syllables": [
+          "draw",
+          "ing"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "D",
+          "R",
+          "AW",
+          "I",
+          "NG"
+        ]
+      }
+    },
+    {
+      "word": "DRAWINGS",
+      "before": {
+        "graphemes": [
+          "D",
+          "R",
+          "A",
+          "W",
+          "I",
+          "NG",
+          "S"
+        ],
+        "phonemes": [
+          "D",
+          "R",
+          "AO",
+          "-",
+          "IH",
+          "NG",
+          "-",
+          "Z"
+        ],
+        "syllables": [
+          "draw",
+          "ing",
+          "s"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "D",
+          "R",
+          "AW",
+          "I",
+          "NG",
+          "S"
+        ]
+      }
+    },
+    {
+      "word": "DRAWL",
+      "before": {
+        "graphemes": [
+          "D",
+          "R",
+          "A",
+          "W",
+          "L"
+        ],
+        "phonemes": [
+          "D",
+          "R",
+          "AO",
+          "L"
+        ],
+        "syllables": [
+          "drawl"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "D",
+          "R",
+          "AW",
+          "L"
+        ]
+      }
+    },
+    {
+      "word": "DRAWLED",
+      "before": {
+        "graphemes": [
+          "D",
+          "R",
+          "A",
+          "W",
+          "L",
+          "ED"
+        ],
+        "phonemes": [
+          "D",
+          "R",
+          "AO",
+          "LL",
+          "-",
+          "D"
+        ],
+        "syllables": [
+          "drawl",
+          "ed"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "D",
+          "R",
+          "AW",
+          "L",
+          "ED"
+        ]
+      }
+    },
+    {
+      "word": "DRAWLS",
+      "before": {
+        "graphemes": [
+          "D",
+          "R",
+          "A",
+          "W",
+          "L",
+          "S"
+        ],
+        "phonemes": [
+          "D",
+          "R",
+          "AO",
+          "LL",
+          "-",
+          "Z"
+        ],
+        "syllables": [
+          "drawl",
+          "s"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "D",
+          "R",
+          "AW",
+          "L",
+          "S"
+        ]
+      }
+    },
+    {
+      "word": "DRAWN",
+      "before": {
+        "graphemes": [
+          "D",
+          "R",
+          "A",
+          "W",
+          "N"
+        ],
+        "phonemes": [
+          "D",
+          "R",
+          "AO",
+          "N"
+        ],
+        "syllables": [
+          "drawn"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "D",
+          "R",
+          "AW",
+          "N"
+        ]
+      }
+    },
+    {
+      "word": "DRAWS",
+      "before": {
+        "graphemes": [
+          "D",
+          "R",
+          "A",
+          "W",
+          "S"
+        ],
+        "phonemes": [
+          "D",
+          "R",
+          "AO",
+          "-",
+          "Z"
+        ],
+        "syllables": [
+          "draw",
+          "s"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "D",
+          "R",
+          "AW",
+          "S"
+        ]
+      }
+    },
+    {
+      "word": "FAWN",
+      "before": {
+        "graphemes": [
+          "F",
+          "A",
+          "W",
+          "N"
+        ],
+        "phonemes": [
+          "F",
+          "AO",
+          "N"
+        ],
+        "syllables": [
+          "fawn"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "F",
+          "AW",
+          "N"
+        ]
+      }
+    },
+    {
+      "word": "FLAWED",
+      "before": {
+        "graphemes": [
+          "F",
+          "L",
+          "A",
+          "W",
+          "E",
+          "D"
+        ],
+        "phonemes": [
+          "F",
+          "L",
+          "AO",
+          "-",
+          "D"
+        ],
+        "syllables": [
+          "flaw",
+          "ed"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "F",
+          "L",
+          "AW",
+          "E",
+          "D"
+        ]
+      }
+    },
+    {
+      "word": "FLAWLESS",
+      "before": {
+        "graphemes": [
+          "F",
+          "L",
+          "A",
+          "W",
+          "L",
+          "E",
+          "SS"
+        ],
+        "phonemes": [
+          "F",
+          "L",
+          "AO",
+          "-",
+          "L",
+          "EH",
+          "S"
+        ],
+        "syllables": [
+          "flaw",
+          "less"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "F",
+          "L",
+          "AW",
+          "L",
+          "E",
+          "SS"
+        ]
+      }
+    },
+    {
+      "word": "FLAWLESSLY",
+      "before": {
+        "graphemes": [
+          "F",
+          "L",
+          "A",
+          "W",
+          "L",
+          "E",
+          "SS",
+          "L",
+          "Y"
+        ],
+        "phonemes": [
+          "F",
+          "L",
+          "AO",
+          "-",
+          "L",
+          "EH",
+          "S",
+          "-",
+          "L",
+          "IY"
+        ],
+        "syllables": [
+          "flaw",
+          "less",
+          "ly"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "F",
+          "L",
+          "AW",
+          "L",
+          "E",
+          "SS",
+          "L",
+          "Y"
+        ]
+      }
+    },
+    {
+      "word": "FLAWS",
+      "before": {
+        "graphemes": [
+          "F",
+          "L",
+          "A",
+          "W",
+          "S"
+        ],
+        "phonemes": [
+          "F",
+          "L",
+          "AO",
+          "-",
+          "S"
+        ],
+        "syllables": [
+          "flaw",
+          "s"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "F",
+          "L",
+          "AW",
+          "S"
+        ]
+      }
+    },
+    {
+      "word": "GAW",
+      "before": {
+        "graphemes": [
+          "G",
+          "A",
+          "W"
+        ],
+        "phonemes": [
+          "G",
+          "AO"
+        ],
+        "syllables": [
+          "gaw"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "G",
+          "AW"
+        ]
+      }
+    },
+    {
+      "word": "GAWK",
+      "before": {
+        "graphemes": [
+          "G",
+          "A",
+          "W",
+          "K"
+        ],
+        "phonemes": [
+          "G",
+          "AO",
+          "K"
+        ],
+        "syllables": [
+          "gawk"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "G",
+          "AW",
+          "K"
+        ]
+      }
+    },
+    {
+      "word": "GAWKY",
+      "before": {
+        "graphemes": [
+          "G",
+          "A",
+          "W",
+          "K",
+          "Y"
+        ],
+        "phonemes": [
+          "G",
+          "AO",
+          "K",
+          "-",
+          "IY"
+        ],
+        "syllables": [
+          "gawk",
+          "y"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "G",
+          "AW",
+          "K",
+          "Y"
+        ]
+      }
+    },
+    {
+      "word": "GNAW",
+      "before": {
+        "graphemes": [
+          "GN",
+          "A",
+          "W"
+        ],
+        "phonemes": [
+          "N",
+          "AO"
+        ],
+        "syllables": [
+          "gnaw"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "GN",
+          "AW"
+        ]
+      }
+    },
+    {
+      "word": "GNAWING",
+      "before": {
+        "graphemes": [
+          "GN",
+          "A",
+          "W",
+          "I",
+          "NG"
+        ],
+        "phonemes": [
+          "N",
+          "AO",
+          "-",
+          "IH",
+          "NG"
+        ],
+        "syllables": [
+          "gnaw",
+          "ing"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "GN",
+          "AW",
+          "I",
+          "NG"
+        ]
+      }
+    },
+    {
+      "word": "GOSHAWK",
+      "before": {
+        "graphemes": [
+          "G",
+          "O",
+          "S",
+          "H",
+          "A",
+          "W",
+          "K"
+        ],
+        "phonemes": [
+          "G",
+          "AA",
+          "S",
+          "-",
+          "HH",
+          "AO",
+          "K"
+        ],
+        "syllables": [
+          "gos",
+          "hawk"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "G",
+          "O",
+          "S",
+          "H",
+          "AW",
+          "K"
+        ]
+      }
+    },
+    {
+      "word": "GUFFAW",
+      "before": {
+        "graphemes": [
+          "G",
+          "U",
+          "FF",
+          "A",
+          "W"
+        ],
+        "phonemes": [
+          "G",
+          "AH",
+          "F",
+          "-",
+          "AO"
+        ],
+        "syllables": [
+          "guff",
+          "aw"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "G",
+          "U",
+          "FF",
+          "AW"
+        ]
+      }
+    },
+    {
+      "word": "HACKSAW",
+      "before": {
+        "graphemes": [
+          "H",
+          "A",
+          "CK",
+          "S",
+          "A",
+          "W"
+        ],
+        "phonemes": [
+          "HH",
+          "AE",
+          "K",
+          "-",
+          "S",
+          "AO"
+        ],
+        "syllables": [
+          "hack",
+          "saw"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "H",
+          "A",
+          "CK",
+          "S",
+          "AW"
+        ]
+      }
+    },
+    {
+      "word": "HANDSAW",
+      "before": {
+        "graphemes": [
+          "H",
+          "A",
+          "N",
+          "D",
+          "S",
+          "A",
+          "W"
+        ],
+        "phonemes": [
+          "HH",
+          "AE",
+          "N",
+          "D",
+          "-",
+          "S",
+          "AO"
+        ],
+        "syllables": [
+          "hand",
+          "saw"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "H",
+          "A",
+          "N",
+          "D",
+          "S",
+          "AW"
+        ]
+      }
+    },
+    {
+      "word": "HAW",
+      "before": {
+        "graphemes": [
+          "H",
+          "A",
+          "W"
+        ],
+        "phonemes": [
+          "HH",
+          "AO"
+        ],
+        "syllables": [
+          "haw"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "H",
+          "AW"
+        ]
+      }
+    },
+    {
+      "word": "HAWES",
+      "before": {
+        "graphemes": [
+          "H",
+          "A",
+          "W",
+          "E",
+          "S"
+        ],
+        "phonemes": [
+          "HH",
+          "AO",
+          "-",
+          "Z"
+        ],
+        "syllables": [
+          "hawe",
+          "s"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "H",
+          "AW",
+          "E",
+          "S"
+        ]
+      }
+    },
+    {
+      "word": "HAWK",
+      "before": {
+        "graphemes": [
+          "H",
+          "A",
+          "W",
+          "K"
+        ],
+        "phonemes": [
+          "HH",
+          "AO",
+          "K"
+        ],
+        "syllables": [
+          "hawk"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "H",
+          "AW",
+          "K"
+        ]
+      }
+    },
+    {
+      "word": "HAWKBILL",
+      "before": {
+        "graphemes": [
+          "H",
+          "A",
+          "W",
+          "K",
+          "B",
+          "I",
+          "LL"
+        ],
+        "phonemes": [
+          "HH",
+          "AO",
+          "K",
+          "-",
+          "B",
+          "IH",
+          "L"
+        ],
+        "syllables": [
+          "hawk",
+          "bill"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "H",
+          "AW",
+          "K",
+          "B",
+          "I",
+          "LL"
+        ]
+      }
+    },
+    {
+      "word": "HAWKER",
+      "before": {
+        "graphemes": [
+          "H",
+          "A",
+          "W",
+          "K",
+          "ER"
+        ],
+        "phonemes": [
+          "HH",
+          "AO",
+          "K",
+          "-",
+          "ER"
+        ],
+        "syllables": [
+          "hawk",
+          "er"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "H",
+          "AW",
+          "K",
+          "ER"
+        ]
+      }
+    },
+    {
+      "word": "HAWKEY",
+      "before": {
+        "graphemes": [
+          "H",
+          "A",
+          "W",
+          "K",
+          "EY"
+        ],
+        "phonemes": [
+          "HH",
+          "AO",
+          "K",
+          "-",
+          "IY"
+        ],
+        "syllables": [
+          "hawk",
+          "ey"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "H",
+          "AW",
+          "K",
+          "EY"
+        ]
+      }
+    },
+    {
+      "word": "HAWKEYE",
+      "before": {
+        "graphemes": [
+          "H",
+          "A",
+          "W",
+          "K",
+          "EYE"
+        ],
+        "phonemes": [
+          "HH",
+          "AO",
+          "K",
+          "-",
+          "AY"
+        ],
+        "syllables": [
+          "hawk",
+          "eye"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "H",
+          "AW",
+          "K",
+          "EYE"
+        ]
+      }
+    },
+    {
+      "word": "HAWKING",
+      "before": {
+        "graphemes": [
+          "H",
+          "A",
+          "W",
+          "K",
+          "I",
+          "NG"
+        ],
+        "phonemes": [
+          "HH",
+          "AO",
+          "K",
+          "-",
+          "IH",
+          "NG"
+        ],
+        "syllables": [
+          "hawk",
+          "ing"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "H",
+          "AW",
+          "K",
+          "I",
+          "NG"
+        ]
+      }
+    },
+    {
+      "word": "HAWKINS",
+      "before": {
+        "graphemes": [
+          "H",
+          "A",
+          "W",
+          "K",
+          "I",
+          "N",
+          "S"
+        ],
+        "phonemes": [
+          "HH",
+          "AO",
+          "-",
+          "K",
+          "IH",
+          "N",
+          "-",
+          "Z"
+        ],
+        "syllables": [
+          "haw",
+          "kin",
+          "s"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "H",
+          "AW",
+          "K",
+          "I",
+          "N",
+          "S"
+        ]
+      }
+    },
+    {
+      "word": "HAWKISH",
+      "before": {
+        "graphemes": [
+          "H",
+          "A",
+          "W",
+          "K",
+          "I",
+          "SH"
+        ],
+        "phonemes": [
+          "HH",
+          "AO",
+          "K",
+          "-",
+          "IH",
+          "SH"
+        ],
+        "syllables": [
+          "hawk",
+          "ish"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "H",
+          "AW",
+          "K",
+          "I",
+          "SH"
+        ]
+      }
+    },
+    {
+      "word": "HAWKS",
+      "before": {
+        "graphemes": [
+          "H",
+          "A",
+          "W",
+          "K",
+          "S"
+        ],
+        "phonemes": [
+          "HH",
+          "AO",
+          "K",
+          "-",
+          "S"
+        ],
+        "syllables": [
+          "hawk",
+          "s"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "H",
+          "AW",
+          "K",
+          "S"
+        ]
+      }
+    },
+    {
+      "word": "HAWTHORN",
+      "before": {
+        "graphemes": [
+          "H",
+          "A",
+          "W",
+          "TH",
+          "OR",
+          "N"
+        ],
+        "phonemes": [
+          "HH",
+          "AO",
+          "-",
+          "TH",
+          "OR",
+          "N"
+        ],
+        "syllables": [
+          "haw",
+          "thorn"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "H",
+          "AW",
+          "TH",
+          "OR",
+          "N"
+        ]
+      }
+    },
+    {
+      "word": "HAWTHORNE",
+      "before": {
+        "graphemes": [
+          "H",
+          "A",
+          "W",
+          "TH",
+          "OR",
+          "N",
+          "E"
+        ],
+        "phonemes": [
+          "HH",
+          "AO",
+          "-",
+          "TH",
+          "OR",
+          "N"
+        ],
+        "syllables": [
+          "haw",
+          "thorne"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "H",
+          "AW",
+          "TH",
+          "OR",
+          "N",
+          "E"
+        ]
+      }
+    },
+    {
+      "word": "INLAW",
+      "before": {
+        "graphemes": [
+          "I",
+          "N",
+          "L",
+          "A",
+          "W"
+        ],
+        "phonemes": [
+          "IH",
+          "N",
+          "-",
+          "L",
+          "AO"
+        ],
+        "syllables": [
+          "in",
+          "law"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "I",
+          "N",
+          "L",
+          "AW"
+        ]
+      }
+    },
+    {
+      "word": "JAW",
+      "before": {
+        "graphemes": [
+          "J",
+          "A",
+          "W"
+        ],
+        "phonemes": [
+          "JH",
+          "AO"
+        ],
+        "syllables": [
+          "jaw"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "J",
+          "AW"
+        ]
+      }
+    },
+    {
+      "word": "JAWBONE",
+      "before": {
+        "graphemes": [
+          "J",
+          "A",
+          "W",
+          "B",
+          "O",
+          "N",
+          "E"
+        ],
+        "phonemes": [
+          "JH",
+          "AO",
+          "-",
+          "B",
+          "OW",
+          "N"
+        ],
+        "syllables": [
+          "jaw",
+          "bone"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "J",
+          "AW",
+          "B",
+          "O",
+          "N",
+          "E"
+        ]
+      }
+    },
+    {
+      "word": "JAWBONING",
+      "before": {
+        "graphemes": [
+          "J",
+          "A",
+          "W",
+          "B",
+          "O",
+          "N",
+          "I",
+          "NG"
+        ],
+        "phonemes": [
+          "JH",
+          "AO",
+          "-",
+          "B",
+          "OW",
+          "N",
+          "-",
+          "IH",
+          "NG"
+        ],
+        "syllables": [
+          "jaw",
+          "bon",
+          "ing"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "J",
+          "AW",
+          "B",
+          "O",
+          "N",
+          "I",
+          "NG"
+        ]
+      }
+    },
+    {
+      "word": "JAWS",
+      "before": {
+        "graphemes": [
+          "J",
+          "A",
+          "W",
+          "S"
+        ],
+        "phonemes": [
+          "JH",
+          "AO",
+          "-",
+          "Z"
+        ],
+        "syllables": [
+          "jaw",
+          "s"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "J",
+          "AW",
+          "S"
+        ]
+      }
+    },
+    {
+      "word": "JAYHAWKER",
+      "before": {
+        "graphemes": [
+          "J",
+          "AY",
+          "H",
+          "A",
+          "W",
+          "K",
+          "ER"
+        ],
+        "phonemes": [
+          "JH",
+          "EY",
+          "-",
+          "HH",
+          "AO",
+          "K",
+          "-",
+          "ER"
+        ],
+        "syllables": [
+          "jay",
+          "hawk",
+          "er"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "J",
+          "AY",
+          "H",
+          "AW",
+          "K",
+          "ER"
+        ]
+      }
+    },
+    {
+      "word": "JIGSAW",
+      "before": {
+        "graphemes": [
+          "J",
+          "I",
+          "G",
+          "S",
+          "A",
+          "W"
+        ],
+        "phonemes": [
+          "JH",
+          "IH",
+          "G",
+          "-",
+          "S",
+          "AO"
+        ],
+        "syllables": [
+          "jig",
+          "saw"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "J",
+          "I",
+          "G",
+          "S",
+          "AW"
+        ]
+      }
+    },
+    {
+      "word": "LAW",
+      "before": {
+        "graphemes": [
+          "L",
+          "A",
+          "W"
+        ],
+        "phonemes": [
+          "L",
+          "AO"
+        ],
+        "syllables": [
+          "law"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "L",
+          "AW"
+        ]
+      }
+    },
+    {
+      "word": "LAWBREAKER",
+      "before": {
+        "graphemes": [
+          "L",
+          "A",
+          "W",
+          "B",
+          "R",
+          "EA",
+          "K",
+          "ER"
+        ],
+        "phonemes": [
+          "L",
+          "AO",
+          "-",
+          "B",
+          "R",
+          "EY",
+          "K",
+          "-",
+          "ER"
+        ],
+        "syllables": [
+          "law",
+          "break",
+          "er"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "L",
+          "AW",
+          "B",
+          "R",
+          "EA",
+          "K",
+          "ER"
+        ]
+      }
+    },
+    {
+      "word": "LAWBREAKERS",
+      "before": {
+        "graphemes": [
+          "L",
+          "A",
+          "W",
+          "B",
+          "R",
+          "EA",
+          "K",
+          "ER",
+          "S"
+        ],
+        "phonemes": [
+          "L",
+          "AO",
+          "-",
+          "B",
+          "R",
+          "EY",
+          "K",
+          "-",
+          "ER",
+          "-",
+          "Z"
+        ],
+        "syllables": [
+          "law",
+          "break",
+          "er",
+          "s"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "L",
+          "AW",
+          "B",
+          "R",
+          "EA",
+          "K",
+          "ER",
+          "S"
+        ]
+      }
+    },
+    {
+      "word": "LAWBREAKING",
+      "before": {
+        "graphemes": [
+          "L",
+          "A",
+          "W",
+          "B",
+          "R",
+          "EA",
+          "K",
+          "I",
+          "NG"
+        ],
+        "phonemes": [
+          "L",
+          "AO",
+          "-",
+          "B",
+          "R",
+          "EY",
+          "K",
+          "-",
+          "IH",
+          "NG"
+        ],
+        "syllables": [
+          "law",
+          "break",
+          "ing"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "L",
+          "AW",
+          "B",
+          "R",
+          "EA",
+          "K",
+          "I",
+          "NG"
+        ]
+      }
+    },
+    {
+      "word": "LAWFUL",
+      "before": {
+        "graphemes": [
+          "L",
+          "A",
+          "W",
+          "F",
+          "UL"
+        ],
+        "phonemes": [
+          "L",
+          "AO",
+          "-",
+          "F",
+          "LL"
+        ],
+        "syllables": [
+          "law",
+          "ful"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "L",
+          "AW",
+          "F",
+          "UL"
+        ]
+      }
+    },
+    {
+      "word": "LAWFULLY",
+      "before": {
+        "graphemes": [
+          "L",
+          "A",
+          "W",
+          "F",
+          "UL",
+          "L",
+          "Y"
+        ],
+        "phonemes": [
+          "L",
+          "AO",
+          "-",
+          "F",
+          "LL",
+          "-",
+          "L",
+          "IY"
+        ],
+        "syllables": [
+          "law",
+          "ful",
+          "ly"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "L",
+          "AW",
+          "F",
+          "UL",
+          "L",
+          "Y"
+        ]
+      }
+    },
+    {
+      "word": "LAWING",
+      "before": {
+        "graphemes": [
+          "L",
+          "A",
+          "W",
+          "I",
+          "NG"
+        ],
+        "phonemes": [
+          "L",
+          "AO",
+          "-",
+          "IH",
+          "NG"
+        ],
+        "syllables": [
+          "law",
+          "ing"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "L",
+          "AW",
+          "I",
+          "NG"
+        ]
+      }
+    },
+    {
+      "word": "LAWLESS",
+      "before": {
+        "graphemes": [
+          "L",
+          "A",
+          "W",
+          "L",
+          "E",
+          "SS"
+        ],
+        "phonemes": [
+          "L",
+          "AO",
+          "-",
+          "L",
+          "EH",
+          "S"
+        ],
+        "syllables": [
+          "law",
+          "less"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "L",
+          "AW",
+          "L",
+          "E",
+          "SS"
+        ]
+      }
+    },
+    {
+      "word": "LAWLESSNESS",
+      "before": {
+        "graphemes": [
+          "L",
+          "A",
+          "W",
+          "L",
+          "E",
+          "SS",
+          "N",
+          "E",
+          "SS"
+        ],
+        "phonemes": [
+          "L",
+          "AO",
+          "-",
+          "L",
+          "EH",
+          "S",
+          "-",
+          "N",
+          "EH",
+          "S"
+        ],
+        "syllables": [
+          "law",
+          "less",
+          "ness"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "L",
+          "AW",
+          "L",
+          "E",
+          "SS",
+          "N",
+          "E",
+          "SS"
+        ]
+      }
+    },
+    {
+      "word": "LAWMAKER",
+      "before": {
+        "graphemes": [
+          "L",
+          "A",
+          "W",
+          "M",
+          "A",
+          "K",
+          "ER"
+        ],
+        "phonemes": [
+          "L",
+          "AO",
+          "-",
+          "M",
+          "EY",
+          "K",
+          "-",
+          "ER"
+        ],
+        "syllables": [
+          "law",
+          "make",
+          "r"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "L",
+          "AW",
+          "M",
+          "A",
+          "K",
+          "ER"
+        ]
+      }
+    },
+    {
+      "word": "LAWMAKING",
+      "before": {
+        "graphemes": [
+          "L",
+          "A",
+          "W",
+          "M",
+          "A",
+          "K",
+          "I",
+          "NG"
+        ],
+        "phonemes": [
+          "L",
+          "AO",
+          "-",
+          "M",
+          "EY",
+          "K",
+          "-",
+          "IH",
+          "NG"
+        ],
+        "syllables": [
+          "law",
+          "mak",
+          "ing"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "L",
+          "AW",
+          "M",
+          "A",
+          "K",
+          "I",
+          "NG"
+        ]
+      }
+    },
+    {
+      "word": "LAWMAN",
+      "before": {
+        "graphemes": [
+          "L",
+          "A",
+          "W",
+          "M",
+          "A",
+          "N"
+        ],
+        "phonemes": [
+          "L",
+          "AO",
+          "-",
+          "M",
+          "AE",
+          "N"
+        ],
+        "syllables": [
+          "law",
+          "man"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "L",
+          "AW",
+          "M",
+          "A",
+          "N"
+        ]
+      }
+    },
+    {
+      "word": "LAWN",
+      "before": {
+        "graphemes": [
+          "L",
+          "A",
+          "W",
+          "N"
+        ],
+        "phonemes": [
+          "L",
+          "AO",
+          "N"
+        ],
+        "syllables": [
+          "lawn"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "L",
+          "AW",
+          "N"
+        ]
+      }
+    },
+    {
+      "word": "LAWNS",
+      "before": {
+        "graphemes": [
+          "L",
+          "A",
+          "W",
+          "N",
+          "S"
+        ],
+        "phonemes": [
+          "L",
+          "AO",
+          "N",
+          "-",
+          "Z"
+        ],
+        "syllables": [
+          "lawn",
+          "s"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "L",
+          "AW",
+          "N",
+          "S"
+        ]
+      }
+    },
+    {
+      "word": "LAWRENCE",
+      "before": {
+        "graphemes": [
+          "L",
+          "A",
+          "W",
+          "R",
+          "E",
+          "N",
+          "C",
+          "E"
+        ],
+        "phonemes": [
+          "L",
+          "AO",
+          "-",
+          "R",
+          "EH",
+          "N",
+          "S"
+        ],
+        "syllables": [
+          "law",
+          "rence"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "L",
+          "AW",
+          "R",
+          "E",
+          "N",
+          "C",
+          "E"
+        ]
+      }
+    },
+    {
+      "word": "LAWRENCEBURG",
+      "before": {
+        "graphemes": [
+          "L",
+          "A",
+          "W",
+          "R",
+          "E",
+          "N",
+          "C",
+          "E",
+          "B",
+          "UR",
+          "G"
+        ],
+        "phonemes": [
+          "L",
+          "AO",
+          "-",
+          "R",
+          "EH",
+          "N",
+          "S",
+          "-",
+          "B",
+          "ER",
+          "G"
+        ],
+        "syllables": [
+          "law",
+          "rence",
+          "burg"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "L",
+          "AW",
+          "R",
+          "E",
+          "N",
+          "C",
+          "E",
+          "B",
+          "UR",
+          "G"
+        ]
+      }
+    },
+    {
+      "word": "LAWRENCEVILLE",
+      "before": {
+        "graphemes": [
+          "L",
+          "A",
+          "W",
+          "R",
+          "E",
+          "N",
+          "C",
+          "E",
+          "V",
+          "I",
+          "LL",
+          "E"
+        ],
+        "phonemes": [
+          "L",
+          "AO",
+          "-",
+          "R",
+          "EH",
+          "N",
+          "S",
+          "-",
+          "V",
+          "IH",
+          "L"
+        ],
+        "syllables": [
+          "law",
+          "rence",
+          "ville"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "L",
+          "AW",
+          "R",
+          "E",
+          "N",
+          "C",
+          "E",
+          "V",
+          "I",
+          "LL",
+          "E"
+        ]
+      }
+    },
+    {
+      "word": "LAWRENCIUM",
+      "before": {
+        "graphemes": [
+          "L",
+          "A",
+          "W",
+          "R",
+          "E",
+          "N",
+          "C",
+          "I",
+          "U",
+          "M"
+        ],
+        "phonemes": [
+          "L",
+          "AO",
+          "-",
+          "R",
+          "EH",
+          "N",
+          "-",
+          "S",
+          "IY",
+          "-",
+          "AH",
+          "M"
+        ],
+        "syllables": [
+          "law",
+          "ren",
+          "ci",
+          "um"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "L",
+          "AW",
+          "R",
+          "E",
+          "N",
+          "C",
+          "I",
+          "U",
+          "M"
+        ]
+      }
+    },
+    {
+      "word": "LAWS",
+      "before": {
+        "graphemes": [
+          "L",
+          "A",
+          "W",
+          "S"
+        ],
+        "phonemes": [
+          "L",
+          "AO",
+          "-",
+          "Z"
+        ],
+        "syllables": [
+          "Law",
+          "s"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "L",
+          "AW",
+          "S"
+        ]
+      }
+    },
+    {
+      "word": "LAWSON",
+      "before": {
+        "graphemes": [
+          "L",
+          "A",
+          "W",
+          "S",
+          "O",
+          "N"
+        ],
+        "phonemes": [
+          "L",
+          "AO",
+          "-",
+          "S",
+          "AA",
+          "N"
+        ],
+        "syllables": [
+          "law",
+          "son"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "L",
+          "AW",
+          "S",
+          "O",
+          "N"
+        ]
+      }
+    },
+    {
+      "word": "LAWSUIT",
+      "before": {
+        "graphemes": [
+          "L",
+          "A",
+          "W",
+          "S",
+          "U",
+          "I",
+          "T"
+        ],
+        "phonemes": [
+          "L",
+          "AO",
+          "-",
+          "S",
+          "UW",
+          "T"
+        ],
+        "syllables": [
+          "law",
+          "suit"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "L",
+          "AW",
+          "S",
+          "U",
+          "I",
+          "T"
+        ]
+      }
+    },
+    {
+      "word": "LAWSUITS",
+      "before": {
+        "graphemes": [
+          "L",
+          "A",
+          "W",
+          "S",
+          "U",
+          "I",
+          "T",
+          "S"
+        ],
+        "phonemes": [
+          "L",
+          "AO",
+          "-",
+          "S",
+          "UW",
+          "T",
+          "-",
+          "S"
+        ],
+        "syllables": [
+          "law",
+          "suit",
+          "s"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "L",
+          "AW",
+          "S",
+          "U",
+          "I",
+          "T",
+          "S"
+        ]
+      }
+    },
+    {
+      "word": "LAWTON",
+      "before": {
+        "graphemes": [
+          "L",
+          "A",
+          "W",
+          "T",
+          "O",
+          "N"
+        ],
+        "phonemes": [
+          "L",
+          "AO",
+          "-",
+          "T",
+          "AA",
+          "N"
+        ],
+        "syllables": [
+          "law",
+          "ton"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "L",
+          "AW",
+          "T",
+          "O",
+          "N"
+        ]
+      }
+    },
+    {
+      "word": "LAWYER",
+      "before": {
+        "graphemes": [
+          "L",
+          "A",
+          "W",
+          "Y",
+          "ER"
+        ],
+        "phonemes": [
+          "L",
+          "AO",
+          "-",
+          "Y",
+          "ER"
+        ],
+        "syllables": [
+          "law",
+          "yer"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "L",
+          "AW",
+          "Y",
+          "ER"
+        ]
+      }
+    },
+    {
+      "word": "LAWYERED",
+      "before": {
+        "graphemes": [
+          "L",
+          "A",
+          "W",
+          "Y",
+          "ER",
+          "ED"
+        ],
+        "phonemes": [
+          "L",
+          "AO",
+          "-",
+          "Y",
+          "ER",
+          "-",
+          "D"
+        ],
+        "syllables": [
+          "law",
+          "yer",
+          "ed"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "L",
+          "AW",
+          "Y",
+          "ER",
+          "ED"
+        ]
+      }
+    },
+    {
+      "word": "LAWYERING",
+      "before": {
+        "graphemes": [
+          "L",
+          "A",
+          "W",
+          "Y",
+          "ER",
+          "I",
+          "NG"
+        ],
+        "phonemes": [
+          "L",
+          "AO",
+          "-",
+          "Y",
+          "ER",
+          "-",
+          "IH",
+          "NG"
+        ],
+        "syllables": [
+          "law",
+          "yer",
+          "ing"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "L",
+          "AW",
+          "Y",
+          "ER",
+          "I",
+          "NG"
+        ]
+      }
+    },
+    {
+      "word": "LAWYERLY",
+      "before": {
+        "graphemes": [
+          "L",
+          "A",
+          "W",
+          "Y",
+          "ER",
+          "L",
+          "Y"
+        ],
+        "phonemes": [
+          "L",
+          "AO",
+          "-",
+          "Y",
+          "ER",
+          "-",
+          "L",
+          "IY"
+        ],
+        "syllables": [
+          "law",
+          "yer",
+          "ly"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "L",
+          "AW",
+          "Y",
+          "ER",
+          "L",
+          "Y"
+        ]
+      }
+    },
+    {
+      "word": "LAWYERS",
+      "before": {
+        "graphemes": [
+          "L",
+          "A",
+          "W",
+          "Y",
+          "ER",
+          "S"
+        ],
+        "phonemes": [
+          "L",
+          "AO",
+          "-",
+          "Y",
+          "ER",
+          "-",
+          "Z"
+        ],
+        "syllables": [
+          "law",
+          "yer",
+          "s"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "L",
+          "AW",
+          "Y",
+          "ER",
+          "S"
+        ]
+      }
+    },
+    {
+      "word": "MACAW",
+      "before": {
+        "graphemes": [
+          "M",
+          "A",
+          "C",
+          "A",
+          "W"
+        ],
+        "phonemes": [
+          "M",
+          "AE",
+          "-",
+          "K",
+          "AO"
+        ],
+        "syllables": [
+          "ma",
+          "caw"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "M",
+          "A",
+          "C",
+          "AW"
+        ]
+      }
+    },
+    {
+      "word": "MACKINAW",
+      "before": {
+        "graphemes": [
+          "M",
+          "A",
+          "CK",
+          "I",
+          "N",
+          "A",
+          "W"
+        ],
+        "phonemes": [
+          "M",
+          "AE",
+          "K",
+          "-",
+          "IH",
+          "-",
+          "N",
+          "AO"
+        ],
+        "syllables": [
+          "mack",
+          "i",
+          "naw"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "M",
+          "A",
+          "CK",
+          "I",
+          "N",
+          "AW"
+        ]
+      }
+    },
+    {
+      "word": "MAW",
+      "before": {
+        "graphemes": [
+          "M",
+          "A",
+          "W"
+        ],
+        "phonemes": [
+          "M",
+          "AO"
+        ],
+        "syllables": [
+          "maw"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "M",
+          "AW"
+        ]
+      }
+    },
+    {
+      "word": "MAWKISH",
+      "before": {
+        "graphemes": [
+          "M",
+          "A",
+          "W",
+          "K",
+          "I",
+          "SH"
+        ],
+        "phonemes": [
+          "M",
+          "AO",
+          "K",
+          "-",
+          "IH",
+          "SH"
+        ],
+        "syllables": [
+          "mawk",
+          "ish"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "M",
+          "AW",
+          "K",
+          "I",
+          "SH"
+        ]
+      }
+    },
+    {
+      "word": "MAWSON",
+      "before": {
+        "graphemes": [
+          "M",
+          "A",
+          "W",
+          "S",
+          "O",
+          "N"
+        ],
+        "phonemes": [
+          "M",
+          "AO",
+          "-",
+          "S",
+          "AA",
+          "N"
+        ],
+        "syllables": [
+          "maw",
+          "son"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "M",
+          "AW",
+          "S",
+          "O",
+          "N"
+        ]
+      }
+    },
+    {
+      "word": "MOHAWK",
+      "before": {
+        "graphemes": [
+          "M",
+          "O",
+          "H",
+          "A",
+          "W",
+          "K"
+        ],
+        "phonemes": [
+          "M",
+          "OW",
+          "-",
+          "HH",
+          "AO",
+          "K"
+        ],
+        "syllables": [
+          "mo",
+          "hawk"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "M",
+          "O",
+          "H",
+          "AW",
+          "K"
+        ]
+      }
+    },
+    {
+      "word": "OVERDRAW",
+      "before": {
+        "graphemes": [
+          "O",
+          "V",
+          "ER",
+          "D",
+          "R",
+          "A",
+          "W"
+        ],
+        "phonemes": [
+          "OW",
+          "-",
+          "V",
+          "ER",
+          "-",
+          "D",
+          "R",
+          "AO"
+        ],
+        "syllables": [
+          "o",
+          "ver",
+          "draw"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "O",
+          "V",
+          "ER",
+          "D",
+          "R",
+          "AW"
+        ]
+      }
+    },
+    {
+      "word": "OVERDRAWN",
+      "before": {
+        "graphemes": [
+          "O",
+          "V",
+          "ER",
+          "D",
+          "R",
+          "A",
+          "W",
+          "N"
+        ],
+        "phonemes": [
+          "OW",
+          "-",
+          "V",
+          "ER",
+          "-",
+          "D",
+          "R",
+          "AO",
+          "N"
+        ],
+        "syllables": [
+          "o",
+          "ver",
+          "drawn"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "O",
+          "V",
+          "ER",
+          "D",
+          "R",
+          "AW",
+          "N"
+        ]
+      }
+    },
+    {
+      "word": "OVERSAW",
+      "before": {
+        "graphemes": [
+          "O",
+          "V",
+          "ER",
+          "S",
+          "A",
+          "W"
+        ],
+        "phonemes": [
+          "OW",
+          "-",
+          "V",
+          "ER",
+          "-",
+          "S",
+          "AO"
+        ],
+        "syllables": [
+          "o",
+          "ver",
+          "saw"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "O",
+          "V",
+          "ER",
+          "S",
+          "AW"
+        ]
+      }
+    },
+    {
+      "word": "PAPAW",
+      "before": {
+        "graphemes": [
+          "P",
+          "A",
+          "P",
+          "A",
+          "W"
+        ],
+        "phonemes": [
+          "P",
+          "AO",
+          "-",
+          "P",
+          "AO"
+        ],
+        "syllables": [
+          "pa",
+          "paw"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "P",
+          "A",
+          "P",
+          "AW"
+        ]
+      }
+    },
+    {
+      "word": "PAW",
+      "before": {
+        "graphemes": [
+          "P",
+          "A",
+          "W"
+        ],
+        "phonemes": [
+          "P",
+          "AO"
+        ],
+        "syllables": [
+          "paw"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "P",
+          "AW"
+        ]
+      }
+    },
+    {
+      "word": "PAWING",
+      "before": {
+        "graphemes": [
+          "P",
+          "A",
+          "W",
+          "I",
+          "NG"
+        ],
+        "phonemes": [
+          "P",
+          "AO",
+          "-",
+          "IH",
+          "NG"
+        ],
+        "syllables": [
+          "paw",
+          "ing"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "P",
+          "AW",
+          "I",
+          "NG"
+        ]
+      }
+    },
+    {
+      "word": "PAWN",
+      "before": {
+        "graphemes": [
+          "P",
+          "A",
+          "W",
+          "N"
+        ],
+        "phonemes": [
+          "P",
+          "AO",
+          "N"
+        ],
+        "syllables": [
+          "pawn"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "P",
+          "AW",
+          "N"
+        ]
+      }
+    },
+    {
+      "word": "PAWNEE",
+      "before": {
+        "graphemes": [
+          "P",
+          "A",
+          "W",
+          "N",
+          "EE"
+        ],
+        "phonemes": [
+          "P",
+          "AO",
+          "-",
+          "N",
+          "IY"
+        ],
+        "syllables": [
+          "paw",
+          "nee"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "P",
+          "AW",
+          "N",
+          "EE"
+        ]
+      }
+    },
+    {
+      "word": "PAWNSHOP",
+      "before": {
+        "graphemes": [
+          "P",
+          "A",
+          "W",
+          "N",
+          "SH",
+          "O",
+          "P"
+        ],
+        "phonemes": [
+          "P",
+          "AO",
+          "N",
+          "-",
+          "SH",
+          "AA",
+          "P"
+        ],
+        "syllables": [
+          "pawn",
+          "shop"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "P",
+          "AW",
+          "N",
+          "SH",
+          "O",
+          "P"
+        ]
+      }
+    },
+    {
+      "word": "PAWTUCKET",
+      "before": {
+        "graphemes": [
+          "P",
+          "A",
+          "W",
+          "T",
+          "U",
+          "CK",
+          "E",
+          "T"
+        ],
+        "phonemes": [
+          "P",
+          "AO",
+          "-",
+          "T",
+          "AH",
+          "K",
+          "-",
+          "EH",
+          "T"
+        ],
+        "syllables": [
+          "paw",
+          "tuck",
+          "et"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "P",
+          "AW",
+          "T",
+          "U",
+          "CK",
+          "E",
+          "T"
+        ]
+      }
+    },
+    {
+      "word": "PRAWN",
+      "before": {
+        "graphemes": [
+          "P",
+          "R",
+          "A",
+          "W",
+          "N"
+        ],
+        "phonemes": [
+          "P",
+          "R",
+          "AO",
+          "N"
+        ],
+        "syllables": [
+          "prawn"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "P",
+          "R",
+          "AW",
+          "N"
+        ]
+      }
+    },
+    {
+      "word": "PRAWNS",
+      "before": {
+        "graphemes": [
+          "P",
+          "R",
+          "A",
+          "W",
+          "N",
+          "S"
+        ],
+        "phonemes": [
+          "P",
+          "R",
+          "AO",
+          "N",
+          "-",
+          "Z"
+        ],
+        "syllables": [
+          "prawn",
+          "s"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "P",
+          "R",
+          "AW",
+          "N",
+          "S"
+        ]
+      }
+    },
+    {
+      "word": "RAWHIDE",
+      "before": {
+        "graphemes": [
+          "R",
+          "A",
+          "W",
+          "H",
+          "I",
+          "D",
+          "E"
+        ],
+        "phonemes": [
+          "R",
+          "AO",
+          "-",
+          "HH",
+          "AY",
+          "D"
+        ],
+        "syllables": [
+          "raw",
+          "hide"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "R",
+          "AW",
+          "H",
+          "I",
+          "D",
+          "E"
+        ]
+      }
+    },
+    {
+      "word": "RAWLINGS",
+      "before": {
+        "graphemes": [
+          "R",
+          "A",
+          "W",
+          "L",
+          "I",
+          "NG",
+          "S"
+        ],
+        "phonemes": [
+          "R",
+          "AO",
+          "-",
+          "L",
+          "IH",
+          "NG",
+          "-",
+          "Z"
+        ],
+        "syllables": [
+          "raw",
+          "ling",
+          "s"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "R",
+          "AW",
+          "L",
+          "I",
+          "NG",
+          "S"
+        ]
+      }
+    },
+    {
+      "word": "RAWLINS",
+      "before": {
+        "graphemes": [
+          "R",
+          "A",
+          "W",
+          "L",
+          "I",
+          "N",
+          "S"
+        ],
+        "phonemes": [
+          "R",
+          "AO",
+          "-",
+          "L",
+          "IH",
+          "N",
+          "-",
+          "Z"
+        ],
+        "syllables": [
+          "raw",
+          "lin",
+          "s"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "R",
+          "AW",
+          "L",
+          "I",
+          "N",
+          "S"
+        ]
+      }
+    },
+    {
+      "word": "RAWLINSON",
+      "before": {
+        "graphemes": [
+          "R",
+          "A",
+          "W",
+          "L",
+          "I",
+          "N",
+          "S",
+          "O",
+          "N"
+        ],
+        "phonemes": [
+          "R",
+          "AO",
+          "-",
+          "L",
+          "IH",
+          "N",
+          "-",
+          "S",
+          "AA",
+          "N"
+        ],
+        "syllables": [
+          "raw",
+          "lin",
+          "son"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "R",
+          "AW",
+          "L",
+          "I",
+          "N",
+          "S",
+          "O",
+          "N"
+        ]
+      }
+    },
+    {
+      "word": "RAWLS",
+      "before": {
+        "graphemes": [
+          "R",
+          "A",
+          "W",
+          "L",
+          "S"
+        ],
+        "phonemes": [
+          "R",
+          "AO",
+          "LL",
+          "-",
+          "Z"
+        ],
+        "syllables": [
+          "rawl",
+          "s"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "R",
+          "AW",
+          "L",
+          "S"
+        ]
+      }
+    },
+    {
+      "word": "RAWNESS",
+      "before": {
+        "graphemes": [
+          "R",
+          "A",
+          "W",
+          "N",
+          "E",
+          "SS"
+        ],
+        "phonemes": [
+          "R",
+          "AO",
+          "-",
+          "N",
+          "IH",
+          "S"
+        ],
+        "syllables": [
+          "raw",
+          "ness"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "R",
+          "AW",
+          "N",
+          "E",
+          "SS"
+        ]
+      }
+    },
+    {
+      "word": "REDRAW",
+      "before": {
+        "graphemes": [
+          "R",
+          "E",
+          "D",
+          "R",
+          "A",
+          "W"
+        ],
+        "phonemes": [
+          "R",
+          "IY",
+          "-",
+          "D",
+          "R",
+          "AO"
+        ],
+        "syllables": [
+          "re",
+          "draw"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "R",
+          "E",
+          "D",
+          "R",
+          "AW"
+        ]
+      }
+    },
+    {
+      "word": "REDRAWING",
+      "before": {
+        "graphemes": [
+          "R",
+          "E",
+          "D",
+          "R",
+          "A",
+          "W",
+          "I",
+          "NG"
+        ],
+        "phonemes": [
+          "R",
+          "IY",
+          "-",
+          "D",
+          "R",
+          "AO",
+          "-",
+          "IH",
+          "NG"
+        ],
+        "syllables": [
+          "re",
+          "draw",
+          "ing"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "R",
+          "E",
+          "D",
+          "R",
+          "AW",
+          "I",
+          "NG"
+        ]
+      }
+    },
+    {
+      "word": "REDRAWN",
+      "before": {
+        "graphemes": [
+          "R",
+          "E",
+          "D",
+          "R",
+          "A",
+          "W",
+          "N"
+        ],
+        "phonemes": [
+          "R",
+          "IY",
+          "-",
+          "D",
+          "R",
+          "AO",
+          "N"
+        ],
+        "syllables": [
+          "re",
+          "drawn"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "R",
+          "E",
+          "D",
+          "R",
+          "AW",
+          "N"
+        ]
+      }
+    },
+    {
+      "word": "SAGINAW",
+      "before": {
+        "graphemes": [
+          "S",
+          "A",
+          "G",
+          "I",
+          "N",
+          "A",
+          "W"
+        ],
+        "phonemes": [
+          "S",
+          "AE",
+          "G",
+          "-",
+          "IH",
+          "-",
+          "N",
+          "AO"
+        ],
+        "syllables": [
+          "sag",
+          "i",
+          "naw"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "S",
+          "A",
+          "G",
+          "I",
+          "N",
+          "AW"
+        ]
+      }
+    },
+    {
+      "word": "SAWDUST",
+      "before": {
+        "graphemes": [
+          "S",
+          "A",
+          "W",
+          "D",
+          "U",
+          "S",
+          "T"
+        ],
+        "phonemes": [
+          "S",
+          "AO",
+          "-",
+          "D",
+          "AH",
+          "S",
+          "T"
+        ],
+        "syllables": [
+          "saw",
+          "dust"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "S",
+          "AW",
+          "D",
+          "U",
+          "S",
+          "T"
+        ]
+      }
+    },
+    {
+      "word": "SAWING",
+      "before": {
+        "graphemes": [
+          "S",
+          "A",
+          "W",
+          "I",
+          "NG"
+        ],
+        "phonemes": [
+          "S",
+          "AO",
+          "-",
+          "IH",
+          "NG"
+        ],
+        "syllables": [
+          "saw",
+          "ing"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "S",
+          "AW",
+          "I",
+          "NG"
+        ]
+      }
+    },
+    {
+      "word": "SAWMILL",
+      "before": {
+        "graphemes": [
+          "S",
+          "A",
+          "W",
+          "M",
+          "I",
+          "LL"
+        ],
+        "phonemes": [
+          "S",
+          "AO",
+          "-",
+          "M",
+          "IH",
+          "LL"
+        ],
+        "syllables": [
+          "saw",
+          "mill"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "S",
+          "AW",
+          "M",
+          "I",
+          "LL"
+        ]
+      }
+    },
+    {
+      "word": "SAWS",
+      "before": {
+        "graphemes": [
+          "S",
+          "A",
+          "W",
+          "S"
+        ],
+        "phonemes": [
+          "S",
+          "AO",
+          "-",
+          "S"
+        ],
+        "syllables": [
+          "saw",
+          "s"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "S",
+          "AW",
+          "S"
+        ]
+      }
+    },
+    {
+      "word": "SAWYER",
+      "before": {
+        "graphemes": [
+          "S",
+          "A",
+          "W",
+          "Y",
+          "ER"
+        ],
+        "phonemes": [
+          "S",
+          "AO",
+          "-",
+          "Y",
+          "ER"
+        ],
+        "syllables": [
+          "saw",
+          "yer"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "S",
+          "AW",
+          "Y",
+          "ER"
+        ]
+      }
+    },
+    {
+      "word": "SCRAWL",
+      "before": {
+        "graphemes": [
+          "S",
+          "C",
+          "R",
+          "A",
+          "W",
+          "L"
+        ],
+        "phonemes": [
+          "S",
+          "K",
+          "R",
+          "AO",
+          "L"
+        ],
+        "syllables": [
+          "scrawl"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "S",
+          "C",
+          "R",
+          "AW",
+          "L"
+        ]
+      }
+    },
+    {
+      "word": "SCRAWLED",
+      "before": {
+        "graphemes": [
+          "S",
+          "C",
+          "R",
+          "A",
+          "W",
+          "L",
+          "ED"
+        ],
+        "phonemes": [
+          "S",
+          "K",
+          "R",
+          "AO",
+          "LL",
+          "-",
+          "D"
+        ],
+        "syllables": [
+          "scrawl",
+          "ed"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "S",
+          "C",
+          "R",
+          "AW",
+          "L",
+          "ED"
+        ]
+      }
+    },
+    {
+      "word": "SCRAWNY",
+      "before": {
+        "graphemes": [
+          "S",
+          "C",
+          "R",
+          "A",
+          "W",
+          "N",
+          "Y"
+        ],
+        "phonemes": [
+          "S",
+          "K",
+          "R",
+          "AO",
+          "N",
+          "-",
+          "IY"
+        ],
+        "syllables": [
+          "scrawn",
+          "y"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "S",
+          "C",
+          "R",
+          "AW",
+          "N",
+          "Y"
+        ]
+      }
+    },
+    {
+      "word": "SCRIMSHAW",
+      "before": {
+        "graphemes": [
+          "S",
+          "C",
+          "R",
+          "I",
+          "M",
+          "SH",
+          "A",
+          "W"
+        ],
+        "phonemes": [
+          "S",
+          "K",
+          "R",
+          "IH",
+          "M",
+          "-",
+          "SH",
+          "AO"
+        ],
+        "syllables": [
+          "scrim",
+          "shaw"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "S",
+          "C",
+          "R",
+          "I",
+          "M",
+          "SH",
+          "AW"
+        ]
+      }
+    },
+    {
+      "word": "SEESAW",
+      "before": {
+        "graphemes": [
+          "S",
+          "EE",
+          "S",
+          "A",
+          "W"
+        ],
+        "phonemes": [
+          "S",
+          "IY",
+          "-",
+          "S",
+          "AO"
+        ],
+        "syllables": [
+          "see",
+          "saw"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "S",
+          "EE",
+          "S",
+          "AW"
+        ]
+      }
+    },
+    {
+      "word": "SHAW",
+      "before": {
+        "graphemes": [
+          "SH",
+          "A",
+          "W"
+        ],
+        "phonemes": [
+          "SH",
+          "AO"
+        ],
+        "syllables": [
+          "shaw"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "SH",
+          "AW"
+        ]
+      }
+    },
+    {
+      "word": "SHAWL",
+      "before": {
+        "graphemes": [
+          "SH",
+          "A",
+          "W",
+          "L"
+        ],
+        "phonemes": [
+          "SH",
+          "AO",
+          "L"
+        ],
+        "syllables": [
+          "shawl"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "SH",
+          "AW",
+          "L"
+        ]
+      }
+    },
+    {
+      "word": "SHAWLS",
+      "before": {
+        "graphemes": [
+          "SH",
+          "A",
+          "W",
+          "L",
+          "S"
+        ],
+        "phonemes": [
+          "SH",
+          "AO",
+          "LL",
+          "-",
+          "Z"
+        ],
+        "syllables": [
+          "shawl",
+          "s"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "SH",
+          "AW",
+          "L",
+          "S"
+        ]
+      }
+    },
+    {
+      "word": "SHAWN",
+      "before": {
+        "graphemes": [
+          "SH",
+          "A",
+          "W",
+          "N"
+        ],
+        "phonemes": [
+          "SH",
+          "AO",
+          "N"
+        ],
+        "syllables": [
+          "shawn"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "SH",
+          "AW",
+          "N"
+        ]
+      }
+    },
+    {
+      "word": "SHAWNEE",
+      "before": {
+        "graphemes": [
+          "SH",
+          "A",
+          "W",
+          "N",
+          "EE"
+        ],
+        "phonemes": [
+          "SH",
+          "AO",
+          "-",
+          "N",
+          "IY"
+        ],
+        "syllables": [
+          "shaw",
+          "nee"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "SH",
+          "AW",
+          "N",
+          "EE"
+        ]
+      }
+    },
+    {
+      "word": "SPRAWL",
+      "before": {
+        "graphemes": [
+          "S",
+          "P",
+          "R",
+          "A",
+          "W",
+          "L"
+        ],
+        "phonemes": [
+          "S",
+          "P",
+          "R",
+          "AO",
+          "L"
+        ],
+        "syllables": [
+          "sprawl"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "S",
+          "P",
+          "R",
+          "AW",
+          "L"
+        ]
+      }
+    },
+    {
+      "word": "SPRAWLED",
+      "before": {
+        "graphemes": [
+          "S",
+          "P",
+          "R",
+          "A",
+          "W",
+          "L",
+          "ED"
+        ],
+        "phonemes": [
+          "S",
+          "P",
+          "R",
+          "AO",
+          "LL",
+          "-",
+          "D"
+        ],
+        "syllables": [
+          "sprawl",
+          "ed"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "S",
+          "P",
+          "R",
+          "AW",
+          "L",
+          "ED"
+        ]
+      }
+    },
+    {
+      "word": "SPRAWLING",
+      "before": {
+        "graphemes": [
+          "S",
+          "P",
+          "R",
+          "A",
+          "W",
+          "L",
+          "I",
+          "NG"
+        ],
+        "phonemes": [
+          "S",
+          "P",
+          "R",
+          "AO",
+          "LL",
+          "-",
+          "IH",
+          "NG"
+        ],
+        "syllables": [
+          "sprawl",
+          "ing"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "S",
+          "P",
+          "R",
+          "AW",
+          "L",
+          "I",
+          "NG"
+        ]
+      }
+    },
+    {
+      "word": "SPRAWLS",
+      "before": {
+        "graphemes": [
+          "S",
+          "P",
+          "R",
+          "A",
+          "W",
+          "L",
+          "S"
+        ],
+        "phonemes": [
+          "S",
+          "P",
+          "R",
+          "AO",
+          "LL",
+          "-",
+          "Z"
+        ],
+        "syllables": [
+          "sprawl",
+          "s"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "S",
+          "P",
+          "R",
+          "AW",
+          "L",
+          "S"
+        ]
+      }
+    },
+    {
+      "word": "SQUAWK",
+      "before": {
+        "graphemes": [
+          "S",
+          "Q",
+          "U",
+          "A",
+          "W",
+          "K"
+        ],
+        "phonemes": [
+          "S",
+          "K",
+          "W",
+          "AO",
+          "K"
+        ],
+        "syllables": [
+          "squawk"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "S",
+          "Q",
+          "U",
+          "AW",
+          "K"
+        ]
+      }
+    },
+    {
+      "word": "SQUAWKED",
+      "before": {
+        "graphemes": [
+          "S",
+          "Q",
+          "U",
+          "A",
+          "W",
+          "K",
+          "ED"
+        ],
+        "phonemes": [
+          "S",
+          "K",
+          "W",
+          "AO",
+          "K",
+          "-",
+          "T"
+        ],
+        "syllables": [
+          "squawk",
+          "ed"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "S",
+          "Q",
+          "U",
+          "AW",
+          "K",
+          "ED"
+        ]
+      }
+    },
+    {
+      "word": "STRAW",
+      "before": {
+        "graphemes": [
+          "S",
+          "T",
+          "R",
+          "A",
+          "W"
+        ],
+        "phonemes": [
+          "S",
+          "T",
+          "R",
+          "AO"
+        ],
+        "syllables": [
+          "straw"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "S",
+          "T",
+          "R",
+          "AW"
+        ]
+      }
+    },
+    {
+      "word": "STRAWBERRIES",
+      "before": {
+        "graphemes": [
+          "S",
+          "T",
+          "R",
+          "A",
+          "W",
+          "B",
+          "ER",
+          "R",
+          "I",
+          "E",
+          "S"
+        ],
+        "phonemes": [
+          "S",
+          "T",
+          "R",
+          "AO",
+          "-",
+          "B",
+          "AIR",
+          "-",
+          "IY",
+          "-",
+          "Z"
+        ],
+        "syllables": [
+          "straw",
+          "ber",
+          "ri",
+          "es"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "S",
+          "T",
+          "R",
+          "AW",
+          "B",
+          "ER",
+          "R",
+          "I",
+          "E",
+          "S"
+        ]
+      }
+    },
+    {
+      "word": "STRAWBERRY",
+      "before": {
+        "graphemes": [
+          "S",
+          "T",
+          "R",
+          "A",
+          "W",
+          "B",
+          "ER",
+          "R",
+          "Y"
+        ],
+        "phonemes": [
+          "S",
+          "T",
+          "R",
+          "AO",
+          "-",
+          "B",
+          "EH",
+          "-",
+          "R",
+          "IY"
+        ],
+        "syllables": [
+          "straw",
+          "ber",
+          "ry"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "S",
+          "T",
+          "R",
+          "AW",
+          "B",
+          "ER",
+          "R",
+          "Y"
+        ]
+      }
+    },
+    {
+      "word": "STRAWS",
+      "before": {
+        "graphemes": [
+          "S",
+          "T",
+          "R",
+          "A",
+          "W",
+          "S"
+        ],
+        "phonemes": [
+          "S",
+          "T",
+          "R",
+          "AO",
+          "-",
+          "Z"
+        ],
+        "syllables": [
+          "straw",
+          "s"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "S",
+          "T",
+          "R",
+          "AW",
+          "S"
+        ]
+      }
+    },
+    {
+      "word": "TAWDRY",
+      "before": {
+        "graphemes": [
+          "T",
+          "A",
+          "W",
+          "D",
+          "R",
+          "Y"
+        ],
+        "phonemes": [
+          "T",
+          "AO",
+          "-",
+          "D",
+          "R",
+          "IY"
+        ],
+        "syllables": [
+          "taw",
+          "dry"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "T",
+          "AW",
+          "D",
+          "R",
+          "Y"
+        ]
+      }
+    },
+    {
+      "word": "TAWNEY",
+      "before": {
+        "graphemes": [
+          "T",
+          "A",
+          "W",
+          "N",
+          "EY"
+        ],
+        "phonemes": [
+          "T",
+          "AO",
+          "-",
+          "N",
+          "IY"
+        ],
+        "syllables": [
+          "taw",
+          "ney"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "T",
+          "AW",
+          "N",
+          "EY"
+        ]
+      }
+    },
+    {
+      "word": "THAW",
+      "before": {
+        "graphemes": [
+          "TH",
+          "A",
+          "W"
+        ],
+        "phonemes": [
+          "TH",
+          "AO"
+        ],
+        "syllables": [
+          "thaw"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "TH",
+          "AW"
+        ]
+      }
+    },
+    {
+      "word": "THAWED",
+      "before": {
+        "graphemes": [
+          "TH",
+          "A",
+          "W",
+          "E",
+          "D"
+        ],
+        "phonemes": [
+          "TH",
+          "AO",
+          "-",
+          "D"
+        ],
+        "syllables": [
+          "thaw",
+          "ed"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "TH",
+          "AW",
+          "E",
+          "D"
+        ]
+      }
+    },
+    {
+      "word": "THAWED",
+      "before": {
+        "graphemes": [
+          "TH",
+          "A",
+          "W",
+          "E",
+          "D"
+        ],
+        "phonemes": [
+          "TH",
+          "AO",
+          "-",
+          "D"
+        ],
+        "syllables": [
+          "thaw",
+          "ed"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "TH",
+          "AW",
+          "E",
+          "D"
+        ]
+      }
+    },
+    {
+      "word": "THAWING",
+      "before": {
+        "graphemes": [
+          "TH",
+          "A",
+          "W",
+          "I",
+          "NG"
+        ],
+        "phonemes": [
+          "TH",
+          "AO",
+          "-",
+          "IH",
+          "NG"
+        ],
+        "syllables": [
+          "thaw",
+          "ing"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "TH",
+          "AW",
+          "I",
+          "NG"
+        ]
+      }
+    },
+    {
+      "word": "THAWS",
+      "before": {
+        "graphemes": [
+          "TH",
+          "A",
+          "W",
+          "S"
+        ],
+        "phonemes": [
+          "TH",
+          "AO",
+          "-",
+          "S"
+        ],
+        "syllables": [
+          "thaw",
+          "s"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "TH",
+          "AW",
+          "S"
+        ]
+      }
+    },
+    {
+      "word": "TOMAHAWK",
+      "before": {
+        "graphemes": [
+          "T",
+          "O",
+          "M",
+          "A",
+          "H",
+          "A",
+          "W",
+          "K"
+        ],
+        "phonemes": [
+          "T",
+          "AA",
+          "M",
+          "-",
+          "AE",
+          "-",
+          "HH",
+          "AO",
+          "K"
+        ],
+        "syllables": [
+          "tom",
+          "a",
+          "hawk"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "T",
+          "O",
+          "M",
+          "A",
+          "H",
+          "AW",
+          "K"
+        ]
+      }
+    },
+    {
+      "word": "TRAWLER",
+      "before": {
+        "graphemes": [
+          "T",
+          "R",
+          "A",
+          "W",
+          "L",
+          "ER"
+        ],
+        "phonemes": [
+          "T",
+          "R",
+          "AO",
+          "LL",
+          "-",
+          "ER"
+        ],
+        "syllables": [
+          "trawl",
+          "er"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "T",
+          "R",
+          "AW",
+          "L",
+          "ER"
+        ]
+      }
+    },
+    {
+      "word": "UNLAWFUL",
+      "before": {
+        "graphemes": [
+          "U",
+          "N",
+          "L",
+          "A",
+          "W",
+          "F",
+          "UL"
+        ],
+        "phonemes": [
+          "AH",
+          "N",
+          "-",
+          "L",
+          "AO",
+          "-",
+          "F",
+          "LL"
+        ],
+        "syllables": [
+          "un",
+          "law",
+          "ful"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "U",
+          "N",
+          "L",
+          "AW",
+          "F",
+          "UL"
+        ]
+      }
+    },
+    {
+      "word": "UNLAWFULLY",
+      "before": {
+        "graphemes": [
+          "U",
+          "N",
+          "L",
+          "A",
+          "W",
+          "F",
+          "UL",
+          "L",
+          "Y"
+        ],
+        "phonemes": [
+          "AH",
+          "N",
+          "-",
+          "L",
+          "AO",
+          "-",
+          "F",
+          "LL",
+          "-",
+          "L",
+          "IY"
+        ],
+        "syllables": [
+          "un",
+          "law",
+          "ful",
+          "ly"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "U",
+          "N",
+          "L",
+          "AW",
+          "F",
+          "UL",
+          "L",
+          "Y"
+        ]
+      }
+    },
+    {
+      "word": "WARSAW",
+      "before": {
+        "graphemes": [
+          "W",
+          "AR",
+          "S",
+          "A",
+          "W"
+        ],
+        "phonemes": [
+          "W",
+          "OR",
+          "-",
+          "S",
+          "AO"
+        ],
+        "syllables": [
+          "war",
+          "saw"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "W",
+          "AR",
+          "S",
+          "AW"
+        ]
+      }
+    },
+    {
+      "word": "WHIPSAW",
+      "before": {
+        "graphemes": [
+          "WH",
+          "I",
+          "P",
+          "S",
+          "A",
+          "W"
+        ],
+        "phonemes": [
+          "W",
+          "IH",
+          "P",
+          "-",
+          "S",
+          "AO"
+        ],
+        "syllables": [
+          "whip",
+          "saw"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "WH",
+          "I",
+          "P",
+          "S",
+          "AW"
+        ]
+      }
+    },
+    {
+      "word": "WHIPSAWING",
+      "before": {
+        "graphemes": [
+          "WH",
+          "I",
+          "P",
+          "S",
+          "A",
+          "W",
+          "I",
+          "NG"
+        ],
+        "phonemes": [
+          "W",
+          "IH",
+          "P",
+          "-",
+          "S",
+          "AO",
+          "-",
+          "IH",
+          "NG"
+        ],
+        "syllables": [
+          "whip",
+          "saw",
+          "ing"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "WH",
+          "I",
+          "P",
+          "S",
+          "AW",
+          "I",
+          "NG"
+        ]
+      }
+    },
+    {
+      "word": "WITHDRAW",
+      "before": {
+        "graphemes": [
+          "W",
+          "I",
+          "TH",
+          "D",
+          "R",
+          "A",
+          "W"
+        ],
+        "phonemes": [
+          "W",
+          "IH",
+          "DH",
+          "-",
+          "D",
+          "R",
+          "AO"
+        ],
+        "syllables": [
+          "with",
+          "draw"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "W",
+          "I",
+          "TH",
+          "D",
+          "R",
+          "AW"
+        ]
+      }
+    },
+    {
+      "word": "WITHDRAWAL",
+      "before": {
+        "graphemes": [
+          "W",
+          "I",
+          "TH",
+          "D",
+          "R",
+          "A",
+          "W",
+          "A",
+          "L"
+        ],
+        "phonemes": [
+          "W",
+          "IH",
+          "DH",
+          "-",
+          "D",
+          "R",
+          "AO",
+          "-",
+          "AE",
+          "LL"
+        ],
+        "syllables": [
+          "with",
+          "draw",
+          "al"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "W",
+          "I",
+          "TH",
+          "D",
+          "R",
+          "AW",
+          "A",
+          "L"
+        ]
+      }
+    },
+    {
+      "word": "WITHDRAWALS",
+      "before": {
+        "graphemes": [
+          "W",
+          "I",
+          "TH",
+          "D",
+          "R",
+          "A",
+          "W",
+          "A",
+          "L",
+          "S"
+        ],
+        "phonemes": [
+          "W",
+          "IH",
+          "TH",
+          "-",
+          "D",
+          "R",
+          "AO",
+          "-",
+          "AE",
+          "LL",
+          "-",
+          "Z"
+        ],
+        "syllables": [
+          "with",
+          "draw",
+          "al",
+          "s"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "W",
+          "I",
+          "TH",
+          "D",
+          "R",
+          "AW",
+          "A",
+          "L",
+          "S"
+        ]
+      }
+    },
+    {
+      "word": "WITHDRAWING",
+      "before": {
+        "graphemes": [
+          "W",
+          "I",
+          "TH",
+          "D",
+          "R",
+          "A",
+          "W",
+          "I",
+          "NG"
+        ],
+        "phonemes": [
+          "W",
+          "IH",
+          "TH",
+          "-",
+          "D",
+          "R",
+          "AO",
+          "-",
+          "IH",
+          "NG"
+        ],
+        "syllables": [
+          "with",
+          "draw",
+          "ing"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "W",
+          "I",
+          "TH",
+          "D",
+          "R",
+          "AW",
+          "I",
+          "NG"
+        ]
+      }
+    },
+    {
+      "word": "WITHDRAWN",
+      "before": {
+        "graphemes": [
+          "W",
+          "I",
+          "TH",
+          "D",
+          "R",
+          "A",
+          "W",
+          "N"
+        ],
+        "phonemes": [
+          "W",
+          "IH",
+          "TH",
+          "-",
+          "D",
+          "R",
+          "AO",
+          "N"
+        ],
+        "syllables": [
+          "with",
+          "drawn"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "W",
+          "I",
+          "TH",
+          "D",
+          "R",
+          "AW",
+          "N"
+        ]
+      }
+    },
+    {
+      "word": "WITHDRAWS",
+      "before": {
+        "graphemes": [
+          "W",
+          "I",
+          "TH",
+          "D",
+          "R",
+          "A",
+          "W",
+          "S"
+        ],
+        "phonemes": [
+          "W",
+          "IH",
+          "DH",
+          "-",
+          "D",
+          "R",
+          "AO",
+          "-",
+          "Z"
+        ],
+        "syllables": [
+          "with",
+          "draw",
+          "s"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "W",
+          "I",
+          "TH",
+          "D",
+          "R",
+          "AW",
+          "S"
+        ]
+      }
+    },
+    {
+      "word": "YAW",
+      "before": {
+        "graphemes": [
+          "Y",
+          "A",
+          "W"
+        ],
+        "phonemes": [
+          "Y",
+          "AO"
+        ],
+        "syllables": [
+          "yaw"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "Y",
+          "AW"
+        ]
+      }
+    },
+    {
+      "word": "YAWN",
+      "before": {
+        "graphemes": [
+          "Y",
+          "A",
+          "W",
+          "N"
+        ],
+        "phonemes": [
+          "Y",
+          "AO",
+          "N"
+        ],
+        "syllables": [
+          "yawn"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "Y",
+          "AW",
+          "N"
+        ]
+      }
+    },
+    {
+      "word": "YAWNER",
+      "before": {
+        "graphemes": [
+          "Y",
+          "A",
+          "W",
+          "N",
+          "ER"
+        ],
+        "phonemes": [
+          "Y",
+          "AO",
+          "N",
+          "-",
+          "ER"
+        ],
+        "syllables": [
+          "yawn",
+          "er"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "Y",
+          "AW",
+          "N",
+          "ER"
+        ]
+      }
+    },
+    {
+      "word": "YAWNING",
+      "before": {
+        "graphemes": [
+          "Y",
+          "A",
+          "W",
+          "N",
+          "I",
+          "NG"
+        ],
+        "phonemes": [
+          "Y",
+          "AO",
+          "N",
+          "-",
+          "IH",
+          "NG"
+        ],
+        "syllables": [
+          "yawn",
+          "ing"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "Y",
+          "AW",
+          "N",
+          "I",
+          "NG"
+        ]
+      }
+    }
+  ]
+}

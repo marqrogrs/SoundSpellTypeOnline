@@ -53,9 +53,9 @@ test("shows login options on the landing page", async () => {
   });
 });
 
-test("shows WELCOME TO text on the landing page", async () => {
-  const { getByText } = render(<App />);
+test("shows landing page branding text", async () => {
+  const { getAllByText } = render(<App />);
   await wait(() => {
-    expect(getByText(/WELCOME TO/i)).toBeInTheDocument();
+    expect(getAllByText(/Sound Spell Type Online/i).length).toBeGreaterThan(0);
   });
 });

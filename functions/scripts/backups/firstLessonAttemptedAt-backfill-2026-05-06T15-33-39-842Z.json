@@ -1,0 +1,27 @@
+{
+  "mode": "dry-run",
+  "projectId": "soundspeller-c5e53",
+  "includeStudents": false,
+  "limit": 0,
+  "scannedUsers": 6,
+  "includedUsers": 4,
+  "alreadyHadTimestamp": 0,
+  "candidates": 2,
+  "toProcess": 2,
+  "sample": [
+    {
+      "userId": "5jOl0e4t9BN78AcjmrAJM00kx3C3",
+      "role": "schoolAdmin",
+      "attemptedViaProgress": true,
+      "attemptedViaMastered": true,
+      "backfillTimestamp": "2026-05-04T17:48:43.449Z"
+    },
+    {
+      "userId": "mDmycSxcwhNpx7MqmE15xv7qA5X2",
+      "role": "admin",
+      "attemptedViaProgress": true,
+      "attemptedViaMastered": true,
+      "backfillTimestamp": "2026-04-26T22:19:44.016Z"
+    }
+  ]
+}

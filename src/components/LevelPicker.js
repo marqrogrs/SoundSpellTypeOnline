@@ -3,7 +3,7 @@ import { Typography, ButtonGroup, Button } from "@material-ui/core";
 import { LEVELS } from "../util/constants";
 import { LessonContext } from "../providers/LessonProvider";
 
-export default function LevelPicker({ onSelectLevel }) {
+export default function LevelPicker({ onSelectLevel, disabled }) {
   const { currentLesson, currentLessonLevel, setLevel } =
     useContext(LessonContext);
 
@@ -17,8 +17,21 @@ export default function LevelPicker({ onSelectLevel }) {
   };
 
   return (
-    <>
-      <Typography>Pick a level:</Typography>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: 2,
+      }}
+    >
+      <Typography
+        align="center"
+        color="primary"
+        style={{ fontWeight: 600, fontSize: 12 }}
+      >
+        Difficulty Level
+      </Typography>
       <ButtonGroup color="primary">
         {currentLesson &&
           LEVELS.map((l, index) => {
@@ -29,12 +42,13 @@ export default function LevelPicker({ onSelectLevel }) {
                   currentLessonLevel === index ? `contained` : `outlined`
                 }
                 onClick={() => handleSelectLevel(index)}
+                disabled={disabled}
               >
                 {index + 1}
               </Button>
             );
           })}
       </ButtonGroup>
-    </>
+    </div>
   );
 }

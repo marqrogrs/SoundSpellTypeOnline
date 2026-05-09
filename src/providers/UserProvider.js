@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { db } from "../firebase";
 import { createStudentAccount } from "../firebase";
@@ -6,76 +6,131 @@ import { createStudentAccount } from "../firebase";
 const UserContext = React.createContext({});
 
 export default function UserProvider({ children }) {
-  const { user, authLoaded } = useAuth();
+  const { user, authLoaded, role } = useAuth();
   const [userData, setUserData] = useState(null);
   const [classrooms, setClassrooms] = useState(null);
-  const [totalScore, setTotalScore] = useState(0);
+  const [wordsMasteredTotal, setWordsMasteredTotal] = useState(0);
   const [userDataLoaded, setUserDataLoaded] = useState(false);
+  const levelThreeMasteredRef = useRef(new Set());
+
+  const normalizeWord = useCallback((word) => {
+    return String(word || "")
+      .trim()
+      .toUpperCase();
+  }, []);
+
+  const registerMasteredWord = useCallback(
+    (difficultyLevel, word) => {
+      if (String(difficultyLevel) !== "3") {
+        return;
+      }
+
+      const normalizedWord = normalizeWord(word);
+      if (
+        !normalizedWord ||
+        levelThreeMasteredRef.current.has(normalizedWord)
+      ) {
+        return;
+      }
+
+      levelThreeMasteredRef.current.add(normalizedWord);
+      setWordsMasteredTotal((prev) => prev + 1);
+    },
+    [normalizeWord],
+  );
 
   useEffect(() => {
     if (authLoaded && user) {
       const isEducator = user.email !== null;
+      const shouldLoadEducatorClasses = role === "educator";
       console.log(isEducator);
-      const userDoc = isEducator
-        ? db.collection("users").doc(user.uid)
-        : db.collection("users").where("username", "==", user.uid);
-      var unsubscribeUser = () => {};
+      const usersCollection = db.collection("users");
+      const userDocRef = usersCollection.doc(user.uid);
+      const userByUsernameQuery = usersCollection
+        .where("username", "==", user.uid)
+        .limit(1);
+      var unsubscribeDirectUser = () => {};
+      var unsubscribeUsernameUser = () => {};
       var unsubscribeClasses = () => {};
+
+      const applyUserData = (data) => {
+        if (!data) {
+          if (isEducator) {
+            const initialEducatorData = {
+              email: user.email,
+              progress: {},
+            };
+
+            usersCollection.doc(user.uid).set(initialEducatorData, {
+              merge: true,
+            });
+
+            setUserData(initialEducatorData);
+          } else {
+            setUserData(null);
+          }
+          setClassrooms(null);
+          levelThreeMasteredRef.current = new Set();
+          setWordsMasteredTotal(0);
+          setUserDataLoaded(true);
+          return;
+        }
+
+        // Lazy-initialize progress for existing educator accounts that
+        // were created before the progress field was set on registration.
+        if (isEducator && data.progress === undefined) {
+          usersCollection.doc(user.uid).update({ progress: {} });
+        }
+
+        setUserData(data);
+
+        const masteredByDifficulty = data.words_mastered_by_difficulty || {};
+        const levelThreeWords =
+          masteredByDifficulty[3] || masteredByDifficulty["3"] || [];
+        const normalizedLevelThreeWords = Array.isArray(levelThreeWords)
+          ? levelThreeWords.map((word) => normalizeWord(word)).filter(Boolean)
+          : [];
+        const firestoreSet = new Set(normalizedLevelThreeWords);
+        // Merge the incoming Firestore set with whatever we are already tracking
+        // in memory. This prevents a stale snapshot (one that arrives before the
+        // words_mastered_by_difficulty write has propagated) from resetting the
+        // counter back to 0 at lesson completion.
+        const mergedSet = new Set([
+          ...firestoreSet,
+          ...levelThreeMasteredRef.current,
+        ]);
+        levelThreeMasteredRef.current = mergedSet;
+        setWordsMasteredTotal(mergedSet.size);
+        setUserDataLoaded(true);
+      };
+
       if (user) {
         console.log(`Subscribing to ${user.uid}`);
-        unsubscribeUser = userDoc.onSnapshot((snap) => {
-          const data = isEducator ? snap.data() : snap.docs[0]?.data();
-
-          if (!data) {
-            if (isEducator) {
-              const initialEducatorData = {
-                email: user.email,
-                progress: {},
-              };
-
-              db.collection("users")
-                .doc(user.uid)
-                .set(initialEducatorData, { merge: true });
-
-              setUserData(initialEducatorData);
-            } else {
-              setUserData(null);
-            }
-            setClassrooms(null);
-            setTotalScore(0);
-            setUserDataLoaded(true);
-            return;
-          }
-
-          // Lazy-initialize progress for existing educator accounts that
-          // were created before the progress field was set on registration.
-          if (isEducator && data.progress === undefined) {
-            db.collection("users").doc(user.uid).update({ progress: {} });
-          }
-
-          setUserData(data);
-
-          //Calculate total score
-          const progress = data.progress || {};
-          const total_score = Object.values(progress).reduce((acc, section) => {
-            var high_score = 0;
-            Object.values(section || {}).forEach((id) => {
-              Object.values(id || {}).forEach((level) => {
-                if (!level) {
-                  return;
-                }
-                const score = Number(level.score) || 0;
-                const bestScore = Number(level.high_score) || 0;
-                high_score += Math.max(bestScore, score);
-              });
-            });
-            return (acc += high_score);
-          }, 0);
-          setTotalScore(total_score);
-          setUserDataLoaded(true);
-        });
         if (isEducator) {
-          unsubscribeClasses = userDoc
+          unsubscribeDirectUser = userDocRef.onSnapshot((snap) => {
+            applyUserData(snap.data());
+          });
+        } else {
+          let directData = null;
+          let usernameData = null;
+
+          const emitStudentData = () => {
+            applyUserData(directData || usernameData);
+          };
+
+          unsubscribeDirectUser = userDocRef.onSnapshot((snap) => {
+            directData = snap.exists ? snap.data() : null;
+            emitStudentData();
+          });
+
+          unsubscribeUsernameUser = userByUsernameQuery.onSnapshot((snap) => {
+            usernameData = snap.docs[0]?.data() || null;
+            emitStudentData();
+          });
+        }
+
+        if (shouldLoadEducatorClasses) {
+          unsubscribeClasses = userDocRef
             .collection("classes")
             .onSnapshot((querySnap) => {
               const classroomData = querySnap.docs.map((doc) => ({
@@ -91,11 +146,12 @@ export default function UserProvider({ children }) {
         // history.push('/')
       }
       return () => {
-        unsubscribeUser();
+        unsubscribeDirectUser();
+        unsubscribeUsernameUser();
         unsubscribeClasses();
       };
     }
-  }, [user, authLoaded]);
+  }, [user, authLoaded, role]);
 
   const addNewStudent = (student) => {
     return createStudentAccount(student)
@@ -120,7 +176,8 @@ export default function UserProvider({ children }) {
         userDataLoaded,
         addNewStudent,
         classrooms,
-        totalScore,
+        wordsMasteredTotal,
+        registerMasteredWord,
       }}
     >
       {children}

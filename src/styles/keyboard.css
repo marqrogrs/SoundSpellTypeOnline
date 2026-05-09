@@ -14,14 +14,46 @@
 .simple-keyboard.hg-layout-default .hg-button {
   font-size: 25px;
   cursor: default;
+  transition:
+    transform 120ms ease,
+    filter 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.simple-keyboard.hg-layout-default .hg-button.hg-standardBtn {
+  text-transform: uppercase;
+}
+
+.simple-keyboard.hg-layout-default .hg-button.hg-standardBtn span {
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  transform: scale(1);
+  color: inherit;
+  transition:
+    font-weight 120ms ease,
+    letter-spacing 120ms ease,
+    text-shadow 120ms ease,
+    transform 120ms ease,
+    color 120ms ease;
 }
 
 .simple-keyboard.hg-layout-default .hg-button.hg-activeButton {
-  transform: translateY(2px);
-  filter: brightness(0.78) saturate(1.2);
+  transform: translateY(1px) scale(1.1);
   box-shadow:
-    inset 0 0 0 3px rgba(255, 255, 255, 0.65),
-    inset 0 0 14px rgba(0, 0, 0, 0.25);
+    0 0 0 3px rgba(255, 255, 255, 0.9),
+    0 8px 16px rgba(0, 0, 0, 0.22),
+    inset 0 0 18px rgba(255, 255, 255, 0.35);
+}
+
+.simple-keyboard.hg-layout-default
+  .hg-button.hg-activeButton.hg-standardBtn
+  span {
+  text-transform: uppercase;
+  font-weight: 800;
+  color: #d32f2f;
+  letter-spacing: 0.7px;
+  transform: scale(1.08);
+  text-shadow: none;
 }
 
 .simple-keyboard.hg-layout-default .hg-button.dark {

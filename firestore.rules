@@ -1,11 +1,69 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isTopAdmin() {
+      return isSignedIn() && request.auth.token.admin == true;
+    }
+
+    function isSchoolAdminOrHigher() {
+      return isSignedIn() && (
+        request.auth.token.schoolAdmin == true ||
+        request.auth.token.admin == true
+      );
+    }
+
+    function isParent() {
+      return isSignedIn() && request.auth.token.parent == true;
+    }
+
+    function isParentOrHigher() {
+      return isSignedIn() && (
+        request.auth.token.parent == true ||
+        request.auth.token.schoolAdmin == true ||
+        request.auth.token.admin == true
+      );
+    }
+
+    function isSelfUser(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isStudentSelfByUsername(existingData) {
+      return isSignedIn() && existingData != null && request.auth.uid == existingData.username;
+    }
+
+    function userProtectedFieldsChanged() {
+      return request.resource.data.diff(resource.data).changedKeys().hasAny([
+        'role',
+        'passwordResetRequired',
+        'educator',
+        'classroom',
+        'schoolId',
+        'classIds',
+        'parentOwnerId',
+        'homeSchoolId',
+        'homeClassId'
+      ]);
+    }
+
     match /lessons/{lesson} {
+      allow read: if request.auth.uid != null;
+    }
+    match /rules/{rule} {
       allow read: if request.auth.uid != null;
     }
     match /lessonSection/{section} {
       allow read: if request.auth.uid != null;
+      allow write: if isSchoolAdminOrHigher();
+    }
+    match /lessonSections/{section} {
+      // Section titles/descriptions are non-sensitive and needed for pre-auth route rendering.
+      allow read: if true;
+      allow write: if isSchoolAdminOrHigher();
     }
     match /phonemes/{phoneme} {
       allow read: if request.auth.uid != null;
@@ -14,10 +72,130 @@ service cloud.firestore {
       allow read: if request.auth.uid != null;
     }
     match /users/{user} {
-      allow read, write: if request.auth.uid == user || request.auth.uid == resource.data.username;
+      allow read: if isSelfUser(user) || isStudentSelfByUsername(resource.data) || isSchoolAdminOrHigher()
+        // Parent can read their own students.
+        || (isParent() && resource.data.parentOwnerId == request.auth.uid);
+      allow create: if isSelfUser(user) && !request.resource.data.keys().hasAny(['role', 'passwordResetRequired'])
+        || isSchoolAdminOrHigher()
+        || (isParent() && request.resource.data.parentOwnerId == request.auth.uid);
+      allow update: if (
+        (isSelfUser(user) || isStudentSelfByUsername(resource.data))
+          && !userProtectedFieldsChanged()
+      ) || isSchoolAdminOrHigher()
+        // Parent can update only their own students' non-protected fields.
+        || (isParent() && resource.data.parentOwnerId == request.auth.uid && !userProtectedFieldsChanged());
+      allow delete: if isSchoolAdminOrHigher();
     	match /classes/{class} {
-      	allow read, write: if request.auth.uid == user;
+      	allow read, write: if request.auth.uid == user || isSchoolAdminOrHigher();
       }
+    }
+
+    match /adminAuditLogs/{logId} {
+      allow read: if isTopAdmin();
+      allow write: if false;
+    }
+
+    // ─── Schools (v2 org model) ───────────────────────────────────────────
+
+    match /schools/{schoolId} {
+      // Anyone signed in can read schools they belong to; admin/schoolAdmin read freely.
+      allow read: if isSchoolAdminOrHigher()
+        // Parent can read their own home school.
+        || (isParent() && resource.data.parentOwnerId == request.auth.uid)
+        // Educators/students can read their school.
+        || (isSignedIn() && resource.data.type == 'regular');
+      // All writes go through server-side callables only.
+      allow write: if false;
+    }
+
+    // ─── Classes (v2 org model) ───────────────────────────────────────────
+
+    match /classes/{classId} {
+      allow read: if isSchoolAdminOrHigher()
+        // Educator assigned to this class.
+        || (isSignedIn() && resource.data.educatorId == request.auth.uid)
+        // Student who is a member.
+        || (isSignedIn() && request.auth.uid in resource.data.studentIds)
+        // Parent reads their home class.
+        || (isParent() && resource.data.schoolType == 'home' && resource.data.educatorId == request.auth.uid);
+      // All writes go through server-side callables only.
+      allow write: if false;
+    }
+
+    // ─── Custom Lessons System ───────────────────────────────────────────
+
+    // Educator-created classes (top-level, separate from users/{uid}/classes)
+    match /educatorClasses/{classId} {
+      allow create: if request.auth != null
+        && (request.resource.data.educatorId == request.auth.uid
+            || isSchoolAdminOrHigher());
+      allow update, delete: if request.auth != null
+        && (resource.data.educatorId == request.auth.uid
+            || isSchoolAdminOrHigher());
+      // Educator reads their own; students can read classes they belong to;
+      // schoolAdmin/admin can read all for assignment purposes.
+      allow read: if request.auth != null && (
+        resource.data.educatorId == request.auth.uid
+        || ('studentIds' in resource.data && request.auth.uid in resource.data.studentIds)
+        || isSchoolAdminOrHigher()
+      );
+    }
+
+    // Custom lessons created by educators or students
+    match /customLessons/{lessonId} {
+      allow create: if request.auth != null
+        && (request.resource.data.creatorId == request.auth.uid
+            || isSchoolAdminOrHigher());
+      allow update, delete: if request.auth != null
+        && (resource.data.creatorId == request.auth.uid
+            || isSchoolAdminOrHigher());
+      allow read: if request.auth != null && (
+        // Creator always has access
+        resource.data.creatorId == request.auth.uid
+        // schoolAdmin/admin can read all lessons
+        || isSchoolAdminOrHigher()
+        // Student directly assigned
+        || (resource.data.type == 'forStudent'
+            && 'assignedStudentIds' in resource.data
+            && request.auth.uid in resource.data.assignedStudentIds)
+        // Student in an assigned class
+        || (resource.data.type == 'forClass'
+            && 'assignedClassId' in resource.data
+            && resource.data.assignedClassId != null
+            && (
+              // New assignments can explicitly target v2 classes.
+              (resource.data.assignedClassSource == 'v2'
+                && request.auth.uid in
+                   get(/databases/$(database)/documents/classes/$(resource.data.assignedClassId)).data.studentIds)
+              // Backward-compatible default: legacy educatorClasses.
+              || ((!( 'assignedClassSource' in resource.data ) || resource.data.assignedClassSource != 'v2')
+                && request.auth.uid in
+                   get(/databases/$(database)/documents/educatorClasses/$(resource.data.assignedClassId)).data.studentIds)
+            ))
+        // Student whose user doc matches the assigned school
+        || (resource.data.type == 'forSchool'
+            && 'assignedSchoolId' in resource.data
+            && resource.data.assignedSchoolId != null
+            && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.schoolId == resource.data.assignedSchoolId)
+        // Lesson assigned to all signed-in users
+        || resource.data.type == 'forAll'
+      );
+    }
+
+    // Per-student progress on each custom lesson
+    match /customLessonProgress/{progressId} {
+      // Students write only their own progress records
+      allow create, update: if request.auth != null
+        && request.resource.data.studentId == request.auth.uid;
+      allow read: if request.auth != null && (
+        resource.data.studentId == request.auth.uid
+        // Educator who created the lesson can read student progress
+        || ('educatorId' in resource.data
+            && resource.data.educatorId != null
+            && resource.data.educatorId == request.auth.uid)
+      );
+      allow delete: if request.auth != null
+        && resource.data.studentId == request.auth.uid;
     }
   }
 }

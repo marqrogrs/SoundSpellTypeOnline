@@ -224,11 +224,13 @@ export default function WordFixAdmin() {
 
       const jsonStatus = payload.lexiconUpdated
         ? "JSON lexicon updated"
-        : payload.lexiconError
-          ? `JSON lexicon unavailable (${payload.lexiconError})`
-          : payload.lexiconFound
-            ? "JSON lexicon row found but not saved"
-            : "JSON lexicon row not found";
+        : payload.lexiconStatus === "skipped_cloud_runtime"
+          ? "JSON lexicon update skipped in deployed cloud runtime"
+          : payload.lexiconError
+            ? `JSON lexicon error (${payload.lexiconError})`
+            : payload.lexiconFound
+              ? "JSON lexicon row found but not saved"
+              : "JSON lexicon row not found";
 
       swal(
         "Word Updated",
@@ -699,6 +701,9 @@ export default function WordFixAdmin() {
             JSON Found=
             {String(Boolean(lastResult.lexiconFound))}, JSON Updated=
             {String(Boolean(lastResult.lexiconUpdated))}
+            {lastResult.lexiconStatus
+              ? `, JSON Status=${lastResult.lexiconStatus}`
+              : ""}
             {lastResult.lexiconError
               ? `, JSON Error=${lastResult.lexiconError}`
               : ""}

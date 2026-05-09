@@ -1,0 +1,770 @@
+{
+  "updates": [
+    {
+      "word": "AWE",
+      "before": {
+        "graphemes": [
+          "A",
+          "W",
+          "E"
+        ],
+        "phonemes": [
+          "AA"
+        ],
+        "syllables": [
+          "awe"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "AW",
+          "E"
+        ]
+      }
+    },
+    {
+      "word": "AWED",
+      "before": {
+        "graphemes": [
+          "A",
+          "W",
+          "E",
+          "D"
+        ],
+        "phonemes": [
+          "AA",
+          "-",
+          "D"
+        ],
+        "syllables": [
+          "awe",
+          "d"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "AW",
+          "E",
+          "D"
+        ]
+      }
+    },
+    {
+      "word": "AWESOME",
+      "before": {
+        "graphemes": [
+          "A",
+          "W",
+          "E",
+          "S",
+          "O",
+          "M",
+          "E"
+        ],
+        "phonemes": [
+          "AA",
+          "-",
+          "S",
+          "AH",
+          "M"
+        ],
+        "syllables": [
+          "awe",
+          "some"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "AW",
+          "E",
+          "S",
+          "O",
+          "M",
+          "E"
+        ]
+      }
+    },
+    {
+      "word": "AWESOMELY",
+      "before": {
+        "graphemes": [
+          "A",
+          "W",
+          "E",
+          "S",
+          "O",
+          "M",
+          "E",
+          "L",
+          "Y"
+        ],
+        "phonemes": [
+          "AA",
+          "-",
+          "S",
+          "AH",
+          "M",
+          "-",
+          "L",
+          "IY"
+        ],
+        "syllables": [
+          "awe",
+          "some",
+          "ly"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "AW",
+          "E",
+          "S",
+          "O",
+          "M",
+          "E",
+          "L",
+          "Y"
+        ]
+      }
+    },
+    {
+      "word": "AWESTRUCK",
+      "before": {
+        "graphemes": [
+          "A",
+          "W",
+          "E",
+          "S",
+          "T",
+          "R",
+          "U",
+          "CK"
+        ],
+        "phonemes": [
+          "AA",
+          "-",
+          "S",
+          "T",
+          "R",
+          "AH",
+          "K"
+        ],
+        "syllables": [
+          "awe",
+          "struck"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "AW",
+          "E",
+          "S",
+          "T",
+          "R",
+          "U",
+          "CK"
+        ]
+      }
+    },
+    {
+      "word": "BACKSAW",
+      "before": {
+        "graphemes": [
+          "B",
+          "A",
+          "CK",
+          "S",
+          "A",
+          "W"
+        ],
+        "phonemes": [
+          "B",
+          "AE",
+          "K",
+          "-",
+          "S",
+          "AA"
+        ],
+        "syllables": [
+          "back",
+          "saw"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "B",
+          "A",
+          "CK",
+          "S",
+          "AW"
+        ]
+      }
+    },
+    {
+      "word": "GAWAIN",
+      "before": {
+        "graphemes": [
+          "G",
+          "A",
+          "W",
+          "AI",
+          "N"
+        ],
+        "phonemes": [
+          "G",
+          "AA",
+          "-",
+          "W",
+          "EY",
+          "N"
+        ],
+        "syllables": [
+          "ga",
+          "wain"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "G",
+          "AW",
+          "AI",
+          "N"
+        ]
+      }
+    },
+    {
+      "word": "GEWGAW",
+      "before": {
+        "graphemes": [
+          "G",
+          "E",
+          "W",
+          "G",
+          "A",
+          "W"
+        ],
+        "phonemes": [
+          "G",
+          "Y",
+          "UW",
+          "-",
+          "G",
+          "AA"
+        ],
+        "syllables": [
+          "gew",
+          "gaw"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "G",
+          "E",
+          "W",
+          "G",
+          "AW"
+        ]
+      }
+    },
+    {
+      "word": "HAWAII",
+      "before": {
+        "graphemes": [
+          "H",
+          "A",
+          "W",
+          "AI",
+          "I"
+        ],
+        "phonemes": [
+          "HH",
+          "AA",
+          "-",
+          "W",
+          "AY",
+          "-",
+          "IY"
+        ],
+        "syllables": [
+          "ha",
+          "wai",
+          "i"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "H",
+          "AW",
+          "AI",
+          "I"
+        ]
+      }
+    },
+    {
+      "word": "HAWAIIAN",
+      "before": {
+        "graphemes": [
+          "H",
+          "A",
+          "W",
+          "AII",
+          "A",
+          "N"
+        ],
+        "phonemes": [
+          "HH",
+          "AA",
+          "-",
+          "W",
+          "AA",
+          "IY",
+          "-",
+          "IY",
+          "-",
+          "AE",
+          "N"
+        ],
+        "syllables": [
+          "ha",
+          "wai",
+          "i",
+          "an"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "H",
+          "AW",
+          "AII",
+          "A",
+          "N"
+        ]
+      }
+    },
+    {
+      "word": "KAGAWA",
+      "before": {
+        "graphemes": [
+          "K",
+          "A",
+          "G",
+          "A",
+          "W",
+          "A"
+        ],
+        "phonemes": [
+          "K",
+          "AH",
+          "-",
+          "G",
+          "AA",
+          "-",
+          "W",
+          "AH"
+        ],
+        "syllables": [
+          "ka",
+          "ga",
+          "wa"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "K",
+          "A",
+          "G",
+          "AW",
+          "A"
+        ]
+      }
+    },
+    {
+      "word": "KANAWA",
+      "before": {
+        "graphemes": [
+          "K",
+          "A",
+          "N",
+          "A",
+          "W",
+          "A"
+        ],
+        "phonemes": [
+          "K",
+          "AA",
+          "-",
+          "N",
+          "AA",
+          "-",
+          "W",
+          "AH"
+        ],
+        "syllables": [
+          "ka",
+          "na",
+          "wa"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "K",
+          "A",
+          "N",
+          "AW",
+          "A"
+        ]
+      }
+    },
+    {
+      "word": "KANAZAWA",
+      "before": {
+        "graphemes": [
+          "K",
+          "A",
+          "N",
+          "A",
+          "Z",
+          "A",
+          "W",
+          "A"
+        ],
+        "phonemes": [
+          "K",
+          "AA",
+          "-",
+          "N",
+          "AA",
+          "Z",
+          "-",
+          "AA",
+          "-",
+          "W",
+          "AH"
+        ],
+        "syllables": [
+          "ka",
+          "naz",
+          "a",
+          "wa"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "K",
+          "A",
+          "N",
+          "A",
+          "Z",
+          "AW",
+          "A"
+        ]
+      }
+    },
+    {
+      "word": "KAWAGUCHI",
+      "before": {
+        "graphemes": [
+          "K",
+          "A",
+          "W",
+          "A",
+          "G",
+          "U",
+          "CH",
+          "I"
+        ],
+        "phonemes": [
+          "K",
+          "AA",
+          "-",
+          "W",
+          "AA",
+          "-",
+          "G",
+          "Y",
+          "UW",
+          "-",
+          "CH",
+          "IY"
+        ],
+        "syllables": [
+          "ka",
+          "wa",
+          "gu",
+          "chi"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "K",
+          "AW",
+          "A",
+          "G",
+          "U",
+          "CH",
+          "I"
+        ]
+      }
+    },
+    {
+      "word": "KAWASAKI",
+      "before": {
+        "graphemes": [
+          "K",
+          "A",
+          "W",
+          "A",
+          "S",
+          "A",
+          "K",
+          "I"
+        ],
+        "phonemes": [
+          "K",
+          "AA",
+          "-",
+          "W",
+          "AA",
+          "S",
+          "-",
+          "AA",
+          "K",
+          "-",
+          "IY"
+        ],
+        "syllables": [
+          "ka",
+          "was",
+          "ak",
+          "i"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "K",
+          "AW",
+          "A",
+          "S",
+          "A",
+          "K",
+          "I"
+        ]
+      }
+    },
+    {
+      "word": "KUROSAWA",
+      "before": {
+        "graphemes": [
+          "K",
+          "UR",
+          "O",
+          "S",
+          "A",
+          "W",
+          "A"
+        ],
+        "phonemes": [
+          "K",
+          "ER",
+          "-",
+          "OW",
+          "-",
+          "S",
+          "AA",
+          "W",
+          "-",
+          "AH"
+        ],
+        "syllables": [
+          "kur",
+          "o",
+          "saw",
+          "a"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "K",
+          "UR",
+          "O",
+          "S",
+          "AW",
+          "A"
+        ]
+      }
+    },
+    {
+      "word": "MALAWI",
+      "before": {
+        "graphemes": [
+          "M",
+          "A",
+          "L",
+          "A",
+          "W",
+          "I"
+        ],
+        "phonemes": [
+          "M",
+          "AE",
+          "-",
+          "L",
+          "AA",
+          "-",
+          "W",
+          "IY"
+        ],
+        "syllables": [
+          "ma",
+          "la",
+          "wi"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "M",
+          "A",
+          "L",
+          "AW",
+          "I"
+        ]
+      }
+    },
+    {
+      "word": "OKINAWA",
+      "before": {
+        "graphemes": [
+          "O",
+          "K",
+          "I",
+          "N",
+          "A",
+          "W",
+          "A"
+        ],
+        "phonemes": [
+          "OW",
+          "-",
+          "K",
+          "IY",
+          "-",
+          "N",
+          "AA",
+          "W",
+          "-",
+          "AH"
+        ],
+        "syllables": [
+          "o",
+          "ki",
+          "naw",
+          "a"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "O",
+          "K",
+          "I",
+          "N",
+          "AW",
+          "A"
+        ]
+      }
+    },
+    {
+      "word": "RAWEST",
+      "before": {
+        "graphemes": [
+          "R",
+          "A",
+          "W",
+          "E",
+          "S",
+          "T"
+        ],
+        "phonemes": [
+          "R",
+          "AA",
+          "-",
+          "EH",
+          "S",
+          "T"
+        ],
+        "syllables": [
+          "raw",
+          "est"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "R",
+          "AW",
+          "E",
+          "S",
+          "T"
+        ]
+      }
+    },
+    {
+      "word": "SPAWN",
+      "before": {
+        "graphemes": [
+          "S",
+          "P",
+          "A",
+          "W",
+          "N"
+        ],
+        "phonemes": [
+          "S",
+          "P",
+          "AA",
+          "N"
+        ],
+        "syllables": [
+          "spawn"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "S",
+          "P",
+          "AW",
+          "N"
+        ]
+      }
+    },
+    {
+      "word": "TAWNY",
+      "before": {
+        "graphemes": [
+          "T",
+          "A",
+          "W",
+          "N",
+          "Y"
+        ],
+        "phonemes": [
+          "T",
+          "AA",
+          "-",
+          "N",
+          "IY"
+        ],
+        "syllables": [
+          "taw",
+          "ny"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "T",
+          "AW",
+          "N",
+          "Y"
+        ]
+      }
+    }
+  ]
+}

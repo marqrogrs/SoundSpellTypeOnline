@@ -17,7 +17,7 @@ import { useStyles } from "../styles/material";
 import { useFormik } from "formik";
 import { triggerErrorAlert } from "../util/alerts";
 
-export default function NewStudentForm() {
+export default function NewStudentForm({ fabBottom = 88 }) {
   const classes = useStyles();
   const [open, setOpen] = useState(false);
   const [addStudentLoading, setAddStudentLoading] = useState(false);
@@ -95,7 +95,7 @@ export default function NewStudentForm() {
           margin: 0,
           top: "auto",
           right: 20,
-          bottom: 20,
+          bottom: fabBottom,
           left: "auto",
           position: "fixed",
         }}

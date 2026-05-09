@@ -46,14 +46,20 @@ export default App;
 
 function RequireAuthentication() {
   const auth = useAuth();
-  if (!auth) {
+  if (!auth || !auth.authLoaded) {
     return <div>Loading</div>;
   }
 
   return (
     <>
       {auth.user ? (
-        <PrivateRoutes user={auth.user} isEducator={auth.isEducator} />
+        <PrivateRoutes
+          user={auth.user}
+          isEducator={auth.isEducator}
+          isAdmin={auth.isAdmin}
+          isSchoolAdmin={auth.isSchoolAdmin}
+          isParent={auth.isParent}
+        />
       ) : (
         <PublicRoutes user={auth.user} />
       )}

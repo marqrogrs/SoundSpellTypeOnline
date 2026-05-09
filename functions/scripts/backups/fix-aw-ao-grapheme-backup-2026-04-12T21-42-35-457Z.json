@@ -1,0 +1,27 @@
+{
+  "updates": [
+    {
+      "word": "RAW",
+      "before": {
+        "graphemes": [
+          "R",
+          "A",
+          "W"
+        ],
+        "phonemes": [
+          "R",
+          "AA"
+        ],
+        "syllables": [
+          "raw"
+        ]
+      },
+      "after": {
+        "graphemes": [
+          "R",
+          "AW"
+        ]
+      }
+    }
+  ]
+}

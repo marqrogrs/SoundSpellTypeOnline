@@ -1,0 +1,108 @@
+{
+  "generatedAt": "2026-05-06T18:06:59.324Z",
+  "inputFile": "/Users/markrogers/Desktop/sound-spell-type-online/functions/benchmarks/module-load-tidy-2026-05-06T18-06-58.109Z.csv",
+  "baselineFile": null,
+  "config": {
+    "p95RegressionPct": 10,
+    "avgRegressionPct": 8,
+    "hardMaxMs": 250,
+    "outlierMultiplier": 1.25
+  },
+  "series": [
+    {
+      "target": "./index.js",
+      "runs": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "values": [
+        231,
+        96,
+        96,
+        94,
+        94
+      ],
+      "summary": {
+        "runs": 5,
+        "min": 94,
+        "p50": 96,
+        "p90": 96,
+        "p95": 96,
+        "p99": 96,
+        "max": 231,
+        "avg": 122.2
+      }
+    },
+    {
+      "target": "@google-cloud/firestore",
+      "runs": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "values": [
+        27,
+        28,
+        29,
+        27,
+        27
+      ],
+      "summary": {
+        "runs": 5,
+        "min": 27,
+        "p50": 27,
+        "p90": 28,
+        "p95": 28,
+        "p99": 28,
+        "max": 29,
+        "avg": 27.6
+      }
+    }
+  ],
+  "checks": {
+    "failed": false,
+    "findings": [
+      {
+        "level": "pass",
+        "target": "./index.js",
+        "rule": "hard_max",
+        "message": "max 231ms within HARD_MAX_MS 250ms"
+      },
+      {
+        "level": "info",
+        "target": "./index.js",
+        "rule": "outliers",
+        "message": "1/5 points > p95*1.25 (120ms)"
+      },
+      {
+        "level": "info",
+        "target": "./index.js",
+        "rule": "baseline",
+        "message": "No baseline provided; skipped p95/avg regression checks"
+      },
+      {
+        "level": "pass",
+        "target": "@google-cloud/firestore",
+        "rule": "hard_max",
+        "message": "max 29ms within HARD_MAX_MS 250ms"
+      },
+      {
+        "level": "info",
+        "target": "@google-cloud/firestore",
+        "rule": "outliers",
+        "message": "0/5 points > p95*1.25 (35ms)"
+      },
+      {
+        "level": "info",
+        "target": "@google-cloud/firestore",
+        "rule": "baseline",
+        "message": "No baseline provided; skipped p95/avg regression checks"
+      }
+    ]
+  }
+}

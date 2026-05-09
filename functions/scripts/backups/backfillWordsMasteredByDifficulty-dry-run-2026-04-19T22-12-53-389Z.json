@@ -1,0 +1,15 @@
+{
+  "mode": "dry-run",
+  "strategy": "full-only",
+  "includeEducators": false,
+  "totalUsersScanned": 0,
+  "usersWithProgress": 0,
+  "usersNeedingUpdate": 0,
+  "usersUpdated": 0,
+  "totalsAdded": {
+    "1": 0,
+    "2": 0,
+    "3": 0
+  },
+  "perUser": []
+}

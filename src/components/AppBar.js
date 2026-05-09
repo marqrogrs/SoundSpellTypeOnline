@@ -1,4 +1,4 @@
-import React, { useState, useContext } from "react";
+import React, { useState, useContext, useEffect, useMemo } from "react";
 import { useLocation, useHistory } from "react-router-dom";
 
 import { useStyles } from "../styles/material";
@@ -19,6 +19,7 @@ import AccountCircle from "@material-ui/icons/AccountCircle";
 
 import { useAuth } from "../hooks/useAuth";
 import { UserContext } from "../providers/UserProvider";
+import { getCustomLesson } from "../util/customLessonHelpers";
 
 export default function AppBar({ user }) {
   const classes = useStyles();
@@ -31,7 +32,83 @@ export default function AppBar({ user }) {
   const rightMenuOpen = Boolean(rightAnchorEl);
   const leftMenuOpen = Boolean(leftAnchorEl);
 
-  const { wordsMasteredTotal } = useContext(UserContext);
+  const { wordsMasteredTotal, userData } = useContext(UserContext);
+  const hasFirstLessonAttempted = Boolean(
+    userData?.firstLessonAttemptedAt || userData?.first_lesson_attempted_at,
+  );
+  const pathSegments = useMemo(() => pathname.split("/"), [pathname]);
+  const customLessonId = useMemo(() => {
+    if (
+      pathSegments[1] === "lessons" &&
+      pathSegments[2] === "custom" &&
+      pathSegments[3]
+    ) {
+      return pathSegments[3];
+    }
+    if (
+      pathSegments[1] === "lesson" &&
+      pathSegments[2] === "custom" &&
+      pathSegments[3]
+    ) {
+      return pathSegments[3];
+    }
+    return "";
+  }, [pathSegments]);
+  const [customLessonName, setCustomLessonName] = useState("");
+
+  useEffect(() => {
+    let isActive = true;
+
+    if (!customLessonId) {
+      setCustomLessonName("");
+      return () => {
+        isActive = false;
+      };
+    }
+
+    getCustomLesson(customLessonId)
+      .then((lesson) => {
+        if (!isActive) return;
+        setCustomLessonName(String(lesson?.name || ""));
+      })
+      .catch(() => {
+        if (!isActive) return;
+        setCustomLessonName("");
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [customLessonId]);
+
+  const formatBreadcrumbLabel = (segment, index) => {
+    if (
+      customLessonName &&
+      pathSegments[1] === "lessons" &&
+      pathSegments[2] === "custom" &&
+      index === 3
+    ) {
+      return customLessonName;
+    }
+
+    if (
+      customLessonName &&
+      pathSegments[1] === "lesson" &&
+      pathSegments[2] === "custom" &&
+      index === 3
+    ) {
+      return customLessonName;
+    }
+
+    if (typeof segment !== "string") return segment;
+
+    return segment
+      .split("-")
+      .map((part) =>
+        part ? part.charAt(0).toUpperCase() + part.slice(1) : part,
+      )
+      .join(" ");
+  };
 
   const handleLeftMenu = (e) => {
     setLeftAnchorEl(e.currentTarget);
@@ -66,16 +143,17 @@ export default function AppBar({ user }) {
     history.push("/students");
   };
 
-  const handleViewWordFixAdmin = () => {
-    history.push("/admin/word-fix");
-  };
-
   const handleViewCustomLessons = () => {
     history.push("/custom-lessons");
   };
 
-  const handleViewAdmin = () => {
-    history.push("/admin");
+  const handleViewManagement = () => {
+    history.push("/management");
+  };
+
+  const handleViewStudentProgress = () => {
+    history.push("/student-progress");
+    setRightAnchorEl(null);
   };
 
   const handleViewAbout = () => {
@@ -158,27 +236,34 @@ export default function AppBar({ user }) {
                 open={rightMenuOpen}
                 onClose={() => handleClose("right")}
               >
-                <MenuItem onClick={handleViewLessons}>My Progress</MenuItem>
-                {auth.isEducator && (
-                  <MenuItem onClick={handleViewStudents}>My Students</MenuItem>
+                {(auth.role === "student" || hasFirstLessonAttempted) && (
+                  <MenuItem onClick={handleViewLessons}>My Progress</MenuItem>
+                )}
+                {(auth.isAdmin ||
+                  auth.isSchoolAdmin ||
+                  auth.isEducator ||
+                  auth.isParent) && (
+                  <MenuItem onClick={handleViewStudentProgress}>
+                    Student Progress
+                  </MenuItem>
                 )}
                 <MenuItem onClick={handleViewCustomLessons}>
                   Custom Lessons
                 </MenuItem>
-                {(auth.isAdmin || auth.isSchoolAdmin) && (
-                  <MenuItem onClick={handleViewAdmin}>Admin</MenuItem>
-                )}
-                {auth.isAdmin && (
-                  <MenuItem onClick={handleViewWordFixAdmin}>
-                    Word Fix Admin
-                  </MenuItem>
+                {(auth.isAdmin ||
+                  auth.isSchoolAdmin ||
+                  auth.isEducator ||
+                  auth.isParent) && (
+                  <MenuItem onClick={handleViewManagement}>Management</MenuItem>
                 )}
                 <MenuItem onClick={handleSignOut}>Sign Out</MenuItem>
                 {/* <MenuItem onClick={() => history.push('/contact-us')}>
                   Contact Us
                 </MenuItem> */}
               </Menu>
-              <Typography>Words Mastered: {wordsMasteredTotal}</Typography>
+              {Number(wordsMasteredTotal || 0) > 0 && (
+                <Typography>Words Mastered: {wordsMasteredTotal}</Typography>
+              )}
             </>
           )}
         </Toolbar>
@@ -186,8 +271,8 @@ export default function AppBar({ user }) {
       {user && (
         <Box className={classes.breadcrumbBar}>
           <Breadcrumbs aria-label="breadcrumb" className={classes.breadcrumbs}>
-            {pathname.split("/").map((path, index) => {
-              const last = pathname.split("/").length - 1;
+            {pathSegments.map((path, index) => {
+              const last = pathSegments.length - 1;
               if (index === 0) {
                 return (
                   <Link
@@ -199,23 +284,27 @@ export default function AppBar({ user }) {
                   </Link>
                 );
               }
+              if (index === last) {
+                return (
+                  <Typography
+                    color="textPrimary"
+                    aria-current="page"
+                    key={`${path}-${index}`}
+                  >
+                    {formatBreadcrumbLabel(path, index)}
+                  </Typography>
+                );
+              }
               return (
                 <Link
-                  color={index === last ? "textPrimary" : "textSecondary"}
+                  color="inherit"
                   onClick={() =>
-                    history.push(
-                      pathname
-                        .split("/")
-                        .slice(0, index + 1)
-                        .join("/"),
-                    )
+                    history.push(pathSegments.slice(0, index + 1).join("/"))
                   }
-                  aria-current="page"
-                  key={path}
+                  key={`${path}-${index}`}
+                  style={{ cursor: "pointer" }}
                 >
-                  {typeof path === "string"
-                    ? path.charAt(0).toUpperCase() + path.slice(1)
-                    : path}
+                  {formatBreadcrumbLabel(path, index)}
                 </Link>
               );
             })}

@@ -26,9 +26,10 @@ export default function EducatorLogin() {
     //   if (redirectToPaypal) {
     //     window.open(PAYPAL_URL, '_blank')
     //   }
-    auth
-      .signInWithEmailAndPassword(formik.values.email, formik.values.password)
-      .then(() => history.push("/"));
+    auth.signInWithEmailAndPassword(
+      formik.values.email,
+      formik.values.password,
+    );
     // })
   };
 

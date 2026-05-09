@@ -1,0 +1,382 @@
+{
+  "updates": [
+    {
+      "word": "CONFIGURE",
+      "before": {
+        "graphemes": [
+          "C",
+          "O",
+          "N",
+          "F",
+          "I",
+          "G",
+          "UR",
+          "E"
+        ],
+        "phonemes": [
+          "K",
+          "AA",
+          "N",
+          "-",
+          "F",
+          "IH",
+          "G",
+          "-",
+          "Y",
+          "ER"
+        ],
+        "syllables": [
+          "con",
+          "fig",
+          "ure"
+        ]
+      },
+      "after": {
+        "phonemes": [
+          "K",
+          "AA",
+          "N",
+          "-",
+          "F",
+          "IH",
+          "G",
+          "-",
+          "--Y",
+          "ER"
+        ]
+      }
+    },
+    {
+      "word": "DISFIGURE",
+      "before": {
+        "graphemes": [
+          "D",
+          "I",
+          "S",
+          "F",
+          "I",
+          "G",
+          "UR",
+          "E"
+        ],
+        "phonemes": [
+          "D",
+          "IH",
+          "S",
+          "-",
+          "F",
+          "IH",
+          "G",
+          "-",
+          "Y",
+          "ER"
+        ],
+        "syllables": [
+          "dis",
+          "fig",
+          "ure"
+        ]
+      },
+      "after": {
+        "phonemes": [
+          "D",
+          "IH",
+          "S",
+          "-",
+          "F",
+          "IH",
+          "G",
+          "-",
+          "--Y",
+          "ER"
+        ]
+      }
+    },
+    {
+      "word": "FAILURE",
+      "before": {
+        "graphemes": [
+          "F",
+          "AI",
+          "L",
+          "UR",
+          "E"
+        ],
+        "phonemes": [
+          "F",
+          "EY",
+          "LL",
+          "-",
+          "Y",
+          "ER"
+        ],
+        "syllables": [
+          "fail",
+          "ure"
+        ]
+      },
+      "after": {
+        "phonemes": [
+          "F",
+          "EY",
+          "LL",
+          "-",
+          "--Y",
+          "ER"
+        ]
+      }
+    },
+    {
+      "word": "FIGURE",
+      "before": {
+        "graphemes": [
+          "F",
+          "I",
+          "G",
+          "UR",
+          "E"
+        ],
+        "phonemes": [
+          "F",
+          "IH",
+          "G",
+          "-",
+          "Y",
+          "ER"
+        ],
+        "syllables": [
+          "fig",
+          "ure"
+        ]
+      },
+      "after": {
+        "phonemes": [
+          "F",
+          "IH",
+          "G",
+          "-",
+          "--Y",
+          "ER"
+        ]
+      }
+    },
+    {
+      "word": "INSECURE",
+      "before": {
+        "graphemes": [
+          "I",
+          "N",
+          "S",
+          "E",
+          "C",
+          "UR",
+          "E"
+        ],
+        "phonemes": [
+          "IH",
+          "N",
+          "-",
+          "S",
+          "EH",
+          "-",
+          "K",
+          "Y",
+          "ER"
+        ],
+        "syllables": [
+          "in",
+          "se",
+          "cure"
+        ]
+      },
+      "after": {
+        "phonemes": [
+          "IH",
+          "N",
+          "-",
+          "S",
+          "EH",
+          "-",
+          "K",
+          "--Y",
+          "ER"
+        ]
+      }
+    },
+    {
+      "word": "MANICURE",
+      "before": {
+        "graphemes": [
+          "M",
+          "A",
+          "N",
+          "I",
+          "C",
+          "UR",
+          "E"
+        ],
+        "phonemes": [
+          "M",
+          "AE",
+          "N",
+          "-",
+          "IH",
+          "-",
+          "K",
+          "Y",
+          "ER"
+        ],
+        "syllables": [
+          "man",
+          "i",
+          "cure"
+        ]
+      },
+      "after": {
+        "phonemes": [
+          "M",
+          "AE",
+          "N",
+          "-",
+          "IH",
+          "-",
+          "K",
+          "--Y",
+          "ER"
+        ]
+      }
+    },
+    {
+      "word": "PEDICURE",
+      "before": {
+        "graphemes": [
+          "P",
+          "E",
+          "D",
+          "I",
+          "C",
+          "UR",
+          "E"
+        ],
+        "phonemes": [
+          "P",
+          "EH",
+          "D",
+          "-",
+          "IH",
+          "-",
+          "K",
+          "Y",
+          "ER"
+        ],
+        "syllables": [
+          "ped",
+          "i",
+          "cure"
+        ]
+      },
+      "after": {
+        "phonemes": [
+          "P",
+          "EH",
+          "D",
+          "-",
+          "IH",
+          "-",
+          "K",
+          "--Y",
+          "ER"
+        ]
+      }
+    },
+    {
+      "word": "RECONFIGURE",
+      "before": {
+        "graphemes": [
+          "R",
+          "E",
+          "C",
+          "O",
+          "N",
+          "F",
+          "I",
+          "G",
+          "UR",
+          "E"
+        ],
+        "phonemes": [
+          "R",
+          "IY",
+          "-",
+          "K",
+          "AA",
+          "N",
+          "-",
+          "F",
+          "IH",
+          "G",
+          "-",
+          "Y",
+          "ER"
+        ],
+        "syllables": [
+          "re",
+          "con",
+          "fig",
+          "ure"
+        ]
+      },
+      "after": {
+        "phonemes": [
+          "R",
+          "IY",
+          "-",
+          "K",
+          "AA",
+          "N",
+          "-",
+          "F",
+          "IH",
+          "G",
+          "-",
+          "--Y",
+          "ER"
+        ]
+      }
+    },
+    {
+      "word": "TENURE",
+      "before": {
+        "graphemes": [
+          "T",
+          "E",
+          "N",
+          "UR",
+          "E"
+        ],
+        "phonemes": [
+          "T",
+          "EH",
+          "N",
+          "-",
+          "Y",
+          "ER"
+        ],
+        "syllables": [
+          "ten",
+          "ure"
+        ]
+      },
+      "after": {
+        "phonemes": [
+          "T",
+          "EH",
+          "N",
+          "-",
+          "--Y",
+          "ER"
+        ]
+      }
+    }
+  ]
+}

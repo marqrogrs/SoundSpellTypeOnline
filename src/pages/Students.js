@@ -1,54 +1,30 @@
-import React, { useContext, useEffect } from "react";
-import { UserContext } from "../providers/UserProvider";
-
-import Table from "@material-ui/core/Table";
-import TableBody from "@material-ui/core/TableBody";
-import TableCell from "@material-ui/core/TableCell";
-import TableContainer from "@material-ui/core/TableContainer";
-import TableHead from "@material-ui/core/TableHead";
-import TableRow from "@material-ui/core/TableRow";
-import Paper from "@material-ui/core/Paper";
+import React from "react";
 import Container from "@material-ui/core/Container";
+import Typography from "@material-ui/core/Typography";
+import Box from "@material-ui/core/Box";
 
-import { useStyles } from "../styles/material";
-
-import ClassListItem from "../components/ClassListItem";
+import ClassManagement from "./ClassManagement";
 import NewStudentForm from "../components/NewStudentForm";
 
 export default function Students() {
-  const classes = useStyles();
-  const { classrooms } = useContext(UserContext);
-
-  useEffect(() => {
-    console.log(classrooms);
-  }, [classrooms]);
   return (
-    <div>
-      <Container maxWidth="sm">
-        <TableContainer component={Paper} className={classes.table}>
-          <Table aria-label="collapsible table">
-            <TableHead>
-              <TableRow>
-                <TableCell />
-                <TableCell>Class Name</TableCell>
-                <TableCell align="right"># Students</TableCell>
-                {/* <TableCell align='right'>Date Created</TableCell> */}
-              </TableRow>
-            </TableHead>
-
-            {classrooms && (
-              <TableBody>
-                {classrooms.map((classroom) => {
-                  return (
-                    <ClassListItem key={classroom.id} classroom={classroom} />
-                  );
-                })}
-              </TableBody>
-            )}
-          </Table>
-        </TableContainer>
+    <>
+      <ClassManagement
+        title="My Students"
+        description="Manage classes, view student progress, reset passwords, and organize student rosters."
+        fabBottom={20}
+      />
+      <Container maxWidth="md" style={{ marginTop: 24, marginBottom: 120 }}>
+        <Box>
+          <Typography variant="h6" gutterBottom>
+            Add Student
+          </Typography>
+          <Typography variant="body2" color="textSecondary">
+            Create a new student account and assign the student to a class.
+          </Typography>
+        </Box>
       </Container>
-      <NewStudentForm />
-    </div>
+      <NewStudentForm fabBottom={88} />
+    </>
   );
 }

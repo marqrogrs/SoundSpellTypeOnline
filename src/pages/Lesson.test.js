@@ -54,9 +54,27 @@ const MOCK_LESSON = {
   },
   level: 0,
   progress: {
-    0: { score: 0, completed_words: 0, high_score: 0, completed: false },
-    1: { score: 0, completed_words: 0, high_score: 0, completed: false },
-    2: { score: 0, completed_words: 0, high_score: 0, completed: false },
+    0: {
+      score: 0,
+      completed_words: 0,
+      high_score: 0,
+      correct_words: [],
+      completed: false,
+    },
+    1: {
+      score: 0,
+      completed_words: 0,
+      high_score: 0,
+      correct_words: [],
+      completed: false,
+    },
+    2: {
+      score: 0,
+      completed_words: 0,
+      high_score: 0,
+      correct_words: [],
+      completed: false,
+    },
   },
 };
 
@@ -131,7 +149,10 @@ describe("Lesson – word submission", () => {
     pressEnter();
 
     await wait(() => {
-      expect(mockSetProgress).toHaveBeenCalledWith(1, 5);
+      expect(mockSetProgress).toHaveBeenCalledWith(1, {
+        isCorrect: true,
+        word: "DID",
+      });
       expect(getTextarea().value).toBe("");
     });
   });
@@ -163,7 +184,7 @@ describe("Lesson – word submission", () => {
     });
   });
 
-  test("after level advances the lesson auto-restarts word 1", async () => {
+  test("after level advances the lesson waits for manual restart", async () => {
     const {
       startLesson,
       typeWord,
@@ -185,17 +206,38 @@ describe("Lesson – word submission", () => {
     await wait(() => {
       expect(mockSaveProgress).toHaveBeenCalled();
       expect(mockSetLevel).toHaveBeenCalledWith(1);
-      // Textarea should be cleared and writable again (new level cue started)
+      expect(document.querySelector("button")?.textContent).toMatch(
+        /start lesson/i,
+      );
+      // Input should remain locked until the user starts the next level.
       expect(getTextarea().value).toBe("");
-      expect(getTextarea().readOnly).toBe(false);
+      expect(getTextarea().readOnly).toBe(true);
     });
   });
 
   test("last word saves the updated progress snapshot", async () => {
     const updatedProgress = {
-      0: { score: 0, completed_words: 0, high_score: 10, completed: true },
-      1: { score: 0, completed_words: 0, high_score: 0, completed: false },
-      2: { score: 0, completed_words: 0, high_score: 0, completed: false },
+      0: {
+        score: 0,
+        completed_words: 0,
+        high_score: 100,
+        correct_words: [],
+        completed: true,
+      },
+      1: {
+        score: 0,
+        completed_words: 0,
+        high_score: 0,
+        correct_words: [],
+        completed: false,
+      },
+      2: {
+        score: 0,
+        completed_words: 0,
+        high_score: 0,
+        correct_words: [],
+        completed: false,
+      },
     };
 
     const injectedSetProgress = jest
@@ -217,8 +259,16 @@ describe("Lesson – word submission", () => {
     pressEnter();
 
     await wait(() => {
-      expect(injectedSetProgress).toHaveBeenLastCalledWith(2, 5);
-      expect(mockSaveProgress).toHaveBeenCalledWith(updatedProgress);
+      expect(injectedSetProgress).toHaveBeenLastCalledWith(2, {
+        isCorrect: true,
+        word: "PIT",
+      });
+      expect(mockSaveProgress).toHaveBeenCalledWith(
+        updatedProgress,
+        expect.objectContaining({
+          masteredWordsByLevel: expect.any(Object),
+        }),
+      );
     });
   });
 

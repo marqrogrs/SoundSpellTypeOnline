@@ -16,6 +16,27 @@ export const useStyles = makeStyles((theme) => ({
     cursor: "pointer",
     flexGrow: 1,
   },
+  breadcrumbBar: {
+    display: "flex",
+    justifyContent: "center",
+    padding: theme.spacing(1, 2),
+  },
+  breadcrumbs: {
+    display: "flex",
+    justifyContent: "center",
+    width: "100%",
+    textAlign: "center",
+    "& .MuiBreadcrumbs-ol": {
+      width: "100%",
+      justifyContent: "center",
+      flexWrap: "wrap",
+      rowGap: theme.spacing(0.5),
+    },
+    "& .MuiBreadcrumbs-separator": {
+      marginLeft: theme.spacing(0.75),
+      marginRight: theme.spacing(0.75),
+    },
+  },
   settingsMenu: {
     width: 800,
   },
