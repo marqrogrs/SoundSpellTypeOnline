@@ -45,6 +45,7 @@
   },
   "scripts": {
     "deploy:functions": "./deploy-functions.sh",
+    "deploy:web-app": "./scripts/deploy-web-app.sh",
     "start": "react-scripts start",
     "start:stable": "BROWSER=none DISABLE_ESLINT_PLUGIN=true TSC_COMPILE_ON_ERROR=true react-scripts start",
     "start:preview": "node scripts/preview-dev-server.js",
