@@ -17,7 +17,7 @@ import ProgressListItem from "./ProgressListItem";
 import PatternButton from "./PatternButton";
 
 import { UserContext } from "../providers/UserProvider";
-import { getLessonSubsection } from "../util/functions";
+import { getLessonSubsection, buildActiveLessonWords } from "../util/functions";
 import {
   INIT_PROGRESS_OBJ,
   LESSON_SECTION_OVERRIDES,
@@ -28,6 +28,7 @@ import { db, auth } from "../firebase";
 
 const LESSON_SECTIONS_CACHE_KEY = "progress:lessonSections:v1";
 const LESSON_SECTIONS_CACHE_TTL_MS = 10 * 60 * 1000;
+const REQUIRED_ACCURACY_FOR_CHECKMARK = 90;
 
 function readLessonSectionsCache() {
   try {
@@ -86,9 +87,34 @@ function buildLessonSectionsMap(docs) {
   }, {});
 }
 
+function splitExampleWords(description) {
+  const raw = String(description || "").trim();
+  if (!raw) {
+    return { mainText: "", exampleWords: "" };
+  }
+
+  const markerPattern = /\b(?:examaple words|example words)\b/i;
+  const markerMatch = raw.match(markerPattern);
+
+  if (!markerMatch || typeof markerMatch.index !== "number") {
+    return { mainText: raw, exampleWords: "" };
+  }
+
+  const markerStart = markerMatch.index;
+  const markerEnd = markerStart + markerMatch[0].length;
+  const before = raw.slice(0, markerStart).trim();
+  const after = raw
+    .slice(markerEnd)
+    .replace(/^[:\-\u2013\u2014.\s]+/, "")
+    .trim();
+
+  return {
+    mainText: before,
+    exampleWords: after,
+  };
+}
+
 export default function ProgressList({ student }) {
-  const REQUIRED_ACCURACY_FOR_CHECKMARK = 90;
-  const REQUIRED_ACCURACY_FOR_LESSON_COMPLETION = 100;
   const activeLevelIndexes = LEVELS.map((_, index) => index);
   const {
     lessons,
@@ -105,9 +131,17 @@ export default function ProgressList({ student }) {
     ...lessonSections,
   };
 
-  const getLevelAccuracy = (levelProgress) => {
-    const rawPercent = Number(levelProgress?.high_score) || 0;
-    return Math.max(0, Math.min(100, rawPercent));
+  const hasLevelStarted = (levelProgress) => {
+    const completedWords = Number(levelProgress?.completed_words) || 0;
+    const hasCompletedFlag = Boolean(levelProgress?.completed);
+    const hasCorrectWords =
+      Array.isArray(levelProgress?.correct_words) &&
+      levelProgress.correct_words.length > 0;
+    const hasScore = Number(levelProgress?.score) > 0;
+
+    return (
+      completedWords > 0 || hasCompletedFlag || hasCorrectWords || hasScore
+    );
   };
 
   const getLessonProgress = (lesson, userProgress) => {
@@ -119,27 +153,46 @@ export default function ProgressList({ student }) {
       : JSON.parse(JSON.stringify(INIT_PROGRESS_OBJ));
   };
 
-  const getLessonSummary = (progress) => {
+  const getLessonSummary = (lesson, progress) => {
+    const totalLessonWords = buildActiveLessonWords(
+      lesson?.words,
+      lesson?.lesson_id,
+    ).length;
+    const getLevelWordsCorrectPercent = (levelProgress) => {
+      if (!totalLessonWords) {
+        return 0;
+      }
+
+      const words = Array.isArray(levelProgress?.correct_words)
+        ? levelProgress.correct_words
+        : [];
+      const uniqueCount = new Set(
+        words
+          .map((w) =>
+            String(w || "")
+              .trim()
+              .toUpperCase(),
+          )
+          .filter(Boolean),
+      ).size;
+
+      return Math.round((uniqueCount / totalLessonWords) * 100);
+    };
+
     const isInProgress = activeLevelIndexes.some((index) => {
       const levelProgress = progress[index] || {};
-      return levelProgress.completed_words > 0 || levelProgress.completed;
+      return hasLevelStarted(levelProgress);
     });
 
-    const isCompleted = activeLevelIndexes.every((index) => {
-      const levelProgress = progress[index] || {};
-      return (
-        getLevelAccuracy(levelProgress) >=
-        REQUIRED_ACCURACY_FOR_LESSON_COMPLETION
-      );
-    });
-
-    const hasCheckmark = activeLevelIndexes.every((index) => {
-      const levelProgress = progress[index] || {};
-      return getLevelAccuracy(levelProgress) >= REQUIRED_ACCURACY_FOR_CHECKMARK;
-    });
+    const masteryLevelIndex =
+      activeLevelIndexes[activeLevelIndexes.length - 1] ?? 2;
+    const masteryLevelProgress = progress[masteryLevelIndex] || {};
+    const isCompleted =
+      getLevelWordsCorrectPercent(masteryLevelProgress) >=
+      REQUIRED_ACCURACY_FOR_CHECKMARK;
 
     return {
-      isStarted: isInProgress || hasCheckmark,
+      isStarted: isInProgress,
       isCompleted,
     };
   };
@@ -205,7 +258,6 @@ export default function ProgressList({ student }) {
   }, [lessonSections]);
 
   useEffect(() => {
-    // console.log('student: ', student)
     var unsubscribeStudent = () => {};
     if (student) {
       unsubscribeStudent = db
@@ -296,6 +348,10 @@ export default function ProgressList({ student }) {
                       sectionKeyMeta.description ||
                       sectionTitleMatchedMeta?.description ||
                       "";
+                    const {
+                      mainText: sectionDescriptionMain,
+                      exampleWords: sectionExampleWords,
+                    } = splitExampleWords(sectionDescription);
 
                     const lessonIdSubsection = lessonId.split(".")[1] || "0";
                     const sectionRuleLesNum = lessonIdSectionKey
@@ -392,6 +448,7 @@ export default function ProgressList({ student }) {
                     const sectionSummaries = sectionLessons.map(
                       (sectionLesson) =>
                         getLessonSummary(
+                          sectionLesson,
                           getLessonProgress(sectionLesson, userProgress),
                         ),
                     );
@@ -453,7 +510,18 @@ export default function ProgressList({ student }) {
                             <TableCell>
                               <strong>{sectionTitle}</strong>
                               {sectionDescription ? (
-                                <div>{sectionDescription}</div>
+                                <div>
+                                  {sectionDescriptionMain ||
+                                    (!sectionExampleWords
+                                      ? sectionDescription
+                                      : "")}
+                                  {sectionExampleWords ? (
+                                    <span style={{ display: "block" }}>
+                                      <strong>Example Words:</strong>
+                                      {` ${sectionExampleWords}`}
+                                    </span>
+                                  ) : null}
+                                </div>
                               ) : null}
                             </TableCell>
                             <TableCell

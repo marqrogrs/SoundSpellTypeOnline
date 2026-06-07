@@ -5,24 +5,32 @@
  * All permission enforcement is done server-side.
  *
  * Role hierarchy:
- *   student(0) < parent(1) < educator(2) < schoolAdmin(3) < admin(4)
+ *   student(0) < parent/tutor(1) < educator(2) < schoolAdmin(3) < admin(4)
  *
  * Scope rules:
  *   admin       – full access across all schools
  *   schoolAdmin – own school only (schoolId on user doc)
  *   educator    – own assigned classes only
  *   parent      – own home-school / home-class / own students only
+ *   tutor       – own home-school / home-class / own students only
  *   student     – no management actions
  */
 
-const functions = require("firebase-functions");
+const functions = require("firebase-functions/v1");
 const admin = require("firebase-admin");
+const {
+  normalizeRole: _normalizeRoleUtil,
+  rankOf: _rankOfUtil,
+  buildClaimsForRole: _buildClaimsUtil,
+} = require("./roleUtils");
+const { generateUsername: _generateUsernameUtil } = require("./usernameUtils");
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const ROLE_RANK = {
   student: 0,
   parent: 1,
+  tutor: 1,
   educator: 2,
   schoolAdmin: 3,
   admin: 4,
@@ -30,24 +38,59 @@ const ROLE_RANK = {
 
 function normalizeRole(input) {
   const raw = String(input || "").trim();
-  const v = raw.toLowerCase();
+  const v = raw.toLowerCase().replace(/\s+/g, "");
   if (v === "4" || v === "admin") return "admin";
   if (v === "3" || v === "schooladmin" || v === "school_admin") {
     return "schoolAdmin";
   }
   if (v === "2" || v === "educator" || v === "teacher") return "educator";
-  if (v === "1" || v === "parent") return "parent";
+  // "homeSchoolParent" and variants all map to parent
+  if (
+    v === "1" ||
+    v === "parent" ||
+    v === "homeschoolparent" ||
+    v === "home_school_parent" ||
+    v === "homeschool_parent"
+  )
+    return "parent";
+  if (
+    v === "tutor" ||
+    v === "readingspecialist" ||
+    v === "reading_specialist" ||
+    v === "tutor/readingspecialist"
+  )
+    return "tutor";
   if (v === "0" || v === "student") return "student";
   if (raw === "schoolAdmin") return "schoolAdmin";
   return "student";
 }
 
 function deriveRoleFromClaims(claims, fallbackEmail = "") {
+  void fallbackEmail;
   if (claims?.admin) return "admin";
   if (claims?.schoolAdmin) return "schoolAdmin";
+  if (claims?.parent) return "parent";
+  if (claims?.tutor) return "tutor";
   const roleFromClaim = normalizeRole(claims?.role);
   if (roleFromClaim !== "student") return roleFromClaim;
-  return fallbackEmail ? "educator" : "student";
+  return "student";
+}
+
+function pickEffectiveRole(claimsRole, docRole) {
+  if (claimsRole === "admin" || claimsRole === "schoolAdmin") {
+    return claimsRole;
+  }
+  if (
+    docRole === "admin" ||
+    docRole === "schoolAdmin" ||
+    docRole === "student" ||
+    docRole === "parent" ||
+    docRole === "tutor" ||
+    docRole === "educator"
+  ) {
+    return docRole;
+  }
+  return claimsRole || docRole || "student";
 }
 
 function buildClaimsForRole(role) {
@@ -56,6 +99,7 @@ function buildClaimsForRole(role) {
     admin: role === "admin",
     schoolAdmin: role === "schoolAdmin",
     parent: role === "parent",
+    tutor: role === "tutor",
   };
 }
 
@@ -66,9 +110,155 @@ function rankOf(role) {
 const getDb = () => admin.firestore();
 const serverTimestamp = () => admin.firestore.FieldValue.serverTimestamp();
 
-async function getCallerDoc(uid) {
-  const snap = await getDb().collection("users").doc(uid).get();
-  return snap.exists ? snap.data() || {} : {};
+// ─── Username generation ──────────────────────────────────────────────────────
+
+/**
+ * Generates a unique username by delegating slug logic to usernameUtils and
+ * checking uniqueness against both Realtime DB and Firestore.
+ */
+async function generateUsername(firstName, lastName) {
+  const isTaken = async (name) => {
+    const [rtSnap, fsDoc] = await Promise.all([
+      admin.database().ref(`/students/${name}`).once("value"),
+      getDb().collection("users").doc(name).get(),
+    ]);
+    return rtSnap.exists() || fsDoc.exists;
+  };
+  return _generateUsernameUtil(firstName, lastName, isTaken);
+}
+
+async function getCallerDoc(uid, email = "") {
+  const uidSnap = await getDb().collection("users").doc(uid).get();
+  if (uidSnap.exists) {
+    return uidSnap.data() || {};
+  }
+
+  const normalizedEmail = String(email || "")
+    .trim()
+    .toLowerCase();
+  if (!normalizedEmail) {
+    return {};
+  }
+
+  const emailLocalPart = normalizedEmail.split("@")[0] || "";
+
+  const [emailDocSnap, emailQuerySnap, usernameEmailSnap, usernameLocalSnap] =
+    await Promise.all([
+      getDb().collection("users").doc(normalizedEmail).get(),
+      getDb()
+        .collection("users")
+        .where("email", "==", normalizedEmail)
+        .limit(1)
+        .get(),
+      getDb()
+        .collection("users")
+        .where("username", "==", normalizedEmail)
+        .limit(1)
+        .get(),
+      emailLocalPart
+        ? getDb()
+            .collection("users")
+            .where("username", "==", emailLocalPart)
+            .limit(1)
+            .get()
+        : Promise.resolve({ empty: true, docs: [] }),
+    ]);
+
+  if (emailDocSnap.exists) {
+    return emailDocSnap.data() || {};
+  }
+
+  if (!emailQuerySnap.empty) {
+    return emailQuerySnap.docs[0].data() || {};
+  }
+
+  if (!usernameEmailSnap.empty) {
+    return usernameEmailSnap.docs[0].data() || {};
+  }
+
+  if (!usernameLocalSnap.empty) {
+    return usernameLocalSnap.docs[0].data() || {};
+  }
+
+  return {};
+}
+
+async function inferManagedRoleFromOwnedStudents(uid) {
+  const db = getDb();
+  const [ownerSnap, legacyOwnerSnap] = await Promise.all([
+    db.collection("users").where("ownerId", "==", uid).limit(1).get(),
+    db.collection("users").where("parentOwnerId", "==", uid).limit(1).get(),
+  ]);
+
+  const sourceDoc = ownerSnap.docs[0] || legacyOwnerSnap.docs[0] || null;
+  if (!sourceDoc) {
+    const homeClassSnap = await db
+      .collection("classes")
+      .where("educatorId", "==", uid)
+      .where("schoolType", "==", "home")
+      .limit(1)
+      .get();
+
+    if (homeClassSnap.empty) {
+      return { role: null, docPatch: null };
+    }
+
+    const homeClass = homeClassSnap.docs[0].data() || {};
+    const className = String(
+      homeClass.normalizedName || homeClass.name || "",
+    ).toLowerCase();
+    const inferredRole = className.includes("tutor") ? "tutor" : "parent";
+    const homeSchoolId = String(homeClass.schoolId || "").trim();
+    const homeClassId = String(homeClassSnap.docs[0].id || "").trim();
+
+    return {
+      role: inferredRole,
+      docPatch: {
+        role: inferredRole,
+        homeSchoolId,
+        homeClassId,
+      },
+    };
+  }
+
+  const source = sourceDoc.data() || {};
+  const ownerRole = normalizeRole(source.ownerRole || "");
+  const inferredRole = ownerRole === "tutor" ? "tutor" : "parent";
+  const classIds = Array.isArray(source.classIds) ? source.classIds : [];
+
+  return {
+    role: inferredRole,
+    docPatch: {
+      role: inferredRole,
+      homeSchoolId: String(
+        source.homeSchoolId || source.schoolId || source.school || "",
+      ).trim(),
+      homeClassId: String(classIds[0] || source.homeClassId || "").trim(),
+    },
+  };
+}
+
+async function inferEducatorRoleFromAssignedClasses(uid) {
+  const classSnap = await getDb()
+    .collection("classes")
+    .where("educatorId", "==", uid)
+    .where("isActive", "==", true)
+    .limit(1)
+    .get();
+
+  if (classSnap.empty) {
+    return { role: null, docPatch: null };
+  }
+
+  const classDoc = classSnap.docs[0];
+  const classData = classDoc.data() || {};
+  return {
+    role: "educator",
+    docPatch: {
+      role: "educator",
+      schoolId: String(classData.schoolId || "").trim(),
+    },
+  };
 }
 
 async function resolveCaller(context) {
@@ -80,9 +270,41 @@ async function resolveCaller(context) {
   }
   const uid = context.auth.uid;
   const record = await admin.auth().getUser(uid);
+  let doc = await getCallerDoc(uid, record.email || "");
+  if (!String(doc?.role || "").trim()) {
+    try {
+      const inferred = await inferManagedRoleFromOwnedStudents(uid);
+      if (inferred?.role) {
+        doc = {
+          ...doc,
+          ...(inferred.docPatch || {}),
+        };
+      } else {
+        const inferredEducator =
+          await inferEducatorRoleFromAssignedClasses(uid);
+        if (inferredEducator?.role) {
+          doc = {
+            ...doc,
+            ...(inferredEducator.docPatch || {}),
+          };
+        }
+      }
+    } catch (_err) {
+      // Keep best-effort caller doc.
+    }
+  }
   const claims = record.customClaims || {};
-  const role = deriveRoleFromClaims(claims, record.email || "");
-  const doc = await getCallerDoc(uid);
+  const claimsRole = deriveRoleFromClaims(claims, record.email || "");
+  const docRole = normalizeRole(doc?.role || "");
+  let role = pickEffectiveRole(claimsRole, doc?.role ? docRole : null);
+
+  if (role === "student" && String(record.email || "").trim()) {
+    role = "parent";
+    if (!String(doc?.role || "").trim()) {
+      doc = { ...doc, role: "parent" };
+    }
+  }
+
   return { uid, role, email: String(record.email || "").toLowerCase(), doc };
 }
 
@@ -535,7 +757,7 @@ exports.mgmtAssignStudentClasses = functions.https.onCall(
 // ─── Parent home-scope bootstrap ─────────────────────────────────────────────
 
 /**
- * Ensures a parent has a home school and parent class.
+ * Ensures a parent/tutor has a home school and home class.
  * Creates them if they do not exist yet. Safe to call on every sign-in.
  * Returns { homeSchoolId, homeClassId }.
  */
@@ -549,21 +771,43 @@ exports.mgmtBootstrapParentHomeScope = functions.https.onCall(
     }
     const uid = context.auth.uid;
 
-    // Only parent (or admin bootstrapping for a parent) should call this.
+    // Only parent/tutor (or admin bootstrapping for one) should call this.
     const record = await admin.auth().getUser(uid);
     const claims = record.customClaims || {};
     const role = deriveRoleFromClaims(claims, record.email || "");
 
-    const callerDoc = await getCallerDoc(uid);
+    let callerDoc = await getCallerDoc(uid, record.email || "");
+    if (!String(callerDoc?.role || "").trim()) {
+      try {
+        const inferred = await inferManagedRoleFromOwnedStudents(uid);
+        if (inferred?.role) {
+          callerDoc = {
+            ...callerDoc,
+            ...(inferred.docPatch || {}),
+          };
+        }
+      } catch (_err) {
+        // Keep best-effort callerDoc.
+      }
+    }
     const callerRole =
       normalizeRole(callerDoc.role) !== "student"
         ? normalizeRole(callerDoc.role)
         : role;
 
-    if (callerRole !== "parent" && callerRole !== "admin") {
+    const effectiveCallerRole =
+      callerRole === "student" && String(record.email || "").trim()
+        ? "parent"
+        : callerRole;
+
+    if (
+      effectiveCallerRole !== "parent" &&
+      effectiveCallerRole !== "tutor" &&
+      effectiveCallerRole !== "admin"
+    ) {
       throw new functions.https.HttpsError(
         "permission-denied",
-        "Only parent accounts use home scope.",
+        "Only parent/tutor accounts use home scope.",
       );
     }
 
@@ -591,8 +835,8 @@ exports.mgmtBootstrapParentHomeScope = functions.https.onCall(
       const classRef = await getDb()
         .collection("classes")
         .add({
-          name: "Parent",
-          normalizedName: "parent",
+          name: effectiveCallerRole === "tutor" ? "Tutor" : "Parent",
+          normalizedName: effectiveCallerRole === "tutor" ? "tutor" : "parent",
           schoolId: homeSchoolId,
           schoolType: "home",
           educatorId: uid,
@@ -623,7 +867,7 @@ exports.mgmtBootstrapParentHomeScope = functions.https.onCall(
 );
 
 /**
- * Parent creates a student account scoped to their home class.
+ * Parent/tutor creates a student account scoped to their home class.
  * Returns { userId, tempPassword }.
  */
 exports.mgmtParentCreateStudent = functions.https.onCall(
@@ -639,16 +883,38 @@ exports.mgmtParentCreateStudent = functions.https.onCall(
     const record = await admin.auth().getUser(uid);
     const claims = record.customClaims || {};
     const role = deriveRoleFromClaims(claims, record.email || "");
-    const callerDoc = await getCallerDoc(uid);
+    let callerDoc = await getCallerDoc(uid, record.email || "");
+    if (!String(callerDoc?.role || "").trim()) {
+      try {
+        const inferred = await inferManagedRoleFromOwnedStudents(uid);
+        if (inferred?.role) {
+          callerDoc = {
+            ...callerDoc,
+            ...(inferred.docPatch || {}),
+          };
+        }
+      } catch (_err) {
+        // Keep best-effort callerDoc.
+      }
+    }
     const callerRole =
       normalizeRole(callerDoc.role) !== "student"
         ? normalizeRole(callerDoc.role)
         : role;
 
-    if (callerRole !== "parent" && callerRole !== "admin") {
+    const effectiveCallerRole =
+      callerRole === "student" && String(record.email || "").trim()
+        ? "parent"
+        : callerRole;
+
+    if (
+      effectiveCallerRole !== "parent" &&
+      effectiveCallerRole !== "tutor" &&
+      effectiveCallerRole !== "admin"
+    ) {
       throw new functions.https.HttpsError(
         "permission-denied",
-        "Only parent accounts can use this endpoint.",
+        "Only parent/tutor accounts can use this endpoint.",
       );
     }
 
@@ -662,18 +928,18 @@ exports.mgmtParentCreateStudent = functions.https.onCall(
       );
     }
 
-    const username = String(data?.username || "").trim();
-    if (!username)
+    const firstNameVal = String(data?.firstName || "").trim();
+    const lastNameVal = String(data?.lastName || "").trim();
+
+    if (!firstNameVal || !lastNameVal) {
       throw new functions.https.HttpsError(
         "invalid-argument",
-        "username is required.",
-      );
-    if (!/^[a-z0-9]+$/i.test(username)) {
-      throw new functions.https.HttpsError(
-        "invalid-argument",
-        "Username can only contain letters and numbers.",
+        "First and last name are required.",
       );
     }
+
+    // Resolve final username
+    const username = await generateUsername(firstNameVal, lastNameVal);
 
     const bcrypt = require("bcryptjs");
     const saltRounds = 10;
@@ -703,7 +969,11 @@ exports.mgmtParentCreateStudent = functions.https.onCall(
           username,
           firstName: String(data?.firstName || "").trim(),
           lastName: String(data?.lastName || "").trim(),
+          email: null,
           role: "student",
+          ownerId: uid,
+          ownerRole:
+            effectiveCallerRole === "admin" ? "parent" : effectiveCallerRole,
           parentOwnerId: uid,
           schoolId: homeSchoolId,
           classIds: [homeClassId],
@@ -727,14 +997,25 @@ exports.mgmtParentCreateStudent = functions.https.onCall(
 
     await writeAuditLog({
       actorUid: uid,
-      actorRole: callerRole,
+      actorRole: effectiveCallerRole,
       action: "mgmtParentCreateStudent",
       targetId: username,
       status: "success",
-      after: { parentOwnerId: uid, homeSchoolId, homeClassId },
+      after: {
+        ownerId: uid,
+        ownerRole:
+          effectiveCallerRole === "admin" ? "parent" : effectiveCallerRole,
+        parentOwnerId: uid,
+        homeSchoolId,
+        homeClassId,
+      },
     });
 
-    return { status: "success", userId: username, tempPassword };
+    return {
+      status: "success",
+      userId: username,
+      tempPassword,
+    };
   },
 );
 
@@ -754,7 +1035,7 @@ exports.mgmtParentCreateStudent = functions.https.onCall(
  * admin      – sees all active schools, classes, users
  * schoolAdmin – sees own school, classes in own school, users in own school
  * educator   – sees assigned classes + students in those classes
- * parent     – sees home school, home class, own students
+ * parent/tutor – sees home school, home class, own students
  */
 exports.mgmtListData = functions.https.onCall(async (data, context) => {
   const caller = await resolveCaller(context);
@@ -804,6 +1085,18 @@ exports.mgmtListData = functions.https.onCall(async (data, context) => {
         schoolDoc?.displayName ||
         "",
     ).trim();
+  const parseNameFromDisplay = (value) => {
+    const text = String(value || "").trim();
+    if (!text) return { firstName: "", lastName: "" };
+    const parts = text.split(/\s+/).filter(Boolean);
+    if (parts.length <= 1) {
+      return { firstName: text, lastName: "" };
+    }
+    return {
+      firstName: parts.slice(0, -1).join(" "),
+      lastName: parts[parts.length - 1],
+    };
+  };
 
   // ── Schools ──
   let schools = [];
@@ -861,23 +1154,30 @@ exports.mgmtListData = functions.https.onCall(async (data, context) => {
       );
       users = userSnaps.flatMap((snap) => mapSnapDocs(snap));
     }
-  } else if (caller.role === "parent") {
+  } else if (caller.role === "parent" || caller.role === "tutor") {
     const homeSchoolId = String(caller.doc.homeSchoolId || "").trim();
     const homeClassId = String(caller.doc.homeClassId || "").trim();
-    const [schoolSnap, classSnap, userSnap] = await Promise.all([
-      homeSchoolId
-        ? db.collection("schools").doc(homeSchoolId).get()
-        : Promise.resolve(null),
-      homeClassId
-        ? db.collection("classes").doc(homeClassId).get()
-        : Promise.resolve(null),
-      db.collection("users").where("parentOwnerId", "==", caller.uid).get(),
-    ]);
+    const [schoolSnap, classSnap, ownerUserSnap, legacyParentUserSnap] =
+      await Promise.all([
+        homeSchoolId
+          ? db.collection("schools").doc(homeSchoolId).get()
+          : Promise.resolve(null),
+        homeClassId
+          ? db.collection("classes").doc(homeClassId).get()
+          : Promise.resolve(null),
+        db.collection("users").where("ownerId", "==", caller.uid).get(),
+        db.collection("users").where("parentOwnerId", "==", caller.uid).get(),
+      ]);
     if (schoolSnap?.exists)
       schools = [{ id: schoolSnap.id, ...schoolSnap.data() }];
     if (classSnap?.exists)
       classes = [{ id: classSnap.id, ...classSnap.data() }];
-    users = mapSnapDocs(userSnap);
+    const byId = new Map();
+    [
+      ...mapSnapDocs(ownerUserSnap),
+      ...mapSnapDocs(legacyParentUserSnap),
+    ].forEach((u) => byId.set(u.id, u));
+    users = Array.from(byId.values());
   }
 
   // Fallback mapping for school-admin assignments. This protects display and
@@ -1044,13 +1344,88 @@ exports.mgmtListData = functions.https.onCall(async (data, context) => {
     classIdsByEducatorId.set(educatorId, existingIds);
   });
 
+  // Build recovery hints so legacy parent/tutor docs with missing name fields
+  // can be hydrated from sibling docs that share an email/username signal.
+  const nameHintsByEmail = new Map();
+  users.forEach((u) => {
+    const email = String(u?.email || "")
+      .trim()
+      .toLowerCase();
+    if (!email) return;
+    const firstName = String(u?.firstName || "").trim();
+    const lastName = String(u?.lastName || "").trim();
+    if (!firstName && !lastName) return;
+    if (!nameHintsByEmail.has(email)) {
+      nameHintsByEmail.set(email, { firstName, lastName });
+    }
+  });
+
+  // Recover manager role for legacy parent/tutor accounts whose own user doc
+  // role can be missing or incorrectly set to student, but who own students.
+  const managedRoleByOwnerId = new Map();
+  users.forEach((u) => {
+    if (normalizeRole(u?.role) !== "student") return;
+    const ownerId = String(u?.ownerId || u?.parentOwnerId || "").trim();
+    if (!ownerId) return;
+
+    const ownerRole = normalizeRole(u?.ownerRole || "");
+    const inferredOwnerRole = ownerRole === "tutor" ? "tutor" : "parent";
+    const existing = managedRoleByOwnerId.get(ownerId);
+    if (existing === "tutor") return;
+    managedRoleByOwnerId.set(ownerId, inferredOwnerRole);
+  });
+
   // Strip sensitive fields before returning.
+
+  // For users whose Firestore doc has no name data at all, fetch the Firebase
+  // Auth displayName as a final recovery source.  This covers legacy accounts
+  // created before firstName/lastName were written to Firestore on signup.
+  const authDisplayNameByUid = new Map();
+  {
+    const uidsMissingNames = users
+      .filter((u) => {
+        const fn = String(u?.firstName || "").trim();
+        const ln = String(u?.lastName || "").trim();
+        const dn = String(u?.displayName || u?.name || "").trim();
+        return !fn && !ln && !dn && String(u?.id || "").trim();
+      })
+      .map((u) => String(u.id).trim());
+
+    if (uidsMissingNames.length > 0) {
+      try {
+        const authChunks = chunk(uidsMissingNames, 100);
+        const authResults = await Promise.all(
+          authChunks.map((uids) =>
+            admin.auth().getUsers(uids.map((uid) => ({ uid }))),
+          ),
+        );
+        authResults.forEach((result) => {
+          result.users.forEach((authUser) => {
+            const authDisplayName = String(authUser.displayName || "").trim();
+            if (authDisplayName) {
+              authDisplayNameByUid.set(authUser.uid, authDisplayName);
+            }
+          });
+        });
+      } catch (authLookupErr) {
+        console.warn("mgmtListData auth name lookup failed", {
+          count: uidsMissingNames.length,
+          message: authLookupErr?.message || String(authLookupErr || ""),
+        });
+      }
+    }
+  }
+
+  const backfillNamePatches = [];
+
   const safeUsers = users.map(
     ({
       id,
       role,
       email,
       username,
+      name,
+      displayName,
       firstName,
       lastName,
       schoolId,
@@ -1058,12 +1433,23 @@ exports.mgmtListData = functions.https.onCall(async (data, context) => {
       classIds,
       educator,
       classroom,
+      ownerId,
       homeSchoolId,
       homeClassId,
       parentOwnerId,
       createdAt,
     }) => {
-      const normalizedRole = normalizeRole(role);
+      const userId = String(id || "").trim();
+      let normalizedRole = normalizeRole(role);
+      if (normalizedRole === "student" && userId) {
+        const inferredManagedRole = managedRoleByOwnerId.get(userId);
+        if (
+          inferredManagedRole === "parent" ||
+          inferredManagedRole === "tutor"
+        ) {
+          normalizedRole = inferredManagedRole;
+        }
+      }
       const assignedSchoolId = schoolAdminAssignmentByUserId.get(id) || "";
       const resolvedSchoolIdCandidate =
         toId(schoolId) ||
@@ -1085,18 +1471,80 @@ exports.mgmtListData = functions.https.onCall(async (data, context) => {
           : Array.isArray(classIds)
             ? classIds
             : [];
+
+      let resolvedFirstName = String(firstName || "").trim();
+      let resolvedLastName = String(lastName || "").trim();
+
+      if (!resolvedFirstName || !resolvedLastName) {
+        const emailKey = String(email || "")
+          .trim()
+          .toLowerCase();
+        const hinted = emailKey ? nameHintsByEmail.get(emailKey) : null;
+        if (!resolvedFirstName) {
+          resolvedFirstName = String(hinted?.firstName || "").trim();
+        }
+        if (!resolvedLastName) {
+          resolvedLastName = String(hinted?.lastName || "").trim();
+        }
+      }
+
+      if (!resolvedFirstName || !resolvedLastName) {
+        const parsed = parseNameFromDisplay(displayName || name);
+        if (!resolvedFirstName) {
+          resolvedFirstName = String(parsed.firstName || "").trim();
+        }
+        if (!resolvedLastName) {
+          resolvedLastName = String(parsed.lastName || "").trim();
+        }
+      }
+
+      // Last-resort fallback: use the Firebase Auth displayName for accounts
+      // whose Firestore doc never had name fields written (e.g. legacy signups).
+      if (!resolvedFirstName || !resolvedLastName) {
+        const authDisplayName = userId
+          ? authDisplayNameByUid.get(userId)
+          : null;
+        if (authDisplayName) {
+          const parsed = parseNameFromDisplay(authDisplayName);
+          if (!resolvedFirstName) {
+            resolvedFirstName = String(parsed.firstName || "").trim();
+          }
+          if (!resolvedLastName) {
+            resolvedLastName = String(parsed.lastName || "").trim();
+          }
+        }
+      }
+
+      if (
+        (normalizedRole === "parent" || normalizedRole === "tutor") &&
+        id &&
+        ((resolvedFirstName &&
+          resolvedFirstName !== String(firstName || "").trim()) ||
+          (resolvedLastName &&
+            resolvedLastName !== String(lastName || "").trim()))
+      ) {
+        backfillNamePatches.push({
+          id: String(id).trim(),
+          firstName: resolvedFirstName,
+          lastName: resolvedLastName,
+        });
+      }
+
       return {
         id,
         role: normalizedRole,
         email: String(email || ""),
         username: String(username || id),
-        firstName: String(firstName || ""),
-        lastName: String(lastName || ""),
+        name: String(name || ""),
+        displayName: String(displayName || ""),
+        firstName: resolvedFirstName,
+        lastName: resolvedLastName,
         schoolId: resolvedSchoolId,
         schoolName: resolvedSchoolName,
         classIds: resolvedClassIds,
         educator: String(educator || ""),
         classroom: String(classroom || ""),
+        ownerId: String(ownerId || ""),
         homeSchoolId: String(homeSchoolId || ""),
         homeClassId: String(homeClassId || ""),
         parentOwnerId: String(parentOwnerId || ""),
@@ -1104,6 +1552,40 @@ exports.mgmtListData = functions.https.onCall(async (data, context) => {
       };
     },
   );
+
+  if (backfillNamePatches.length > 0) {
+    const writablePatchTargets = backfillNamePatches.filter((patch) => {
+      const ref = db.collection("users").doc(patch.id);
+      return typeof ref?.set === "function";
+    });
+
+    if (writablePatchTargets.length > 0) {
+      try {
+        const chunks = chunk(writablePatchTargets, 400);
+        for (const patchChunk of chunks) {
+          const batch = db.batch();
+          patchChunk.forEach((patch) => {
+            const ref = db.collection("users").doc(patch.id);
+            batch.set(
+              ref,
+              {
+                firstName: patch.firstName,
+                lastName: patch.lastName,
+                updatedAt: serverTimestamp(),
+              },
+              { merge: true },
+            );
+          });
+          await batch.commit();
+        }
+      } catch (error) {
+        console.warn("mgmtListData name backfill failed", {
+          count: writablePatchTargets.length,
+          message: error?.message || String(error || ""),
+        });
+      }
+    }
+  }
 
   return {
     schools,
@@ -1365,13 +1847,4 @@ function randomPassword(length = 12) {
     out += alphabet[Math.floor(Math.random() * alphabet.length)];
   }
   return out;
-}
-
-function getCallerDoc(uid) {
-  return admin
-    .firestore()
-    .collection("users")
-    .doc(uid)
-    .get()
-    .then((snap) => (snap.exists ? snap.data() || {} : {}));
 }

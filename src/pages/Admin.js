@@ -44,12 +44,21 @@ import DeleteIcon from "@material-ui/icons/Delete";
 import LockIcon from "@material-ui/icons/Lock";
 import RefreshIcon from "@material-ui/icons/Refresh";
 
-const ROLE_OPTIONS = ["student", "educator", "schoolAdmin", "admin"];
+const ROLE_OPTIONS = [
+  "student",
+  "educator",
+  "parent",
+  "tutor",
+  "schoolAdmin",
+  "admin",
+];
 
 const prettyRole = (role) => {
   if (role === "schoolAdmin") return "School Admin";
   if (role === "admin") return "Admin";
-  if (role === "educator") return "Educator";
+  if (role === "educator") return "Teacher";
+  if (role === "parent") return "Home School Parent";
+  if (role === "tutor") return "Tutor/Reading Specialist";
   return "Student";
 };
 
@@ -117,8 +126,12 @@ function UserDialog({
   };
 
   const handleSave = () => {
-    if (isStudent && !String(form.username || "").trim()) {
-      triggerErrorAlert("Username is required for student users.");
+    if (!String(form.firstName || "").trim()) {
+      triggerErrorAlert("First name is required.");
+      return;
+    }
+    if (!String(form.lastName || "").trim()) {
+      triggerErrorAlert("Last name is required.");
       return;
     }
     if (!isStudent && !String(form.email || "").trim()) {
@@ -165,10 +178,9 @@ function UserDialog({
             onChange={handleChange("email")}
             variant="outlined"
             fullWidth
-            disabled={isStudent}
             helperText={
               isStudent
-                ? "Students use username/password login"
+                ? "Optional — used for account recovery if provided"
                 : "Invite/reset email will be sent"
             }
           />
@@ -179,10 +191,13 @@ function UserDialog({
             onChange={handleChange("username")}
             variant="outlined"
             fullWidth
+            InputProps={{ readOnly: isStudent }}
             helperText={
-              isStudent
-                ? "Required for student accounts"
-                : "Optional display username"
+              isStudent && mode === "add"
+                ? "Auto-generated from first and last name"
+                : isStudent
+                  ? "Auto-generated (read-only)"
+                  : "Optional display username"
             }
           />
 

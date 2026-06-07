@@ -1,0 +1,134 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1360" height="430" viewBox="0 0 1360 430" role="img" aria-labelledby="title desc">
+  <title id="title">Sound Spell Type Online on-screen keyboard</title>
+  <desc id="desc">Keyboard with colored letter groups and finger placement labels.</desc>
+
+  <defs>
+    <style>
+      .key { fill: #f3f4f6; stroke: #d0d5dd; stroke-width: 2; rx: 14; ry: 14; }
+      .light { fill: #ffffff; }
+      .green-dark { fill: #91bb18; }
+      .blue-dark { fill: #73cfff; }
+      .navy-dark { fill: #002ca0; }
+      .gold-dark { fill: #e0c23e; }
+      .txt { font-family: "Avenir Next", "Segoe UI", Helvetica, Arial, sans-serif; font-size: 30px; font-weight: 700; dominant-baseline: central; alignment-baseline: central; text-anchor: middle; letter-spacing: 0; }
+      .txt-dark { fill: #ffffff; }
+      .txt-green { fill: #91bb18; }
+      .txt-blue { fill: #73cfff; }
+      .txt-navy { fill: #002ca0; }
+      .txt-gold { fill: #e0c23e; }
+      .txt-grey { fill: #586168; }
+      .txt-small { font-size: 15px; }
+      .label { font-family: "Avenir Next", "Segoe UI", Helvetica, Arial, sans-serif; font-size: 22px; fill: #4b5563; dominant-baseline: central; alignment-baseline: central; text-anchor: middle; }
+      .title { font-family: "Avenir Next", "Segoe UI", Helvetica, Arial, sans-serif; font-size: 30px; font-weight: 700; fill: #111827; }
+      .bg { fill: #eef2f7; }
+      .panel { fill: #f8fafc; stroke: #dbe3ee; stroke-width: 2; rx: 24; ry: 24; }
+      .finger-guide { stroke: #64748b; stroke-width: 2; stroke-dasharray: 5 4; }
+      .finger-tip { fill: rgba(255, 255, 255, 0.92); stroke: #334155; stroke-width: 2; }
+      .finger-label { font-family: "Avenir Next", "Segoe UI", Helvetica, Arial, sans-serif; font-size: 14px; font-weight: 700; fill: #1f2937; text-anchor: middle; }
+      .hand-label { font-family: "Avenir Next", "Segoe UI", Helvetica, Arial, sans-serif; font-size: 16px; font-weight: 700; fill: #334155; text-anchor: middle; }
+      .home-finger { font-family: "Avenir Next", "Segoe UI", Helvetica, Arial, sans-serif; font-size: 12px; font-weight: 700; fill: #ffffff; text-anchor: middle; }
+    </style>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1360" height="430" />
+  <rect class="panel" x="24" y="24" width="1312" height="382" />
+  <text class="title" x="525" y="66" text-anchor="middle">Sound Spell Type Online</text>
+
+  <!-- Row 1 -->
+  <g transform="translate(56, 92)">
+    <rect class="key light" x="0" y="0" width="96" height="64" /><text class="txt txt-green" x="48" y="36">Q</text>
+    <rect class="key light" x="106" y="0" width="96" height="64" /><text class="txt txt-blue" x="154" y="36">W</text>
+    <rect class="key light" x="212" y="0" width="96" height="64" /><text class="txt txt-navy" x="260" y="36">E</text>
+    <rect class="key light" x="318" y="0" width="96" height="64" /><text class="txt txt-gold" x="366" y="36">R</text>
+    <rect class="key light" x="424" y="0" width="96" height="64" /><text class="txt txt-gold" x="472" y="36">T</text>
+    <rect class="key light" x="530" y="0" width="96" height="64" /><text class="txt txt-gold" x="578" y="36">Y</text>
+    <rect class="key light" x="636" y="0" width="96" height="64" /><text class="txt txt-gold" x="684" y="36">U</text>
+    <rect class="key light" x="742" y="0" width="96" height="64" /><text class="txt txt-navy" x="790" y="36">I</text>
+    <rect class="key light" x="848" y="0" width="96" height="64" /><text class="txt txt-blue" x="896" y="36">O</text>
+    <rect class="key light" x="954" y="0" width="96" height="64" /><text class="txt txt-green" x="1002" y="36">P</text>
+    <rect class="key" x="1060" y="0" width="220" height="64" /><text class="txt txt-green txt-small" x="1170" y="36">DELETE</text>
+  </g>
+
+  <!-- Row 2 -->
+  <g transform="translate(56, 166)">
+    <rect class="key green-dark" x="0" y="0" width="96" height="64" /><text class="txt txt-dark" x="48" y="36">A</text>
+    <rect class="key blue-dark" x="106" y="0" width="96" height="64" /><text class="txt txt-dark" x="154" y="36">S</text>
+    <rect class="key navy-dark" x="212" y="0" width="96" height="64" /><text class="txt txt-dark" x="260" y="36">D</text>
+    <rect class="key gold-dark" x="318" y="0" width="96" height="64" /><text class="txt txt-dark" x="366" y="36">F</text>
+    <rect class="key light" x="424" y="0" width="96" height="64" /><text class="txt txt-gold" x="472" y="36">G</text>
+    <rect class="key light" x="530" y="0" width="96" height="64" /><text class="txt txt-gold" x="578" y="36">H</text>
+    <rect class="key gold-dark" x="636" y="0" width="96" height="64" /><text class="txt txt-dark" x="684" y="36">J</text>
+    <rect class="key navy-dark" x="742" y="0" width="96" height="64" /><text class="txt txt-dark" x="790" y="36">K</text>
+    <rect class="key blue-dark" x="848" y="0" width="96" height="64" /><text class="txt txt-dark" x="896" y="36">L</text>
+    <rect class="key green-dark" x="954" y="0" width="96" height="64" /><text class="txt txt-dark" x="1002" y="36">;</text>
+    <rect class="key" x="1060" y="0" width="220" height="64" /><text class="txt txt-green txt-small" x="1170" y="36">ENTER</text>
+  </g>
+
+  <!-- Row 3 -->
+  <g transform="translate(56, 240)">
+    <rect class="key light" x="0" y="0" width="96" height="64" /><text class="txt txt-green" x="48" y="36">Z</text>
+    <rect class="key light" x="106" y="0" width="96" height="64" /><text class="txt txt-blue" x="154" y="36">X</text>
+    <rect class="key light" x="212" y="0" width="96" height="64" /><text class="txt txt-navy" x="260" y="36">C</text>
+    <rect class="key light" x="318" y="0" width="96" height="64" /><text class="txt txt-gold" x="366" y="36">V</text>
+    <rect class="key light" x="424" y="0" width="96" height="64" /><text class="txt txt-gold" x="472" y="36">B</text>
+    <rect class="key light" x="530" y="0" width="96" height="64" /><text class="txt txt-gold" x="578" y="36">N</text>
+    <rect class="key light" x="636" y="0" width="96" height="64" /><text class="txt txt-gold" x="684" y="36">M</text>
+    <rect class="key light" x="742" y="0" width="96" height="64" /><text class="txt txt-navy" x="790" y="36">,</text>
+    <rect class="key" x="848" y="0" width="96" height="64" /><text class="txt" x="896" y="36">.</text>
+  </g>
+
+  <!-- Finger placement overlay -->
+  <g aria-label="Finger placement guides" pointer-events="none">
+    <!-- Home row finger labels on keys -->
+    <text class="home-finger" x="104" y="218">Pinky</text>
+    <text class="home-finger" x="210" y="218">Ring</text>
+    <text class="home-finger" x="316" y="218">Middle</text>
+    <text class="home-finger" x="422" y="218">Index</text>
+    <text class="home-finger" x="740" y="218">Index</text>
+    <text class="home-finger" x="846" y="218">Middle</text>
+    <text class="home-finger" x="952" y="218">Ring</text>
+    <text class="home-finger" x="1058" y="218">Pinky</text>
+
+    <!-- Dotted guides from home-row finger labels to additional assigned keys -->
+    <line class="finger-guide" x1="128" y1="202" x2="104" y2="138" />
+    <line class="finger-guide" x1="128" y1="202" x2="104" y2="262" />
+
+    <line class="finger-guide" x1="234" y1="202" x2="210" y2="138" />
+    <line class="finger-guide" x1="234" y1="202" x2="210" y2="262" />
+
+    <line class="finger-guide" x1="340" y1="202" x2="316" y2="138" />
+    <line class="finger-guide" x1="340" y1="202" x2="316" y2="262" />
+
+    <line class="finger-guide" x1="446" y1="202" x2="422" y2="138" />
+    <line class="finger-guide" x1="446" y1="202" x2="422" y2="262" />
+    <line class="finger-guide" x1="446" y1="202" x2="528" y2="138" />
+    <line class="finger-guide" x1="446" y1="202" x2="528" y2="214" />
+    <line class="finger-guide" x1="446" y1="202" x2="528" y2="262" />
+
+    <line class="finger-guide" x1="716" y1="202" x2="740" y2="138" />
+    <line class="finger-guide" x1="716" y1="202" x2="740" y2="262" />
+    <line class="finger-guide" x1="716" y1="202" x2="634" y2="138" />
+    <line class="finger-guide" x1="716" y1="202" x2="634" y2="214" />
+    <line class="finger-guide" x1="716" y1="202" x2="634" y2="262" />
+
+    <line class="finger-guide" x1="870" y1="202" x2="846" y2="138" />
+    <line class="finger-guide" x1="870" y1="202" x2="846" y2="262" />
+
+    <line class="finger-guide" x1="976" y1="202" x2="952" y2="138" />
+    <line class="finger-guide" x1="976" y1="202" x2="952" y2="262" />
+
+    <line class="finger-guide" x1="1082" y1="202" x2="1058" y2="138" />
+    <line class="finger-guide" x1="1082" y1="202" x2="1226" y2="138" />
+    <line class="finger-guide" x1="1082" y1="202" x2="1226" y2="214" />
+
+    <!-- Left hand labels -->
+    <text class="hand-label" x="276" y="322">Left Hand</text>
+    <text class="hand-label" x="276" y="340">Fingers</text>
+
+    <!-- Right hand labels -->
+    <text class="hand-label" x="774" y="322">Right Hand</text>
+    <text class="hand-label" x="774" y="340">Fingers</text>
+
+    <text class="title" x="525" y="355" text-anchor="middle">Finger Positions</text>
+  </g>
+</svg>

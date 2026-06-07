@@ -16,6 +16,11 @@ const CreateCustomLesson = React.lazy(
   () => import("../pages/CreateCustomLesson"),
 );
 const About = React.lazy(() => import("../pages/About"));
+const ScopeSequence = React.lazy(() => import("../pages/ScopeSequence"));
+const TouchTyping = React.lazy(() => import("../pages/TouchTyping"));
+const SoundSpelling = React.lazy(() => import("../pages/SoundSpelling"));
+const AccountSetUp = React.lazy(() => import("../pages/AccountSetUp"));
+const ContactUs = React.lazy(() => import("../pages/ContactUs"));
 const Management = React.lazy(() => import("../pages/Management"));
 const StudentProgressDashboard = React.lazy(
   () => import("../pages/StudentProgressDashboard"),
@@ -27,6 +32,7 @@ export default function PrivateRoutes({
   isAdmin,
   isSchoolAdmin,
   isParent,
+  isTutor,
 }) {
   return (
     <UserProvider>
@@ -65,13 +71,21 @@ export default function PrivateRoutes({
                 <WordFixAdmin />
               </Route>
             )}
-            {(isAdmin || isSchoolAdmin || isEducator || isParent) && (
-              <Route exact path="/management">
+            {(isAdmin ||
+              isSchoolAdmin ||
+              isEducator ||
+              isParent ||
+              isTutor) && (
+              <Route exact path={["/management", "/management/"]}>
                 <Management />
               </Route>
             )}
-            {(isAdmin || isSchoolAdmin || isEducator || isParent) && (
-              <Route exact path="/student-progress">
+            {(isAdmin ||
+              isSchoolAdmin ||
+              isEducator ||
+              isParent ||
+              isTutor) && (
+              <Route exact path={["/student-progress", "/student-progress/"]}>
                 <StudentProgressDashboard />
               </Route>
             )}
@@ -94,6 +108,21 @@ export default function PrivateRoutes({
             <Route exact path="/about">
               <About />
             </Route>
+            <Route exact path="/scope-sequence">
+              <ScopeSequence />
+            </Route>
+            <Route exact path="/touch-typing">
+              <TouchTyping />
+            </Route>
+            <Route exact path="/sound-spelling">
+              <SoundSpelling />
+            </Route>
+            <Route exact path="/account-set-up">
+              <AccountSetUp />
+            </Route>
+            <Route exact path="/contact-us">
+              <ContactUs />
+            </Route>
             <Route
               exact
               path="/lesson/custom/:lessonId"
@@ -101,9 +130,6 @@ export default function PrivateRoutes({
                 <Redirect to={`/lessons/custom/${match.params.lessonId}`} />
               )}
             />
-            {/* <Route exact path='/contact-us'>
-              <ContactUs />
-            </Route> */}
             <Route children={<Error />} />
           </Switch>
         </Suspense>

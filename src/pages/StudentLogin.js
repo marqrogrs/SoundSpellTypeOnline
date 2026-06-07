@@ -34,7 +34,6 @@ export default function StudentLogin() {
   const handleSignIn = () => {
     setError(null);
     auth.signInStudent(name, password).catch((error) => {
-      console.log(error);
       setError(error.message);
     });
   };

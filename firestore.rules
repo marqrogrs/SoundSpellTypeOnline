@@ -36,6 +36,46 @@ service cloud.firestore {
       return isSignedIn() && existingData != null && request.auth.uid == existingData.username;
     }
 
+    function currentUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function currentUserUsername() {
+      let u = currentUserData();
+      return u != null
+        && ('username' in u)
+        && u.username != null
+        ? u.username
+        : '';
+    }
+
+    function isIndependentEmailStudent() {
+      let u = currentUserData();
+      return isSignedIn()
+        && request.auth.token.email != null
+        && u != null
+        && u.role == 'student'
+        && (!( 'ownerId' in u ) || u.ownerId == null || u.ownerId == '')
+        && (!( 'parentOwnerId' in u ) || u.parentOwnerId == null || u.parentOwnerId == '')
+        && (!( 'educator' in u ) || u.educator == null || u.educator == '')
+        && (!( 'classIds' in u ) || u.classIds.size() == 0);
+    }
+
+    function assignsLessonToSelf(lessonData) {
+      return (
+        (!( 'type' in lessonData ) || lessonData.type == 'personal')
+        || (
+          lessonData.type == 'forStudent'
+          && ('assignedStudentIds' in lessonData)
+          && request.auth.uid in lessonData.assignedStudentIds
+        )
+      );
+    }
+
+    function validSelfAssignmentPolicy(lessonData) {
+      return !assignsLessonToSelf(lessonData) || isIndependentEmailStudent();
+    }
+
     function userProtectedFieldsChanged() {
       return request.resource.data.diff(resource.data).changedKeys().hasAny([
         'role',
@@ -115,7 +155,10 @@ service cloud.firestore {
         // Educator assigned to this class.
         || (isSignedIn() && resource.data.educatorId == request.auth.uid)
         // Student who is a member.
-        || (isSignedIn() && request.auth.uid in resource.data.studentIds)
+        || (isSignedIn() && (
+          request.auth.uid in resource.data.studentIds
+          || (currentUserUsername() != '' && currentUserUsername() in resource.data.studentIds)
+        ))
         // Parent reads their home class.
         || (isParent() && resource.data.schoolType == 'home' && resource.data.educatorId == request.auth.uid);
       // All writes go through server-side callables only.
@@ -136,7 +179,10 @@ service cloud.firestore {
       // schoolAdmin/admin can read all for assignment purposes.
       allow read: if request.auth != null && (
         resource.data.educatorId == request.auth.uid
-        || ('studentIds' in resource.data && request.auth.uid in resource.data.studentIds)
+        || ('studentIds' in resource.data && (
+          request.auth.uid in resource.data.studentIds
+          || (currentUserUsername() != '' && currentUserUsername() in resource.data.studentIds)
+        ))
         || isSchoolAdminOrHigher()
       );
     }
@@ -145,10 +191,12 @@ service cloud.firestore {
     match /customLessons/{lessonId} {
       allow create: if request.auth != null
         && (request.resource.data.creatorId == request.auth.uid
-            || isSchoolAdminOrHigher());
+            || isSchoolAdminOrHigher())
+        && validSelfAssignmentPolicy(request.resource.data);
       allow update, delete: if request.auth != null
         && (resource.data.creatorId == request.auth.uid
-            || isSchoolAdminOrHigher());
+            || isSchoolAdminOrHigher())
+        && (request.method == 'delete' || validSelfAssignmentPolicy(request.resource.data));
       allow read: if request.auth != null && (
         // Creator always has access
         resource.data.creatorId == request.auth.uid
@@ -157,7 +205,10 @@ service cloud.firestore {
         // Student directly assigned
         || (resource.data.type == 'forStudent'
             && 'assignedStudentIds' in resource.data
-            && request.auth.uid in resource.data.assignedStudentIds)
+            && (
+              request.auth.uid in resource.data.assignedStudentIds
+              || (currentUserUsername() != '' && currentUserUsername() in resource.data.assignedStudentIds)
+            ))
         // Student in an assigned class
         || (resource.data.type == 'forClass'
             && 'assignedClassId' in resource.data
@@ -165,12 +216,22 @@ service cloud.firestore {
             && (
               // New assignments can explicitly target v2 classes.
               (resource.data.assignedClassSource == 'v2'
-                && request.auth.uid in
-                   get(/databases/$(database)/documents/classes/$(resource.data.assignedClassId)).data.studentIds)
+                && (
+                  request.auth.uid in
+                    get(/databases/$(database)/documents/classes/$(resource.data.assignedClassId)).data.studentIds
+                  || (currentUserUsername() != ''
+                    && currentUserUsername() in
+                      get(/databases/$(database)/documents/classes/$(resource.data.assignedClassId)).data.studentIds)
+                ))
               // Backward-compatible default: legacy educatorClasses.
               || ((!( 'assignedClassSource' in resource.data ) || resource.data.assignedClassSource != 'v2')
-                && request.auth.uid in
-                   get(/databases/$(database)/documents/educatorClasses/$(resource.data.assignedClassId)).data.studentIds)
+                && (
+                  request.auth.uid in
+                    get(/databases/$(database)/documents/educatorClasses/$(resource.data.assignedClassId)).data.studentIds
+                  || (currentUserUsername() != ''
+                    && currentUserUsername() in
+                      get(/databases/$(database)/documents/educatorClasses/$(resource.data.assignedClassId)).data.studentIds)
+                ))
             ))
         // Student whose user doc matches the assigned school
         || (resource.data.type == 'forSchool'

@@ -16,6 +16,7 @@ runCase("allows educator to reset password for their own student", () => {
   assert.doesNotThrow(() => {
     assertCanResetStudentPassword({
       callerUid: "educator-1",
+      callerRole: "educator",
       callerData: { email: "teacher@example.com" },
       studentExists: true,
       studentRecord: { educator: "educator-1" },
@@ -28,6 +29,7 @@ runCase("denies student callers", () => {
     () => {
       assertCanResetStudentPassword({
         callerUid: "student-1",
+        callerRole: "student",
         callerData: { username: "student-1" },
         studentExists: true,
         studentRecord: { educator: "educator-1" },
@@ -35,7 +37,7 @@ runCase("denies student callers", () => {
     },
     (error) =>
       error.code === "permission-denied" &&
-      /Only educators can reset student passwords\./.test(error.message),
+      /Only management users can reset student passwords\./.test(error.message),
   );
 });
 
@@ -44,6 +46,7 @@ runCase("denies educator resetting another educator's student", () => {
     () => {
       assertCanResetStudentPassword({
         callerUid: "educator-2",
+        callerRole: "educator",
         callerData: { email: "teacher2@example.com" },
         studentExists: true,
         studentRecord: { educator: "educator-1" },
@@ -62,6 +65,7 @@ runCase("returns not-found when student record is missing", () => {
     () => {
       assertCanResetStudentPassword({
         callerUid: "educator-1",
+        callerRole: "educator",
         callerData: { email: "teacher@example.com" },
         studentExists: false,
         studentRecord: null,

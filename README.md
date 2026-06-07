@@ -69,6 +69,16 @@ Emulator verification checklist:
 
 - `docs/emulator-reset-password-checklist.md` documents reset password authorization scenarios and expected callable errors.
 
+Deployment notes:
+
+- Use the repo-local shortcut from the project root when deploying functions:
+
+```
+npm run deploy:functions
+```
+
+- That script automatically sets the extra local Node heap and Firebase discovery timeout needed for this repo.
+
 Before making any changes, make sure to change branches:
 
 ```
@@ -77,7 +87,7 @@ git checkout -B new-branch-name
 
 ## Git flow
 
-The following git flow should be followed when working on SoundSpeller:
+The following git flow should be followed when working on Sound Spell Type:
 
 1. Before making any changes, checkout develop and pull any changes that have been made to make sure you're working from the most up-to-date code:
 
@@ -114,7 +124,7 @@ git commit -m "trying to add feature... WIP"
 git push
 ```
 
-4. Open a PR into `develop`. Go to the SoundSpeller project in Github, and select the Pull Requests tab. Click "New Pull Request". For the `base` select `develop`. For `compare`, select your branch.
+4. Open a PR into `develop`. Go to the Sound Spell Type project in Github, and select the Pull Requests tab. Click "New Pull Request". For the `base` select `develop`. For `compare`, select your branch.
 
 - Use `.github/pull_request_template.md` and complete the security checklist when your changes touch auth, functions, rules, or data access.
 

@@ -5,6 +5,7 @@ import firebase from "firebase/compat/app";
 import "firebase/compat/auth";
 import "firebase/compat/firestore"; //database
 import "firebase/compat/functions";
+import { getCurrentPerfSessionId, setPerfMetric } from "./util/perfSession";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBC9FNI_d_Lse9Kw1u_1jbWUvqcHShHXZQ",
@@ -19,6 +20,87 @@ const firebaseConfig = {
 
 // Initialize Firebase
 firebase.initializeApp(firebaseConfig);
+
+const nowMs = () =>
+  typeof performance !== "undefined" && typeof performance.now === "function"
+    ? performance.now()
+    : Date.now();
+
+const inflightCallableRequests = new Map();
+
+const stableStringify = (value) => {
+  if (value === null || typeof value !== "object") {
+    return JSON.stringify(value);
+  }
+
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => stableStringify(item)).join(",")}]`;
+  }
+
+  const keys = Object.keys(value).sort();
+  return `{${keys
+    .map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`)
+    .join(",")}}`;
+};
+
+const recordFirebaseMetric = (metricName, durationMs, details = {}) => {
+  const roundedMs = Math.round(durationMs);
+  const sessionId = getCurrentPerfSessionId();
+  if (sessionId) {
+    setPerfMetric(metricName, roundedMs, { sessionId });
+  }
+
+  console.info("[perf] firebase-client", {
+    metric: metricName,
+    ms: roundedMs,
+    ...details,
+  });
+};
+
+const timedCallable = (name, options = {}) => {
+  const callable = firebase.functions().httpsCallable(name);
+  const dedupeInFlight = Boolean(options.dedupeInFlight);
+  return async (data) => {
+    const requestKey = dedupeInFlight
+      ? `${name}:${stableStringify(data ?? null)}`
+      : "";
+
+    if (dedupeInFlight && inflightCallableRequests.has(requestKey)) {
+      return inflightCallableRequests.get(requestKey);
+    }
+
+    const startedAt = nowMs();
+    const requestPromise = callable(data)
+      .then((result) => {
+        recordFirebaseMetric(`fn_${name}Ms`, nowMs() - startedAt, {
+          callable: name,
+          status: "ok",
+          deduped: dedupeInFlight,
+        });
+        return result;
+      })
+      .catch((error) => {
+        recordFirebaseMetric(`fn_${name}Ms`, nowMs() - startedAt, {
+          callable: name,
+          status: "error",
+          code: String(error?.code || ""),
+          deduped: dedupeInFlight,
+        });
+        throw error;
+      })
+      .finally(() => {
+        if (dedupeInFlight) {
+          inflightCallableRequests.delete(requestKey);
+        }
+      });
+
+    if (dedupeInFlight) {
+      inflightCallableRequests.set(requestKey, requestPromise);
+    }
+
+    return requestPromise;
+  };
+};
 
 // Keep analytics out of the main bundle. It is not used directly by the app,
 // so load it only in production and only after the browser bootstraps.
@@ -42,78 +124,59 @@ export const db = firebase.firestore();
 export const auth = firebase.auth();
 auth.setPersistence(firebase.auth.Auth.Persistence.SESSION);
 
-export const authenticateStudent = firebase
-  .functions()
-  .httpsCallable("authenticateStudent");
-export const createStudentAccount = firebase
-  .functions()
-  .httpsCallable("createStudentAccount");
-export const resetStudentPassword = firebase
-  .functions()
-  .httpsCallable("resetStudentPassword");
-export const synthesizeWordAudio = firebase
-  .functions()
-  .httpsCallable("synthesizeWordAudio");
-export const applyWordFix = firebase.functions().httpsCallable("applyWordFix");
-export const ensureInitialAdmin = firebase
-  .functions()
-  .httpsCallable("ensureInitialAdmin");
-export const adminListUsers = firebase
-  .functions()
-  .httpsCallable("adminListUsers");
-export const adminCreateUser = firebase
-  .functions()
-  .httpsCallable("adminCreateUser");
-export const adminUpdateUser = firebase
-  .functions()
-  .httpsCallable("adminUpdateUser");
-export const adminDeleteUser = firebase
-  .functions()
-  .httpsCallable("adminDeleteUser");
-export const adminSendResetEmail = firebase
-  .functions()
-  .httpsCallable("adminSendResetEmail");
-export const adminListAuditLogs = firebase
-  .functions()
-  .httpsCallable("adminListAuditLogs");
+export const authenticateStudent = timedCallable("authenticateStudent");
+export const createStudentAccount = timedCallable("createStudentAccount");
+export const resetStudentPassword = timedCallable("resetStudentPassword");
+export const synthesizeWordAudio = timedCallable("synthesizeWordAudio");
+export const applyWordFix = timedCallable("applyWordFix");
+export const ensureInitialAdmin = timedCallable("ensureInitialAdmin");
+export const adminListUsers = timedCallable("adminListUsers");
+export const adminCreateUser = timedCallable("adminCreateUser");
+export const adminUpdateUser = timedCallable("adminUpdateUser");
+export const adminDeleteUser = timedCallable("adminDeleteUser");
+export const adminSendResetEmail = timedCallable("adminSendResetEmail");
+export const adminListAuditLogs = timedCallable("adminListAuditLogs", {
+  dedupeInFlight: true,
+});
+export const resolveMyRoleContext = timedCallable("resolveMyRoleContext", {
+  dedupeInFlight: true,
+});
+export const requestSchoolAdminAccess = timedCallable(
+  "requestSchoolAdminAccess",
+);
+export const adminListSchoolAdminRequests = timedCallable(
+  "adminListSchoolAdminRequests",
+  {
+    dedupeInFlight: true,
+  },
+);
+export const adminReviewSchoolAdminRequest = timedCallable(
+  "adminReviewSchoolAdminRequest",
+);
 
 // ─── v2 Org Management callables ─────────────────────────────────────────────
-export const mgmtListData = firebase.functions().httpsCallable("mgmtListData");
-export const mgmtCreateSchool = firebase
-  .functions()
-  .httpsCallable("mgmtCreateSchool");
-export const mgmtUpdateSchool = firebase
-  .functions()
-  .httpsCallable("mgmtUpdateSchool");
-export const mgmtArchiveSchool = firebase
-  .functions()
-  .httpsCallable("mgmtArchiveSchool");
-export const mgmtCreateClass = firebase
-  .functions()
-  .httpsCallable("mgmtCreateClass");
-export const mgmtUpdateClass = firebase
-  .functions()
-  .httpsCallable("mgmtUpdateClass");
-export const mgmtArchiveClass = firebase
-  .functions()
-  .httpsCallable("mgmtArchiveClass");
-export const mgmtAssignStudentClasses = firebase
-  .functions()
-  .httpsCallable("mgmtAssignStudentClasses");
-export const mgmtBootstrapParentHomeScope = firebase
-  .functions()
-  .httpsCallable("mgmtBootstrapParentHomeScope");
-export const mgmtParentCreateStudent = firebase
-  .functions()
-  .httpsCallable("mgmtParentCreateStudent");
-export const mgmtAssignSchoolAdmin = firebase
-  .functions()
-  .httpsCallable("mgmtAssignSchoolAdmin");
-export const mgmtAssignEducatorToSchool = firebase
-  .functions()
-  .httpsCallable("mgmtAssignEducatorToSchool");
-export const mgmtDebugUser = firebase
-  .functions()
-  .httpsCallable("mgmtDebugUser");
+export const mgmtListData = timedCallable("mgmtListData", {
+  dedupeInFlight: true,
+});
+export const mgmtCreateSchool = timedCallable("mgmtCreateSchool");
+export const mgmtUpdateSchool = timedCallable("mgmtUpdateSchool");
+export const mgmtArchiveSchool = timedCallable("mgmtArchiveSchool");
+export const mgmtCreateClass = timedCallable("mgmtCreateClass");
+export const mgmtUpdateClass = timedCallable("mgmtUpdateClass");
+export const mgmtArchiveClass = timedCallable("mgmtArchiveClass");
+export const mgmtAssignStudentClasses = timedCallable(
+  "mgmtAssignStudentClasses",
+);
+export const mgmtBootstrapParentHomeScope = timedCallable(
+  "mgmtBootstrapParentHomeScope",
+);
+export const mgmtParentCreateStudent = timedCallable("mgmtParentCreateStudent");
+export const mgmtAssignSchoolAdmin = timedCallable("mgmtAssignSchoolAdmin");
+export const mgmtAssignEducatorToSchool = timedCallable(
+  "mgmtAssignEducatorToSchool",
+);
+export const mgmtDebugUser = timedCallable("mgmtDebugUser", {
+  dedupeInFlight: true,
+});
 
 export default firebase;

@@ -3,10 +3,10 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 SS_DIR="$(dirname "$SCRIPT_DIR")"
 
-echo "This script will generate all files necessary in order to create a new page and add a link to it in the left-hand drop-down menu in the SoundSpeller app. After running this script, you can navigate to the newly created file and edit it with whatever html you would like."
+echo "This script will generate all files necessary in order to create a new page and add a link to it in the left-hand drop-down menu in the Sound Spell Type app. After running this script, you can navigate to the newly created file and edit it with whatever html you would like."
 while [[ ! $confirmed == "Y" ]]; do
 
-  echo "1. What would you like the route of this page to be? www.soundspeller.com/_________"
+  echo "1. What would you like the route of this page to be? www.soundspelltype.com/_________"
   route=""
   allowed_chars=^[A-Za-z0-9]+
   while ! [[ "$route" =~ ${allowed_chars} ]]; do

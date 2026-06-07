@@ -25,11 +25,13 @@ export default function NewStudentForm({ fabBottom = 88 }) {
 
   const validate = (values) => {
     const errors = {};
-    const { username, password, classroom, newClass, confirmPassword } = values;
-    if (!username) {
-      errors.username = "Required";
-    } else if (!/^[a-z0-9]+$/gi.test(username)) {
-      errors.username = "Username can only contain letters and numbers";
+    const { firstName, lastName, password, classroom, newClass } = values;
+
+    if (!String(firstName || "").trim()) {
+      errors.firstName = "Required";
+    }
+    if (!String(lastName || "").trim()) {
+      errors.lastName = "Required";
     }
 
     if (!classroom) {
@@ -47,33 +49,30 @@ export default function NewStudentForm({ fabBottom = 88 }) {
     if (!password) {
       errors.password = "Required";
     }
-    if (!confirmPassword) {
-      errors.confirmPassword = "Required";
-    } else if (password !== confirmPassword) {
-      errors.confirmPassword = "Confirmation does not match";
-    }
-    // console.log(errors)
     return errors;
   };
 
   const formik = useFormik({
     initialValues: {
-      username: "",
+      firstName: "",
+      lastName: "",
       classroom: "",
       newClass: "",
       password: "",
-      confirmPassword: "",
     },
     validate,
     onSubmit: (values) => {
       setAddStudentLoading(true);
-      const { classroom, newClass, username, password } = values;
+      const { firstName, lastName, classroom, newClass, password } = values;
       const studentClassroom = classroom === "newClass" ? newClass : classroom;
-      addNewStudent({
-        username,
+      const payload = {
         password,
         classroom: studentClassroom,
-      })
+        firstName: String(firstName || "").trim(),
+        lastName: String(lastName || "").trim(),
+      };
+
+      addNewStudent(payload)
         .then(() => {
           setAddStudentLoading(false);
           setOpen(false);
@@ -150,14 +149,25 @@ export default function NewStudentForm({ fabBottom = 88 }) {
               ></TextField>
             )}
             <TextField
-              name="username"
-              label="Username"
+              name="firstName"
+              label="First Name"
               variant="outlined"
               color="primary"
               margin="normal"
-              error={formik.errors.username}
-              helperText={formik.errors.username}
-              value={formik.values.username}
+              error={Boolean(formik.errors.firstName)}
+              helperText={formik.errors.firstName}
+              value={formik.values.firstName}
+              onChange={formik.handleChange}
+            ></TextField>
+            <TextField
+              name="lastName"
+              label="Last Name"
+              variant="outlined"
+              color="primary"
+              margin="normal"
+              error={Boolean(formik.errors.lastName)}
+              helperText={formik.errors.lastName}
+              value={formik.values.lastName}
               onChange={formik.handleChange}
             ></TextField>
             <TextField
@@ -167,21 +177,9 @@ export default function NewStudentForm({ fabBottom = 88 }) {
               color="primary"
               type="password"
               margin="normal"
-              error={formik.errors.password}
+              error={Boolean(formik.errors.password)}
               helperText={formik.errors.password}
               value={formik.values.password}
-              onChange={formik.handleChange}
-            ></TextField>
-            <TextField
-              name="confirmPassword"
-              label="Confirm Password"
-              variant="outlined"
-              color="primary"
-              type="password"
-              margin="normal"
-              error={formik.errors.confirmPassword}
-              helperText={formik.errors.confirmPassword}
-              value={formik.values.confirmPassword}
               onChange={formik.handleChange}
             ></TextField>
             <Button

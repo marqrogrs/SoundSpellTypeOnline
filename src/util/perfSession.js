@@ -126,3 +126,20 @@ export const getLatestPerfSessionSummary = () => {
 
   return { ...store.lastSummary };
 };
+
+export const getPerfDebugSnapshot = () => {
+  const store = getStore();
+  if (!store) {
+    return null;
+  }
+
+  const sessionId = store.currentSessionId || null;
+  const session = sessionId ? getSession(sessionId) : null;
+
+  return {
+    sessionId,
+    lastSummary: store.lastSummary ? { ...store.lastSummary } : null,
+    sessionMeta: session?.meta ? { ...session.meta } : null,
+    metrics: session?.metrics ? { ...session.metrics } : null,
+  };
+};

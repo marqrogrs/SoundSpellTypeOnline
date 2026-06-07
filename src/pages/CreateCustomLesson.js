@@ -60,6 +60,7 @@ export default function CreateCustomLesson() {
 
   const isEducator = auth.isEducator;
   const isParent = auth.isParent;
+  const isTutor = auth.isTutor;
   const isSchoolAdmin = auth.isSchoolAdmin;
   const isAdmin = auth.isAdmin;
   const role = auth.role || "student";
@@ -75,6 +76,7 @@ export default function CreateCustomLesson() {
   const [selectedClassId, setSelectedClassId] = useState("");
   const [selectedStudentIds, setSelectedStudentIds] = useState([]);
   const [selectedSchoolId, setSelectedSchoolId] = useState("");
+  const [parentTutorAssignee, setParentTutorAssignee] = useState("");
 
   // ─── Validation state ─────────────────────────────────────────────────────
   const [validWords, setValidWords] = useState([]);
@@ -85,6 +87,7 @@ export default function CreateCustomLesson() {
   // ─── Class data (legacy educatorClasses + v2 classes) ────────────────────
   const [legacyClasses, setLegacyClasses] = useState([]);
   const [scopedClasses, setScopedClasses] = useState([]);
+  const [managedStudents, setManagedStudents] = useState([]);
 
   // ─── School data (for admin school picker / schoolAdmin display) ──────────
   const [schools, setSchools] = useState([]);
@@ -93,16 +96,37 @@ export default function CreateCustomLesson() {
   const [saving, setSaving] = useState(false);
   const [loadingLesson, setLoadingLesson] = useState(false);
 
+  const hasManagerLink = Boolean(
+    userData?.ownerId ||
+    userData?.parentOwnerId ||
+    userData?.educator ||
+    (Array.isArray(userData?.classIds) && userData.classIds.length > 0),
+  );
+  const canAssignToSelf =
+    role === "student" && Boolean(auth.user?.email) && !hasManagerLink;
+  const isParentOrTutor = isParent || isTutor;
   const canAssignByClass = !(
     !isEducator &&
     !isAdmin &&
     !isSchoolAdmin &&
-    !isParent
+    !isParent &&
+    !isTutor
   );
   const canAssignByStudent = canAssignByClass;
   const canAssignBySchool = isAdmin || isSchoolAdmin;
   const canAssignForAll = isAdmin;
-  const showAssignmentSection = Boolean(userId);
+  const showAssignmentSection = Boolean(userId) && !canAssignToSelf;
+  const isStudentWithoutAssignableTargets =
+    role === "student" &&
+    !isEducator &&
+    !isAdmin &&
+    !isSchoolAdmin &&
+    !isParentOrTutor &&
+    !canAssignToSelf;
+  const hasNoParentTutorStudents =
+    isParentOrTutor && managedStudents.length === 0;
+  const hasNoAssignableTargets =
+    isStudentWithoutAssignableTargets || hasNoParentTutorStudents;
 
   const classes = useMemo(() => {
     const out = [];
@@ -155,6 +179,7 @@ export default function CreateCustomLesson() {
     let isMounted = true;
     if (!userId || role === "student") {
       setScopedClasses([]);
+      setManagedStudents([]);
       return () => {
         isMounted = false;
       };
@@ -170,6 +195,24 @@ export default function CreateCustomLesson() {
           acc[String(u.id || "")] = u;
           return acc;
         }, {});
+
+        const ownedStudents = users
+          .filter((u) => {
+            const normalizedRole = String(u?.role || "").toLowerCase();
+            const ownerId = String(u?.ownerId || u?.parentOwnerId || "");
+            return (
+              isParentOrTutor &&
+              normalizedRole === "student" &&
+              ownerId === userId
+            );
+          })
+          .map((u) => ({
+            username: String(u.username || u.id || "").trim(),
+            name: String(
+              u.name || u.displayName || u.username || u.id || "",
+            ).trim(),
+          }))
+          .filter((s) => Boolean(s.username));
 
         const normalized = (
           Array.isArray(payload.classes) ? payload.classes : []
@@ -195,10 +238,12 @@ export default function CreateCustomLesson() {
         });
 
         setScopedClasses(normalized);
+        setManagedStudents(ownedStudents);
       } catch (e) {
         if (!isMounted) return;
         // Students are not allowed to call mgmtListData. Others should usually pass.
         setScopedClasses([]);
+        setManagedStudents([]);
       }
     };
 
@@ -207,7 +252,7 @@ export default function CreateCustomLesson() {
     return () => {
       isMounted = false;
     };
-  }, [userId, role]);
+  }, [isParentOrTutor, userId, role]);
 
   // Load schools for school picker (schoolAdmin sees own school, admin sees all)
   useEffect(() => {
@@ -244,6 +289,12 @@ export default function CreateCustomLesson() {
         setAssignmentType(lesson.type || "personal");
         setSelectedClassId(lesson.assignedClassId || "");
         setSelectedStudentIds(lesson.assignedStudentIds || []);
+        if (isParentOrTutor) {
+          const firstAssigned = String(lesson.assignedStudentIds?.[0] || "");
+          setParentTutorAssignee(
+            lesson.type === "forStudent" && firstAssigned ? firstAssigned : "",
+          );
+        }
         setSelectedSchoolId(lesson.assignedSchoolId || "");
         setValidWords(lesson.words || []);
         setInvalidWords([]);
@@ -265,7 +316,7 @@ export default function CreateCustomLesson() {
     return () => {
       isMounted = false;
     };
-  }, [editLessonId, history, isEditMode, userId]);
+  }, [editLessonId, history, isEditMode, isParentOrTutor, userId]);
 
   // Reset validation when word input changes
   useEffect(() => {
@@ -318,6 +369,11 @@ export default function CreateCustomLesson() {
   const studentsInSelectedClass = selectedClass
     ? Object.values(selectedClass.students || {})
     : [];
+  const effectiveAssignmentType = canAssignToSelf
+    ? "personal"
+    : isParentOrTutor
+      ? "forStudent"
+      : assignmentType;
 
   // ─── Save ─────────────────────────────────────────────────────────────────
   const handleSave = async () => {
@@ -337,19 +393,35 @@ export default function CreateCustomLesson() {
       triggerErrorAlert("Please select at least one difficulty level.");
       return;
     }
-    if (assignmentType === "forClass" && canAssignByClass && !selectedClassId) {
+    if (hasNoAssignableTargets) {
+      triggerErrorAlert(
+        "No assignable students are available for this account.",
+      );
+      return;
+    }
+    if (!canAssignToSelf && effectiveAssignmentType === "personal") {
+      triggerErrorAlert(
+        "Self-assignment is only available to independent student accounts.",
+      );
+      return;
+    }
+    if (
+      effectiveAssignmentType === "forClass" &&
+      canAssignByClass &&
+      !selectedClassId
+    ) {
       triggerErrorAlert("Please select a class to assign to.");
       return;
     }
     if (
-      assignmentType === "forStudent" &&
+      effectiveAssignmentType === "forStudent" &&
       canAssignByStudent &&
-      selectedStudentIds.length === 0
+      (isParentOrTutor ? !parentTutorAssignee : selectedStudentIds.length === 0)
     ) {
       triggerErrorAlert("Please select at least one student.");
       return;
     }
-    if (assignmentType === "forSchool") {
+    if (effectiveAssignmentType === "forSchool") {
       const resolvedSchoolId = isAdmin
         ? selectedSchoolId
         : userData?.schoolId || "";
@@ -372,19 +444,21 @@ export default function CreateCustomLesson() {
         creatorType: role,
         words: validWords,
         difficultyLevels,
-        type: assignmentType,
+        type: effectiveAssignmentType,
       };
 
-      if (isEducator || isAdmin || isSchoolAdmin || isParent) {
+      if (isEducator || isAdmin || isSchoolAdmin || isParent || isTutor) {
         base.educatorId = userId;
         base.educatorName = userName;
       }
 
-      if (assignmentType === "forStudent") {
-        base.assignedStudentIds = selectedStudentIds;
+      if (effectiveAssignmentType === "forStudent") {
+        base.assignedStudentIds = isParentOrTutor
+          ? [parentTutorAssignee]
+          : selectedStudentIds;
       }
 
-      if (assignmentType === "forClass") {
+      if (effectiveAssignmentType === "forClass") {
         base.assignedClassId = selectedClassId;
         base.assignedClassName = selectedClass?.className || "";
         base.assignedClassSource =
@@ -395,7 +469,7 @@ export default function CreateCustomLesson() {
         );
       }
 
-      if (assignmentType === "forSchool") {
+      if (effectiveAssignmentType === "forSchool") {
         const schoolId = isAdmin ? selectedSchoolId : userData?.schoolId || "";
         const schoolDoc = schools.find((s) => s.id === schoolId);
         base.assignedSchoolId = schoolId;
@@ -577,101 +651,130 @@ export default function CreateCustomLesson() {
           <Typography variant="subtitle1" gutterBottom>
             Assign To
           </Typography>
-          <FormGroup>
-            {/* ── Personal ── always available */}
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={assignmentType === "personal"}
-                  onChange={() => {
-                    setAssignmentType("personal");
+          {isParentOrTutor ? (
+            <Box mt={1}>
+              <FormControl variant="outlined" fullWidth>
+                <InputLabel>Select Student</InputLabel>
+                <Select
+                  value={parentTutorAssignee}
+                  onChange={(e) => {
+                    const value = String(e.target.value || "");
+                    setParentTutorAssignee(value);
+                    setAssignmentType("forStudent");
+                    setSelectedStudentIds(value ? [value] : []);
                     setSelectedClassId("");
-                    setSelectedStudentIds([]);
                     setSelectedSchoolId("");
                   }}
-                  color="primary"
+                  label="Select Student"
+                >
+                  {managedStudents.map((student) => (
+                    <MenuItem key={student.username} value={student.username}>
+                      {student.name || student.username}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              {managedStudents.length === 0 && (
+                <Typography variant="caption" color="textSecondary">
+                  No students are linked to your account.
+                </Typography>
+              )}
+            </Box>
+          ) : (
+            <FormGroup>
+              {/* ── Entire school ── schoolAdmin and admin only */}
+              {canAssignBySchool && (
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={assignmentType === "forSchool"}
+                      onChange={() => {
+                        setAssignmentType("forSchool");
+                        setSelectedClassId("");
+                        setSelectedStudentIds([]);
+                        // Pre-select school admin's own school
+                        if (!isAdmin) {
+                          setSelectedSchoolId(userData?.schoolId || "");
+                        }
+                      }}
+                      color="primary"
+                    />
+                  }
+                  label="Entire school"
                 />
-              }
-              label="Just myself"
-            />
+              )}
 
-            {/* ── Entire school ── schoolAdmin and admin only */}
-            {canAssignBySchool && (
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={assignmentType === "forSchool"}
-                    onChange={() => {
-                      setAssignmentType("forSchool");
-                      setSelectedClassId("");
-                      setSelectedStudentIds([]);
-                      // Pre-select school admin's own school
-                      if (!isAdmin) {
-                        setSelectedSchoolId(userData?.schoolId || "");
-                      }
-                    }}
-                    color="primary"
-                  />
-                }
-                label="Entire school"
-              />
-            )}
+              {/* ── All students everywhere ── admin only */}
+              {canAssignForAll && (
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={assignmentType === "forAll"}
+                      onChange={() => {
+                        setAssignmentType("forAll");
+                        setSelectedClassId("");
+                        setSelectedStudentIds([]);
+                        setSelectedSchoolId("");
+                        setParentTutorAssignee("");
+                      }}
+                      color="primary"
+                    />
+                  }
+                  label="All students (entire platform)"
+                />
+              )}
 
-            {/* ── All students everywhere ── admin only */}
-            {canAssignForAll && (
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={assignmentType === "forAll"}
-                    onChange={() => {
-                      setAssignmentType("forAll");
-                      setSelectedClassId("");
-                      setSelectedStudentIds([]);
-                      setSelectedSchoolId("");
-                    }}
-                    color="primary"
-                  />
-                }
-                label="All students (entire platform)"
-              />
-            )}
+              {/* ── Entire class ── all educator roles */}
+              {canAssignByClass && (
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={assignmentType === "forClass"}
+                      onChange={() => {
+                        setAssignmentType("forClass");
+                        setSelectedStudentIds([]);
+                        setSelectedSchoolId("");
+                        setParentTutorAssignee("");
+                      }}
+                      color="primary"
+                    />
+                  }
+                  label={isParentOrTutor ? "All students" : "An entire class"}
+                />
+              )}
 
-            {/* ── Entire class ── all educator roles */}
-            {canAssignByClass && (
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={assignmentType === "forClass"}
-                    onChange={() => {
-                      setAssignmentType("forClass");
-                      setSelectedStudentIds([]);
-                      setSelectedSchoolId("");
-                    }}
-                    color="primary"
-                  />
-                }
-                label="An entire class"
-              />
-            )}
+              {/* ── Individual students ── all educator roles */}
+              {canAssignByStudent && (
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={assignmentType === "forStudent"}
+                      onChange={() => {
+                        setAssignmentType("forStudent");
+                        setSelectedClassId("");
+                        setSelectedSchoolId("");
+                        setParentTutorAssignee("");
+                      }}
+                      color="primary"
+                    />
+                  }
+                  label={
+                    isParentOrTutor
+                      ? "Individual students"
+                      : "Individual students from a class"
+                  }
+                />
+              )}
+            </FormGroup>
+          )}
 
-            {/* ── Individual students ── all educator roles */}
-            {canAssignByStudent && (
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={assignmentType === "forStudent"}
-                    onChange={() => {
-                      setAssignmentType("forStudent");
-                      setSelectedClassId("");
-                      setSelectedSchoolId("");
-                    }}
-                    color="primary"
-                  />
-                }
-                label="Individual students from a class"
-              />
-            )}
-          </FormGroup>
+          {hasNoAssignableTargets && (
+            <Box mt={2}>
+              <Typography variant="caption" color="error">
+                No assignable students are available for this account.
+              </Typography>
+            </Box>
+          )}
 
           {/* School selector — admin picking a specific school for forSchool */}
           {assignmentType === "forSchool" && isAdmin && (
@@ -723,80 +826,85 @@ export default function CreateCustomLesson() {
           )}
 
           {/* Class selector */}
-          {(assignmentType === "forClass" ||
-            assignmentType === "forStudent") && (
-            <Box mt={2}>
-              <FormControl variant="outlined" fullWidth>
-                <InputLabel>Select Class</InputLabel>
-                <Select
-                  value={selectedClassId}
-                  onChange={(e) => {
-                    setSelectedClassId(e.target.value);
-                    setSelectedStudentIds([]);
-                  }}
-                  label="Select Class"
-                >
-                  {classes.map((c) => (
-                    <MenuItem key={c.id} value={c.id}>
-                      {c.className}
-                      {isAdmin || isSchoolAdmin
-                        ? ` — ${c.educatorName || c.educatorId}`
-                        : ""}{" "}
-                      ({Object.keys(c.students || {}).length} students)
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              {classes.length === 0 && (
-                <Typography variant="caption" color="textSecondary">
-                  No classes are available for your role yet.
-                </Typography>
-              )}
-            </Box>
-          )}
+          {!isParentOrTutor &&
+            (assignmentType === "forClass" ||
+              assignmentType === "forStudent") && (
+              <Box mt={2}>
+                <FormControl variant="outlined" fullWidth>
+                  <InputLabel>Select Class</InputLabel>
+                  <Select
+                    value={selectedClassId}
+                    onChange={(e) => {
+                      setSelectedClassId(e.target.value);
+                      setSelectedStudentIds([]);
+                    }}
+                    label="Select Class"
+                  >
+                    {classes.map((c) => (
+                      <MenuItem key={c.id} value={c.id}>
+                        {c.className}
+                        {isAdmin || isSchoolAdmin
+                          ? ` — ${c.educatorName || c.educatorId}`
+                          : ""}{" "}
+                        ({Object.keys(c.students || {}).length} students)
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                {classes.length === 0 && (
+                  <Typography variant="caption" color="textSecondary">
+                    No classes are available for your role yet.
+                  </Typography>
+                )}
+              </Box>
+            )}
 
           {/* Individual student picker */}
-          {assignmentType === "forStudent" && selectedClassId && (
-            <Box mt={2}>
-              <Divider style={{ marginBottom: 12 }} />
-              <Typography variant="subtitle2" gutterBottom>
-                Pick students
-              </Typography>
-              {studentsInSelectedClass.length === 0 ? (
-                <Typography variant="body2" color="textSecondary">
-                  No students in this class yet.
+          {!isParentOrTutor &&
+            assignmentType === "forStudent" &&
+            selectedClassId && (
+              <Box mt={2}>
+                <Divider style={{ marginBottom: 12 }} />
+                <Typography variant="subtitle2" gutterBottom>
+                  Pick students
                 </Typography>
-              ) : (
-                <FormGroup>
-                  {studentsInSelectedClass.map((s) => (
-                    <FormControlLabel
-                      key={s.username}
-                      control={
-                        <Checkbox
-                          checked={selectedStudentIds.includes(s.username)}
-                          onChange={() => toggleStudent(s.username)}
-                          color="primary"
-                        />
-                      }
-                      label={s.username}
-                    />
-                  ))}
-                </FormGroup>
-              )}
-            </Box>
-          )}
+                {studentsInSelectedClass.length === 0 ? (
+                  <Typography variant="body2" color="textSecondary">
+                    No students in this class yet.
+                  </Typography>
+                ) : (
+                  <FormGroup>
+                    {studentsInSelectedClass.map((s) => (
+                      <FormControlLabel
+                        key={s.username}
+                        control={
+                          <Checkbox
+                            checked={selectedStudentIds.includes(s.username)}
+                            onChange={() => toggleStudent(s.username)}
+                            color="primary"
+                          />
+                        }
+                        label={s.username}
+                      />
+                    ))}
+                  </FormGroup>
+                )}
+              </Box>
+            )}
 
           {/* Class summary for forClass */}
-          {assignmentType === "forClass" && selectedClass && (
-            <Box mt={2}>
-              <Typography variant="caption" color="textSecondary">
-                This lesson will be assigned to all{" "}
-                {studentsInSelectedClass.length} student
-                {studentsInSelectedClass.length !== 1 ? "s" : ""} in{" "}
-                <strong>{selectedClass.className}</strong>.
-              </Typography>
-            </Box>
-          )}
+          {!isParentOrTutor &&
+            assignmentType === "forClass" &&
+            selectedClass && (
+              <Box mt={2}>
+                <Typography variant="caption" color="textSecondary">
+                  This lesson will be assigned to all{" "}
+                  {studentsInSelectedClass.length} student
+                  {studentsInSelectedClass.length !== 1 ? "s" : ""} in{" "}
+                  <strong>{selectedClass.className}</strong>.
+                </Typography>
+              </Box>
+            )}
         </Paper>
       )}
 
@@ -812,7 +920,12 @@ export default function CreateCustomLesson() {
           variant="contained"
           color="primary"
           onClick={handleSave}
-          disabled={saving || !validated || validWords.length === 0}
+          disabled={
+            saving ||
+            !validated ||
+            validWords.length === 0 ||
+            hasNoAssignableTargets
+          }
         >
           {saving ? (
             <CircularProgress size={20} />

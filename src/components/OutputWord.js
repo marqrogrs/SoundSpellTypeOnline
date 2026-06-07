@@ -554,9 +554,9 @@ export default function OutputWord({
       if (isCancelled) {
         return;
       }
-      reportFlowEvent("flow-timeout", { timeoutMs: 12000 });
+      reportFlowEvent("flow-timeout", { timeoutMs: 22000 });
       signalReadyOnce("flow-timeout-ready");
-    }, 12000);
+    }, 22000);
 
     const safeSpeakPhoneme = async (phoneme) => {
       try {

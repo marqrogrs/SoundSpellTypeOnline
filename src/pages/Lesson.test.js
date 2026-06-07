@@ -21,9 +21,19 @@ jest.mock("../firebase", () => ({
 
 jest.mock("../util/Audio", () => ({
   primeAudioPlayback: jest.fn().mockResolvedValue(true),
+  speakText: jest.fn().mockResolvedValue(true),
+  stopSpeaking: jest.fn(),
   SPEECH_RATE: 1,
   terminateAudio: jest.fn(),
   setPlayAudio: jest.fn(),
+}));
+
+jest.mock("../util/wordDefinitionLookup", () => ({
+  lookupWordDefinition: jest.fn().mockResolvedValue({
+    definition: "A mock definition.",
+    exampleSentence: "A mock example sentence.",
+    partOfSpeech: "noun",
+  }),
 }));
 
 // Mock OutputWord to immediately open the answer field (no real audio needed).
@@ -221,7 +231,7 @@ describe("Lesson – word submission", () => {
         score: 0,
         completed_words: 0,
         high_score: 100,
-        correct_words: [],
+        correct_words: ["DID", "PIT"],
         completed: true,
       },
       1: {
@@ -279,5 +289,51 @@ describe("Lesson – word submission", () => {
     const textarea = getTextarea();
     fireEvent.change(textarea, { target: { value: "DID" } });
     expect(textarea.value).toBe("");
+  });
+
+  test("popup Talk uses speech and Repeat stops it safely", async () => {
+    const { startLesson, getByText, findByText } = renderLesson();
+    const { speakText, stopSpeaking } = require("../util/Audio");
+
+    startLesson();
+
+    fireEvent.click(getByText(/^show$/i));
+    fireEvent.click(getByText("DID"));
+
+    await findByText(/Definition:/i);
+
+    speakText.mockClear();
+    stopSpeaking.mockClear();
+
+    fireEvent.click(getByText(/^Talk$/i));
+
+    await wait(() => {
+      expect(speakText).toHaveBeenCalledTimes(1);
+      expect(String(speakText.mock.calls[0][0] || "")).toContain("Word: DID");
+      expect(stopSpeaking).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.click(getByText(/repeat/i));
+
+    await wait(() => {
+      expect(stopSpeaking).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  test("popup Talk is hidden when kill switch is disabled", async () => {
+    window.localStorage.setItem("soundspeller.wordInfoTalkEnabled", "false");
+    try {
+      const { startLesson, getByText, findByText, queryByText } =
+        renderLesson();
+
+      startLesson();
+      fireEvent.click(getByText(/^show$/i));
+      fireEvent.click(getByText("DID"));
+
+      await findByText(/Definition:/i);
+      expect(queryByText(/^Talk$/i)).toBeNull();
+    } finally {
+      window.localStorage.removeItem("soundspeller.wordInfoTalkEnabled");
+    }
   });
 });

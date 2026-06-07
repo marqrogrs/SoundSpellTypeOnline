@@ -13,12 +13,28 @@ import OutputWord from "../components/OutputWord";
 import LessonProgress from "../components/LessonProgress";
 import LevelPicker from "../components/LevelPicker";
 import PatternButton from "../components/PatternButton";
-import { Container, Button, Grid, Paper } from "@material-ui/core";
+import {
+  Container,
+  Button,
+  Grid,
+  Paper,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  CircularProgress,
+} from "@material-ui/core";
 import ButtonGroup from "@material-ui/core/ButtonGroup";
 
 import { useParams, useHistory } from "react-router-dom";
 import { LessonContext } from "../providers/LessonProvider";
-import { primeAudioPlayback } from "../util/Audio";
+import {
+  primeAudioPlayback,
+  setPlayAudio,
+  speakText,
+  stopSpeaking,
+} from "../util/Audio";
+import { lookupWordDefinition } from "../util/wordDefinitionLookup";
 import {
   SUCCESS_MESSAGES,
   FAILURE_MESSAGES,
@@ -30,6 +46,7 @@ import { useSnackbar } from "notistack";
 import sample from "lodash/sample";
 
 const CUE_SPEED_PRESET_STORAGE_KEY = "soundspeller.lessonCueSpeedPreset";
+const WORD_INFO_TALK_ENABLED_STORAGE_KEY = "soundspeller.wordInfoTalkEnabled";
 const CUE_SPEED_PRESET_OPTIONS = ["slower", "normal", "faster"];
 const CUE_SPEED_LABELS = {
   slower: "Slower",
@@ -42,7 +59,7 @@ export default function Lesson() {
   const classes = useStyles();
   const {
     saveProgress,
-    markFirstLessonAttempted,
+    markFirstLessonAttempted = async () => {},
     setLesson,
     currentLesson,
     lessonsLoading,
@@ -65,6 +82,12 @@ export default function Lesson() {
   const [showWordPeek, setShowWordPeek] = useState(false);
   const [startStatusMessage, setStartStatusMessage] = useState("");
   const [cueSpeedPreset, setCueSpeedPreset] = useState("normal");
+  const [wordInfoDialogOpen, setWordInfoDialogOpen] = useState(false);
+  const [wordInfoWord, setWordInfoWord] = useState("");
+  const [wordInfo, setWordInfo] = useState(null);
+  const [wordInfoLoading, setWordInfoLoading] = useState(false);
+  const [wordInfoError, setWordInfoError] = useState("");
+  const [wordInfoSpeaking, setWordInfoSpeaking] = useState(false);
 
   const params = useParams();
   const history = useHistory();
@@ -86,6 +109,21 @@ export default function Lesson() {
   });
   const answerInputRef = useRef(null);
   const flowGuardTimeoutRef = useRef(null);
+  const wordInfoRequestIdRef = useRef(0);
+  const wordInfoTalkRequestIdRef = useRef(0);
+
+  const wordInfoTalkEnabled = useMemo(() => {
+    try {
+      return (
+        String(
+          window.localStorage.getItem(WORD_INFO_TALK_ENABLED_STORAGE_KEY) ||
+            "true",
+        ).toLowerCase() !== "false"
+      );
+    } catch (error) {
+      return true;
+    }
+  }, []);
 
   const resolvedWords = useMemo(() => {
     if (!Array.isArray(currentLesson?.lesson?.words)) {
@@ -99,6 +137,22 @@ export default function Lesson() {
   const lessonReady =
     !lessonsLoading && !currentLessonLoading && Boolean(currentLesson);
   const canStartLesson = lessonReady && resolvedWords.length > 0;
+  const completedWordsForCurrentLevel = useMemo(() => {
+    const completedWordsRaw = Number(
+      currentLesson?.progress?.[currentLessonLevel]?.completed_words,
+    );
+    return Number.isFinite(completedWordsRaw) ? completedWordsRaw : 0;
+  }, [currentLesson?.progress, currentLessonLevel]);
+  const resumeWordIndex = useMemo(() => {
+    if (resolvedWords.length === 0) {
+      return 0;
+    }
+    if (completedWordsForCurrentLevel >= resolvedWords.length) {
+      return 0;
+    }
+    return Math.max(0, completedWordsForCurrentLevel);
+  }, [completedWordsForCurrentLevel, resolvedWords.length]);
+  const hasSavedProgressToResume = resumeWordIndex > 0;
   const usesZeroBasedLevels = useMemo(() => {
     const progress = currentLesson?.progress;
     if (!progress || typeof progress !== "object") {
@@ -181,6 +235,138 @@ export default function Lesson() {
     setShowWordPeek(false);
   }, []);
 
+  const stopWordInfoSpeech = useCallback(() => {
+    wordInfoTalkRequestIdRef.current += 1;
+    setWordInfoSpeaking(false);
+    stopSpeaking();
+  }, []);
+
+  const closeWordInfoDialog = useCallback(() => {
+    setWordInfoDialogOpen(false);
+    setWordInfoLoading(false);
+    stopWordInfoSpeech();
+  }, [stopWordInfoSpeech]);
+
+  const loadWordInfoForWord = useCallback(async (rawWord) => {
+    const safeWord = String(rawWord || "").trim();
+    if (!safeWord) {
+      return;
+    }
+
+    const requestId = wordInfoRequestIdRef.current + 1;
+    wordInfoRequestIdRef.current = requestId;
+
+    setWordInfoWord(safeWord);
+    setWordInfoDialogOpen(true);
+    setWordInfoLoading(true);
+    setWordInfoError("");
+    setWordInfo(null);
+
+    try {
+      const lookupResult = await lookupWordDefinition(safeWord);
+      if (wordInfoRequestIdRef.current !== requestId) {
+        return;
+      }
+
+      if (!lookupResult) {
+        setWordInfoError(
+          "No local Wiktionary definition found for this word yet.",
+        );
+        return;
+      }
+
+      setWordInfo(lookupResult);
+    } catch (error) {
+      if (wordInfoRequestIdRef.current !== requestId) {
+        return;
+      }
+      setWordInfoError(
+        error?.message || "Failed to load local Wiktionary definition.",
+      );
+    } finally {
+      if (wordInfoRequestIdRef.current === requestId) {
+        setWordInfoLoading(false);
+      }
+    }
+  }, []);
+
+  const openWordInfoDialog = useCallback(() => {
+    if (!showWordPeek || !lessonStarted || !enableInput || !currentWord) {
+      return;
+    }
+    loadWordInfoForWord(currentWord);
+  }, [
+    currentWord,
+    enableInput,
+    lessonStarted,
+    loadWordInfoForWord,
+    showWordPeek,
+  ]);
+
+  const handleTalkWordInfo = useCallback(async () => {
+    if (
+      !wordInfoTalkEnabled ||
+      !wordInfoDialogOpen ||
+      !lessonStarted ||
+      !enableInput ||
+      wordInfoLoading ||
+      !wordInfo ||
+      wordInfoSpeaking
+    ) {
+      return;
+    }
+
+    const spokenWord = String(wordInfoWord || currentWord || "").trim();
+    const definition = String(wordInfo.definition || "").trim();
+    const exampleSentence = String(wordInfo.exampleSentence || "").trim();
+    if (!spokenWord || !definition) {
+      return;
+    }
+
+    const spokenParts = [`Word: ${spokenWord}.`, `Definition: ${definition}`];
+    if (exampleSentence) {
+      const maxExampleLength = 180;
+      const safeExample =
+        exampleSentence.length > maxExampleLength
+          ? `${exampleSentence.slice(0, maxExampleLength)}...`
+          : exampleSentence;
+      spokenParts.push(`Example: ${safeExample}`);
+    }
+
+    const requestId = wordInfoTalkRequestIdRef.current + 1;
+    wordInfoTalkRequestIdRef.current = requestId;
+    setWordInfoSpeaking(true);
+    setPlayAudio(true);
+    stopSpeaking();
+
+    try {
+      const didSpeak = await speakText(spokenParts.join(" "));
+      if (wordInfoTalkRequestIdRef.current !== requestId) {
+        return;
+      }
+      if (!didSpeak) {
+        enqueueSnackbar("Speech synthesis is unavailable on this browser.", {
+          variant: "warning",
+        });
+      }
+    } finally {
+      if (wordInfoTalkRequestIdRef.current === requestId) {
+        setWordInfoSpeaking(false);
+      }
+    }
+  }, [
+    currentWord,
+    enableInput,
+    enqueueSnackbar,
+    lessonStarted,
+    wordInfo,
+    wordInfoDialogOpen,
+    wordInfoLoading,
+    wordInfoSpeaking,
+    wordInfoTalkEnabled,
+    wordInfoWord,
+  ]);
+
   const focusAnswerInput = useCallback(() => {
     setTimeout(() => {
       if (answerInputRef.current) {
@@ -246,21 +432,7 @@ export default function Lesson() {
         pendingManualLevelStartRef.current = false;
       }
 
-      const wordsLength = resolvedWords.length;
-      const completedWordsRaw = Number(
-        currentLesson.progress?.[currentLessonLevel]?.completed_words,
-      );
-      const completedWords = Number.isFinite(completedWordsRaw)
-        ? completedWordsRaw
-        : 0;
-      const startWord =
-        wordsLength === 0
-          ? 0
-          : completedWords >= wordsLength
-            ? 0
-            : Math.max(0, completedWords);
-
-      setCurrentWordIndex(startWord);
+      setCurrentWordIndex(resumeWordIndex);
 
       if (newLevel && lessonStarted) {
         // Hot-switch difficulty while the lesson is running.
@@ -275,7 +447,7 @@ export default function Lesson() {
     currentLessonLevel,
     lessonStarted,
     lessonsLoading,
-    resolvedWords,
+    resumeWordIndex,
   ]);
 
   const handleSelectLevel = useCallback(
@@ -326,6 +498,8 @@ export default function Lesson() {
         return;
       }
 
+      stopWordInfoSpeech();
+
       const isCorrect =
         checkScore && inputWord.toLowerCase() === currentWord.toLowerCase();
 
@@ -345,10 +519,13 @@ export default function Lesson() {
         );
       }
 
-      const nextProgress = setProgress(currentWordIndex + 1, {
-        isCorrect,
-        word: currentWord,
-      });
+      const nextProgress =
+        setProgress(currentWordIndex + 1, {
+          isCorrect,
+          word: currentWord,
+        }) ||
+        currentLessonProgress ||
+        {};
 
       if (currentWordIndex < resolvedWords.length - 1) {
         setCurrentWordIndex((prev) => prev + 1);
@@ -427,6 +604,7 @@ export default function Lesson() {
       saveProgress,
       setLevel,
       setProgress,
+      stopWordInfoSpeech,
     ],
   );
 
@@ -455,10 +633,20 @@ export default function Lesson() {
         return;
       }
 
-      if (pendingManualLevelStartRef.current) {
-        setCurrentWordIndex(0);
-        pendingManualLevelStartRef.current = false;
-      }
+      // Always start from saved progress for the selected level. If the UI is
+      // already showing a later index, keep that index to avoid regressions.
+      const safeResumeIndex =
+        resolvedWords.length > 0
+          ? Math.max(
+              0,
+              Math.min(
+                resolvedWords.length - 1,
+                Math.max(currentWordIndex, resumeWordIndex),
+              ),
+            )
+          : 0;
+      setCurrentWordIndex(safeResumeIndex);
+      pendingManualLevelStartRef.current = false;
 
       markFirstLessonAttempted().catch((error) => {
         console.error("Failed to record first lesson attempt:", error);
@@ -469,6 +657,7 @@ export default function Lesson() {
 
       setStartQueued(false);
       setStartStatusMessage("Starting lesson...");
+      stopWordInfoSpeech();
       try {
         primeAudioPlayback();
       } catch (error) {
@@ -484,11 +673,14 @@ export default function Lesson() {
       enqueueSnackbar("Lesson started.", { variant: "info" });
     },
     [
+      currentWordIndex,
       currentLessonLevel,
       enqueueSnackbar,
       lessonReady,
       markFirstLessonAttempted,
+      resumeWordIndex,
       resolvedWords.length,
+      stopWordInfoSpeech,
     ],
   );
 
@@ -504,6 +696,16 @@ export default function Lesson() {
   useEffect(() => {
     // Peek state applies to the active word only.
     setShowWordPeek(false);
+    setWordInfoDialogOpen(false);
+    setWordInfoLoading(false);
+    setWordInfoError("");
+    setWordInfo(null);
+    setWordInfoWord("");
+    setWordInfoSpeaking(false);
+    // Do NOT call stopSpeaking() here. It would cancel the Chrome TTS unlock
+    // utterance that primeAudioPlayback() fires inside the Start Lesson gesture,
+    // breaking all subsequent TTS for that word. Dialog TTS is stopped by
+    // closeWordInfoDialog, and lesson TTS is stopped on unmount.
   }, [currentWordIndex, currentLessonLevel]);
 
   useEffect(() => {
@@ -566,12 +768,17 @@ export default function Lesson() {
       if (flowGuardTimeoutRef.current) {
         clearTimeout(flowGuardTimeoutRef.current);
       }
+      stopWordInfoSpeech();
     };
-  }, []);
+  }, [stopWordInfoSpeech]);
 
   const processAnswerKey = useCallback(
     (key) => {
-      if (!lessonStarted || typeof key !== "string") {
+      if (!lessonStarted || typeof key !== "string" || wordInfoDialogOpen) {
+        return false;
+      }
+
+      if (document?.activeElement?.id === "lesson-word-peek-button") {
         return false;
       }
 
@@ -606,7 +813,13 @@ export default function Lesson() {
           return false;
       }
     },
-    [clearWordPeek, enableInput, handleSubmit, lessonStarted],
+    [
+      clearWordPeek,
+      enableInput,
+      handleSubmit,
+      lessonStarted,
+      wordInfoDialogOpen,
+    ],
   );
 
   useEffect(() => {
@@ -701,6 +914,7 @@ export default function Lesson() {
     if (!lessonStarted) {
       return;
     }
+    stopWordInfoSpeech();
     clearWordPeek();
     setShowOutputWord(true);
     setOutputWordKey((prev) => prev + 1);
@@ -710,34 +924,10 @@ export default function Lesson() {
   };
 
   const handleSkipWord = () => {
+    stopWordInfoSpeech();
     clearWordPeek();
     handleSubmit(false);
   };
-
-  const handleJumpToLastWord = useCallback(() => {
-    if (!lessonStarted || resolvedWords.length === 0) {
-      return;
-    }
-
-    const targetIndex = Math.max(0, resolvedWords.length - 1);
-    const targetCompletedWords = targetIndex;
-
-    clearWordPeek();
-    setProgress(targetCompletedWords, { isCorrect: false });
-    setCurrentWordIndex(targetIndex);
-    setShowOutputWord(true);
-    setOutputWordKey((prev) => prev + 1);
-    setInputWord("");
-    setEnableInput(false);
-    setIsSaved(false);
-    enqueueSnackbar("Jumped to the last word.", { variant: "info" });
-  }, [
-    enqueueSnackbar,
-    lessonStarted,
-    resolvedWords.length,
-    setProgress,
-    clearWordPeek,
-  ]);
 
   const handleShowWord = useCallback(() => {
     if (
@@ -810,7 +1000,9 @@ export default function Lesson() {
                       ? "Loading Lesson..."
                       : startQueued
                         ? "Starting..."
-                        : "Start Lesson"}
+                        : hasSavedProgressToResume
+                          ? "Continue Lesson"
+                          : "Start Lesson"}
                   </Button>
                   <div
                     style={{
@@ -898,6 +1090,11 @@ export default function Lesson() {
               ref={answerInputRef}
               value={inputWord}
               rows={1}
+              onMouseEnter={clearWordPeek}
+              onMouseOver={clearWordPeek}
+              onPointerEnter={clearWordPeek}
+              onMouseDown={clearWordPeek}
+              onFocus={clearWordPeek}
               onChange={(event) => {
                 clearWordPeek();
                 if (!enableInput) {
@@ -919,7 +1116,7 @@ export default function Lesson() {
                 display: lessonStarted && !enableInput ? "none" : undefined,
                 width: "100%",
                 maxWidth: 640,
-                fontSize: 36,
+                fontSize: enableInput && !inputWord ? 18 : 36,
                 fontFamily: "inherit",
                 textAlign: "center",
                 border: "2px solid #90caf9",
@@ -936,47 +1133,85 @@ export default function Lesson() {
               placeholder={
                 lessonStarted
                   ? enableInput
-                    ? "Type word"
+                    ? "Type the word here and then press the Return key."
                     : ""
                   : "Start lesson to type"
               }
             />
-
-            {showWordPeek && lessonStarted && enableInput && currentWord && (
-              <div
-                style={{
-                  fontSize: 18,
-                  fontWeight: 700,
-                  letterSpacing: 0.5,
-                  color: "#0d47a1",
-                }}
-              >
-                {currentWord.toUpperCase()}
-              </div>
-            )}
-
-            <Button
-              variant="contained"
-              color="secondary"
-              onClick={handleShowWord}
-              disabled={!lessonStarted || !enableInput || !isDifficultyLevelOne}
-              style={{
-                minWidth: 180,
-                display:
-                  !lessonStarted || !enableInput || !isDifficultyLevelOne
-                    ? "none"
-                    : undefined,
-              }}
-              title={
-                isDifficultyLevelOne
-                  ? "Show a peek of the current word"
-                  : "Available only on difficulty level 1"
-              }
-            >
-              Show Word
-            </Button>
           </div>
         </Paper>
+
+        <Dialog
+          open={wordInfoDialogOpen}
+          onClose={closeWordInfoDialog}
+          fullWidth
+          maxWidth="sm"
+          aria-labelledby="word-info-dialog-title"
+        >
+          <DialogTitle id="word-info-dialog-title">
+            {`Word Info: ${String(wordInfoWord || "").toUpperCase()}`}
+          </DialogTitle>
+          <DialogContent dividers>
+            {wordInfoLoading && (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                }}
+              >
+                <CircularProgress size={18} />
+                <span>Loading local Wiktionary definition...</span>
+              </div>
+            )}
+            {!wordInfoLoading && wordInfoError && (
+              <div style={{ color: "#b00020" }}>{wordInfoError}</div>
+            )}
+            {!wordInfoLoading && !wordInfoError && wordInfo && (
+              <div style={{ display: "grid", gap: 10 }}>
+                {wordInfo.partOfSpeech && (
+                  <div>
+                    <strong>Part of speech:</strong> {wordInfo.partOfSpeech}
+                  </div>
+                )}
+                <div>
+                  <strong>Definition:</strong> {wordInfo.definition}
+                </div>
+                <div>
+                  <strong>Example sentence:</strong>{" "}
+                  {wordInfo.exampleSentence || "No example sentence available."}
+                </div>
+              </div>
+            )}
+          </DialogContent>
+          <DialogActions>
+            {wordInfoTalkEnabled && (
+              <Button
+                onClick={handleTalkWordInfo}
+                disabled={
+                  wordInfoLoading ||
+                  wordInfoSpeaking ||
+                  !lessonStarted ||
+                  !enableInput ||
+                  !wordInfo ||
+                  Boolean(wordInfoError)
+                }
+              >
+                {wordInfoSpeaking ? "Talking..." : "Talk"}
+              </Button>
+            )}
+            <Button
+              onClick={() => loadWordInfoForWord(wordInfoWord || currentWord)}
+              disabled={
+                wordInfoLoading ||
+                !String(wordInfoWord || currentWord || "").trim()
+              }
+            >
+              Retry
+            </Button>
+            <Button onClick={closeWordInfoDialog}>Close</Button>
+          </DialogActions>
+        </Dialog>
 
         {lessonStarted && <Keyboard interactive={false} />}
 
@@ -989,6 +1224,35 @@ export default function Lesson() {
               gap: 8,
             }}
           >
+            <div
+              style={{
+                minHeight: 32,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              {showWordPeek && lessonStarted && enableInput && currentWord && (
+                <button
+                  type="button"
+                  id="lesson-word-peek-button"
+                  onClick={openWordInfoDialog}
+                  aria-label="Show definition and sentence"
+                  style={{
+                    fontSize: 18,
+                    fontWeight: 700,
+                    letterSpacing: 0.5,
+                    color: "#0d47a1",
+                    border: "none",
+                    background: "transparent",
+                    cursor: "pointer",
+                    textDecoration: "underline",
+                  }}
+                >
+                  {currentWord.toUpperCase()}
+                </button>
+              )}
+            </div>
             <ButtonGroup color="primary" size="small">
               {CUE_SPEED_PRESET_OPTIONS.map((preset) => (
                 <Button
@@ -1020,6 +1284,21 @@ export default function Lesson() {
               <Button
                 variant="contained"
                 color="primary"
+                onClick={handleShowWord}
+                disabled={
+                  !lessonStarted || !enableInput || !isDifficultyLevelOne
+                }
+                title={
+                  isDifficultyLevelOne
+                    ? "Show a peek of the current word"
+                    : "Available only on difficulty level 1"
+                }
+              >
+                Show
+              </Button>
+              <Button
+                variant="contained"
+                color="primary"
                 onClick={handleSkipWord}
                 disabled={!lessonStarted || !enableInput}
               >
@@ -1031,15 +1310,6 @@ export default function Lesson() {
               color="primary"
               variant="contained"
             >
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={handleJumpToLastWord}
-                disabled={!lessonStarted}
-                style={{ display: !lessonStarted ? "none" : undefined }}
-              >
-                Jump To Last Word
-              </Button>
               <Button
                 variant="contained"
                 color="primary"

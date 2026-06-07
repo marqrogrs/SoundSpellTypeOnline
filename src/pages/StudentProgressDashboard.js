@@ -13,7 +13,15 @@
  *   educator    – students in their classes
  *   parent      – their own linked students
  */
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { useLocation } from "react-router-dom";
 import firebase from "firebase/compat/app";
 import { useAuth } from "../hooks/useAuth";
 import { mgmtListData } from "../firebase";
@@ -23,6 +31,7 @@ import {
   LESSON_SECTION_OVERRIDES,
   LEVELS,
 } from "../util/constants";
+import { getCurrentPerfSessionId, setPerfMetric } from "../util/perfSession";
 import { getLessonSubsection } from "../util/functions";
 import { buildActiveLessonWords } from "../util/functions";
 import { triggerErrorAlert } from "../util/alerts";
@@ -74,6 +83,12 @@ const useLocalStyles = makeStyles((theme) => ({
     background: theme.palette.background.paper,
     zIndex: 3,
     borderBottom: `2px solid ${theme.palette.divider}`,
+  },
+  compactStickyHeader: {
+    paddingTop: 4,
+    paddingBottom: 4,
+    lineHeight: 1.2,
+    verticalAlign: "middle",
   },
   partHeader: {
     background: theme.palette.grey[100],
@@ -195,14 +210,26 @@ const useLocalStyles = makeStyles((theme) => ({
 
 const LEVEL_LABELS = ["L1", "L2", "L3"];
 const COLLAPSED_PART_COLUMN_WIDTH_PX = 200;
-const STUDENT_PROGRESS_CACHE_TTL_MS = 60 * 1000;
+const STUDENT_PROGRESS_CACHE_TTL_MS = 10 * 60 * 1000;
 const STATIC_DATA_CACHE_KEY = "student-progress:static";
 const STATIC_DATA_CACHE_TTL_MS = 10 * 60 * 1000;
+const VIRTUAL_ROW_HEIGHTS = {
+  school: 42,
+  educator: 40,
+  class: 38,
+  student: 36,
+};
+const VIRTUAL_OVERSCAN_PX = 400;
 const studentSnapshotCache = new Map();
 const studentSnapshotInflight = new Map();
 
 const getStudentProgressCacheKey = (uid, role) =>
   `student-progress:list:${uid || "anon"}:${role || "unknown"}`;
+
+const isUnauthenticatedError = (err) =>
+  err?.code === "functions/unauthenticated" ||
+  err?.code === "unauthenticated" ||
+  String(err?.message || "").toLowerCase() === "you must be signed in.";
 
 const readStudentProgressCache = (key) => {
   try {
@@ -416,6 +443,39 @@ function uniqueStrings(values = []) {
   return Array.from(new Set(values.filter(Boolean)));
 }
 
+function looksLikeUid(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return false;
+  return /^[A-Za-z0-9_-]{20,}$/.test(raw);
+}
+
+function getStudentDisplayName(student) {
+  const fullName = [student?.firstName, student?.lastName]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+  if (fullName) return fullName;
+
+  const explicitDisplayName = String(
+    student?.displayName || student?.name || "",
+  ).trim();
+  if (explicitDisplayName) return explicitDisplayName;
+
+  const username = String(student?.username || "").trim();
+  const studentId = String(student?.id || "").trim();
+  if (username && username !== studentId && !looksLikeUid(username)) {
+    return username;
+  }
+
+  const email = String(student?.email || "").trim();
+  if (email) {
+    const localPart = String(email.split("@")[0] || "").trim();
+    return localPart || email;
+  }
+
+  return "Unnamed Student";
+}
+
 function getPartSectionCandidates(part) {
   const sectionKey = String(part?.key || "").trim();
   const firstLessonId = String(part?.lessons?.[0]?.lesson_id || "").trim();
@@ -476,6 +536,33 @@ function getPartMeta(part, lessonSections) {
     "";
 
   return { title, description };
+}
+
+function splitExampleWords(description) {
+  const raw = String(description || "").trim();
+  if (!raw) {
+    return { mainText: "", exampleWords: "" };
+  }
+
+  const markerPattern = /\b(?:examaple words|example words)\b/i;
+  const markerMatch = raw.match(markerPattern);
+
+  if (!markerMatch || typeof markerMatch.index !== "number") {
+    return { mainText: raw, exampleWords: "" };
+  }
+
+  const markerStart = markerMatch.index;
+  const markerEnd = markerStart + markerMatch[0].length;
+  const before = raw.slice(0, markerStart).trim();
+  const after = raw
+    .slice(markerEnd)
+    .replace(/^[:\-\u2013\u2014.\s]+/, "")
+    .trim();
+
+  return {
+    mainText: before,
+    exampleWords: after,
+  };
 }
 
 // ─── Cell: single level pct ──────────────────────────────────────────────────
@@ -604,40 +691,23 @@ function useStudentSnapshot(student) {
   return { loading, userProgress, wordsMastered };
 }
 
-function StudentSummaryRow({
+const StudentSummaryRow = React.memo(function StudentSummaryRow({
   student,
   parts,
   collapsedParts,
   wordsTotalByLessonId,
-  studentOpen,
-  onToggle,
   cls,
 }) {
   const { loading, userProgress, wordsMastered } = useStudentSnapshot(student);
-  const studentName =
-    [student.firstName, student.lastName].filter(Boolean).join(" ") ||
-    student.username ||
-    student.id;
+  const studentName = getStudentDisplayName(student);
 
   return (
-    <TableRow
-      hover
-      onClick={onToggle}
-      style={{ cursor: "pointer" }}
-      className={cls.rowStudent}
-    >
+    <TableRow hover className={cls.rowStudent}>
       <TableCell
         className={`${cls.stickyLeft} ${cls.indentStudent} ${cls.rowStudent}`}
         style={{ whiteSpace: "nowrap" }}
       >
-        <span className={cls.treeLabel}>
-          {studentOpen ? (
-            <KeyboardArrowDownIcon fontSize="small" />
-          ) : (
-            <KeyboardArrowRightIcon fontSize="small" />
-          )}
-          <Typography variant="body2">{studentName}</Typography>
-        </span>
+        <Typography variant="body2">{studentName}</Typography>
       </TableCell>
 
       <TableCell className={cls.dataCell} style={{ fontWeight: 600 }}>
@@ -696,100 +766,24 @@ function StudentSummaryRow({
       })}
     </TableRow>
   );
-}
-
-// ─── Student detail row (expanded) ───────────────────────────────────────────
-
-function StudentDetailRow({
-  student,
-  parts,
-  collapsedParts,
-  wordsTotalByLessonId,
-  cls,
-}) {
-  const { loading, userProgress, wordsMastered } = useStudentSnapshot(student);
-
-  const studentName =
-    [student.firstName, student.lastName].filter(Boolean).join(" ") ||
-    student.username ||
-    student.id;
-
-  return (
-    <TableRow>
-      {/* Name cell – sticky */}
-      <TableCell
-        className={`${cls.stickyLeft} ${cls.indentStudent} ${cls.rowStudent}`}
-        style={{ whiteSpace: "nowrap" }}
-      >
-        <Typography variant="body2" style={{ fontWeight: 500 }}>
-          {studentName}
-        </Typography>
-      </TableCell>
-
-      {/* Words Mastered */}
-      <TableCell className={cls.dataCell} style={{ fontWeight: 600 }}>
-        {loading ? <CircularProgress size={12} /> : (wordsMastered ?? "—")}
-      </TableCell>
-
-      {/* Per-part, per-lesson, per-level cells */}
-      {parts.map((part) => {
-        const isCollapsed = collapsedParts[part.key];
-        if (isCollapsed) {
-          const avg =
-            !loading && userProgress
-              ? averagePartPct(part, userProgress, wordsTotalByLessonId)
-              : null;
-          return (
-            <TableCell
-              key={part.key}
-              className={`${cls.dataCell} ${cls.partBorderLeft} ${pctColor(cls, avg)}`}
-              style={{
-                minWidth: COLLAPSED_PART_COLUMN_WIDTH_PX,
-                width: COLLAPSED_PART_COLUMN_WIDTH_PX,
-              }}
-            >
-              {loading ? <CircularProgress size={10} /> : fmtPct(avg)}
-            </TableCell>
-          );
-        }
-
-        return part.lessons.map((lesson, lIdx) => {
-          const totalWords =
-            wordsTotalByLessonId?.get(lesson.lesson_id) ??
-            getWordsTotal(lesson);
-          const lessonProgress =
-            userProgress && !loading
-              ? computeLessonProgress(lesson, userProgress)
-              : null;
-
-          return LEVELS.map((_, lvlIdx) => {
-            const pct = loading
-              ? null
-              : levelCumulativePct(lessonProgress?.[lvlIdx] || {}, totalWords);
-            return (
-              <TableCell
-                key={`${lesson.lesson_id}-${lvlIdx}`}
-                className={`${cls.dataCell} ${lIdx === 0 && lvlIdx === 0 ? cls.partBorderLeft : ""}`}
-              >
-                {loading ? (
-                  <CircularProgress size={10} />
-                ) : (
-                  <span className={pctColor(cls, pct)}>{fmtPct(pct)}</span>
-                )}
-              </TableCell>
-            );
-          });
-        });
-      })}
-    </TableRow>
-  );
-}
+});
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function StudentProgressDashboard() {
   const auth = useAuth();
+  const location = useLocation();
   const cls = useLocalStyles();
+  const isHomeScopeManager = auth.role === "parent" || auth.role === "tutor";
+  const tableContainerRef = useRef(null);
+  const headerRowOneRef = useRef(null);
+  const headerRowTwoRef = useRef(null);
+  const [headerStickyOffsets, setHeaderStickyOffsets] = useState({
+    row2Top: 0,
+    row3Top: 0,
+  });
+  const [scrollTop, setScrollTop] = useState(0);
+  const [viewportHeight, setViewportHeight] = useState(600);
 
   // ── Data from backend ──
   const [loading, setLoading] = useState(false);
@@ -810,6 +804,14 @@ export default function StudentProgressDashboard() {
   const [filterStudent, setFilterStudent] = useState("");
 
   useEffect(() => {
+    const search = new URLSearchParams(location.search || "");
+    const initialStudent = String(search.get("student") || "").trim();
+    if (initialStudent) {
+      setFilterStudentInput(initialStudent);
+    }
+  }, [location.search]);
+
+  useEffect(() => {
     const id = setTimeout(() => setFilterStudent(filterStudentInput), 200);
     return () => clearTimeout(id);
   }, [filterStudentInput]);
@@ -818,7 +820,6 @@ export default function StudentProgressDashboard() {
   const [openSchools, setOpenSchools] = useState({});
   const [openEducators, setOpenEducators] = useState({});
   const [openClasses, setOpenClasses] = useState({});
-  const [openStudents, setOpenStudents] = useState({});
 
   // ── Collapsible columns per part ──
   const [collapsedParts, setCollapsedParts] = useState({});
@@ -828,9 +829,66 @@ export default function StudentProgressDashboard() {
       const cacheKey = getStudentProgressCacheKey(auth.user?.uid, auth.role);
       const cached = force ? null : readStudentProgressCache(cacheKey);
       const cachedStaticForCheck = force ? null : readStaticDataCache();
+      const perfSessionId = getCurrentPerfSessionId();
+      const prefetchStudentSnapshots = (payload) => {
+        const studentIdsToFetch = (payload?.users || [])
+          .filter((u) => (u.role || "").toLowerCase() === "student")
+          .map((u) => String(u.id || "").trim())
+          .filter((id) => id && !studentSnapshotCache.has(id));
+
+        if (studentIdsToFetch.length === 0) {
+          return;
+        }
+
+        const BATCH_SIZE = 30;
+        const idChunks = [];
+        for (let i = 0; i < studentIdsToFetch.length; i += BATCH_SIZE) {
+          idChunks.push(studentIdsToFetch.slice(i, i + BATCH_SIZE));
+        }
+
+        Promise.all(
+          idChunks.map(async (ids) => {
+            try {
+              const snap = await db
+                .collection("users")
+                .where(firebase.firestore.FieldPath.documentId(), "in", ids)
+                .get();
+              snap.docs.forEach((doc) => {
+                const key = doc.id;
+                if (key && !studentSnapshotCache.has(key)) {
+                  const data = doc.data();
+                  studentSnapshotCache.set(key, {
+                    userProgress: data.progress || {},
+                    wordsMastered: wordsLevelThreeMastered(data),
+                  });
+                }
+              });
+            } catch {
+              // Best-effort prefetch; rows will fall back to their own fetch.
+            }
+          }),
+        ).catch(() => {});
+      };
+
       // When both caches are warm we can render immediately and revalidate
       // silently — no loading spinners at all.
       const fullyFromCache = !!(cached && cachedStaticForCheck);
+
+      if (perfSessionId) {
+        setPerfMetric("studentProgressCacheHit", Boolean(cached), {
+          sessionId: perfSessionId,
+        });
+        setPerfMetric(
+          "studentProgressStaticCacheHit",
+          Boolean(cachedStaticForCheck),
+          {
+            sessionId: perfSessionId,
+          },
+        );
+        setPerfMetric("studentProgressFullyFromCache", fullyFromCache, {
+          sessionId: perfSessionId,
+        });
+      }
 
       if (cached) {
         setSchools(cached.schools);
@@ -847,7 +905,23 @@ export default function StudentProgressDashboard() {
       if (!fullyFromCache) {
         setLessonsLoading(true);
       }
+
+      if (fullyFromCache && !force) {
+        if (perfSessionId) {
+          setPerfMetric("studentProgressSkippedMgmtListData", true, {
+            sessionId: perfSessionId,
+          });
+        }
+        prefetchStudentSnapshots(cached);
+        return;
+      }
+
       try {
+        if (perfSessionId) {
+          setPerfMetric("studentProgressSkippedMgmtListData", false, {
+            sessionId: perfSessionId,
+          });
+        }
         // Lessons, lessonSections, and rules are global/static data — cache
         // them independently under a longer-lived key so revisits only need
         // to call mgmtListData (user-scoped) and skip the 3 collection reads.
@@ -937,43 +1011,7 @@ export default function StudentProgressDashboard() {
           rules: nextRules,
         };
 
-        // Batch-prefetch student progress docs so every row renders with data
-        // immediately instead of each firing its own individual Firestore read.
-        const studentIdsToFetch = payload.users
-          .filter((u) => (u.role || "").toLowerCase() === "student")
-          .map((u) => String(u.id || "").trim())
-          .filter((id) => id && !studentSnapshotCache.has(id));
-
-        if (studentIdsToFetch.length > 0) {
-          const BATCH_SIZE = 30;
-          const idChunks = [];
-          for (let i = 0; i < studentIdsToFetch.length; i += BATCH_SIZE) {
-            idChunks.push(studentIdsToFetch.slice(i, i + BATCH_SIZE));
-          }
-          await Promise.all(
-            idChunks.map(async (ids) => {
-              try {
-                const snap = await db
-                  .collection("users")
-                  .where(firebase.firestore.FieldPath.documentId(), "in", ids)
-                  .get();
-                snap.docs.forEach((doc) => {
-                  const key = doc.id;
-                  if (key && !studentSnapshotCache.has(key)) {
-                    const data = doc.data();
-                    studentSnapshotCache.set(key, {
-                      userProgress: data.progress || {},
-                      wordsMastered: wordsLevelThreeMastered(data),
-                    });
-                  }
-                });
-              } catch {
-                // Best-effort prefetch; rows will fall back to their own fetch.
-              }
-            }),
-          );
-        }
-
+        // Render the tree immediately with the structural data we already have.
         setSchools(payload.schools);
         setClasses(payload.classes);
         setUsers(payload.users);
@@ -981,7 +1019,15 @@ export default function StudentProgressDashboard() {
         setLessonSections(payload.lessonSections);
         setRules(payload.rules);
         writeStudentProgressCache(cacheKey, payload);
+
+        // Batch-prefetch student progress docs in the background so rows can
+        // use the in-memory cache instead of each firing its own Firestore read.
+        // This is intentionally non-blocking: the tree renders immediately above
+        // and each StudentSummaryRow has its own fallback fetch if the cache is
+        // still cold when it mounts.
+        prefetchStudentSnapshots(payload);
       } catch (err) {
+        if (isUnauthenticatedError(err)) return;
         triggerErrorAlert(
           err?.message || "Could not load student progress data.",
         );
@@ -1043,6 +1089,38 @@ export default function StudentProgressDashboard() {
     [users],
   );
 
+  const userById = useMemo(() => {
+    const map = {};
+    users.forEach((u) => {
+      if (u?.id) map[u.id] = u;
+    });
+    return map;
+  }, [users]);
+
+  const userByAnyIdentifier = useMemo(() => {
+    const map = new Map();
+    users.forEach((u) => {
+      const add = (value) => {
+        const key = String(value || "")
+          .trim()
+          .toLowerCase();
+        if (!key) return;
+        if (!map.has(key)) map.set(key, u);
+      };
+
+      add(u?.id);
+      add(u?.email);
+      add(u?.username);
+
+      const emailLocalPart = String(u?.email || "")
+        .trim()
+        .toLowerCase()
+        .split("@")[0];
+      add(emailLocalPart);
+    });
+    return map;
+  }, [users]);
+
   // Map class → school
   const classById = useMemo(() => {
     const m = {};
@@ -1093,7 +1171,7 @@ export default function StudentProgressDashboard() {
 
   // ── Build the tree rows ──
   // Structure: school -> (educators per school) -> (classes per educator) -> (students per class)
-  // For students without a class, they appear under their educator's "Unclassed" group.
+  // For students without a class, they appear under their educator's "Self" group.
   const tree = useMemo(() => {
     // Filter students first
     const filteredStudents = students.filter(matchesFilter);
@@ -1147,7 +1225,10 @@ export default function StudentProgressDashboard() {
       for (const educatorId of schoolEducatorIds) {
         if (filterEducator && educatorId !== filterEducator) continue;
 
-        const educatorUser = educators.find((e) => e.id === educatorId);
+        const educatorUser = userById[educatorId];
+        const isHomeOwnerId =
+          (auth.role === "parent" || auth.role === "tutor") &&
+          educatorId === auth.user?.uid;
         const educatorName = educatorUser
           ? [educatorUser.firstName, educatorUser.lastName]
               .filter(Boolean)
@@ -1156,7 +1237,11 @@ export default function StudentProgressDashboard() {
             educatorId
           : educatorId === "__no_educator__"
             ? "Unassigned Educator"
-            : educatorId;
+            : isHomeOwnerId
+              ? auth.role === "tutor"
+                ? "Tutor"
+                : "Parent"
+              : educatorId;
 
         // Gather classes this educator has in this school
         const educatorClassIds = new Set();
@@ -1184,11 +1269,11 @@ export default function StudentProgressDashboard() {
 
           const classObj = classById[classId] || {
             id: classId,
-            name: classId === "__no_class__" ? "Unclassed" : classId,
+            name: classId === "__no_class__" ? "Self" : classId,
+            normalizedName: "",
           };
           const className =
-            classObj.name ||
-            (classId === "__no_class__" ? "Unclassed" : classId);
+            classObj.name || (classId === "__no_class__" ? "Self" : classId);
 
           // Students in this class under this educator
           const classStudents = schoolStudents
@@ -1200,19 +1285,18 @@ export default function StudentProgressDashboard() {
               return (s.classIds || []).includes(classId);
             })
             .sort((a, b) => {
-              const na =
-                [a.firstName, a.lastName].filter(Boolean).join(" ") ||
-                a.username ||
-                "";
-              const nb =
-                [b.firstName, b.lastName].filter(Boolean).join(" ") ||
-                b.username ||
-                "";
-              return na.localeCompare(nb);
+              return getStudentDisplayName(a).localeCompare(
+                getStudentDisplayName(b),
+              );
             });
 
           if (classStudents.length === 0) continue;
-          classNodes.push({ classId, className, students: classStudents });
+          classNodes.push({
+            classId,
+            className,
+            normalizedName: String(classObj.normalizedName || ""),
+            students: classStudents,
+          });
         }
 
         if (classNodes.length === 0) continue;
@@ -1223,6 +1307,9 @@ export default function StudentProgressDashboard() {
       schoolNodes.push({
         schoolId,
         schoolName: school.name || schoolId,
+        schoolType: String(school.type || "").toLowerCase(),
+        parentOwnerId: String(school.parentOwnerId || "").trim(),
+        parentOwnerRole: String(school.parentOwnerRole || "").trim(),
         educators: educatorNodes,
       });
     }
@@ -1233,10 +1320,12 @@ export default function StudentProgressDashboard() {
     matchesFilter,
     schoolById,
     classById,
-    educators,
+    userById,
     filterSchool,
     filterEducator,
     filterClass,
+    auth.role,
+    auth.user?.uid,
   ]);
 
   // ── Column structure for header ──
@@ -1252,6 +1341,16 @@ export default function StudentProgressDashboard() {
   const classOptions = useMemo(
     () => classes.filter((c) => c.schoolType !== "home"),
     [classes],
+  );
+  const hasActiveFilters = useMemo(
+    () =>
+      Boolean(
+        filterSchool ||
+        filterEducator ||
+        filterClass ||
+        String(filterStudent || "").trim(),
+      ),
+    [filterSchool, filterEducator, filterClass, filterStudent],
   );
 
   // ── Expand/collapse all ──
@@ -1291,9 +1390,58 @@ export default function StudentProgressDashboard() {
     setOpenSchools({});
     setOpenEducators({});
     setOpenClasses({});
-    setOpenStudents({});
     setCollapsedParts(collapsed);
   };
+
+  useLayoutEffect(() => {
+    const updateHeaderOffsets = () => {
+      const rowOneHeight = Math.ceil(
+        headerRowOneRef.current?.getBoundingClientRect?.().height || 0,
+      );
+      const rowTwoHeight = Math.ceil(
+        headerRowTwoRef.current?.getBoundingClientRect?.().height || 0,
+      );
+
+      setHeaderStickyOffsets((prev) => {
+        const next = {
+          row2Top: rowOneHeight,
+          row3Top: rowOneHeight + rowTwoHeight,
+        };
+        if (prev.row2Top === next.row2Top && prev.row3Top === next.row3Top) {
+          return prev;
+        }
+        return next;
+      });
+    };
+
+    updateHeaderOffsets();
+    window.addEventListener("resize", updateHeaderOffsets);
+    return () => window.removeEventListener("resize", updateHeaderOffsets);
+  }, [parts, collapsedParts]);
+
+  useEffect(() => {
+    const container = tableContainerRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      setScrollTop(container.scrollTop || 0);
+    };
+
+    const updateViewportHeight = () => {
+      setViewportHeight(container.clientHeight || 600);
+    };
+
+    updateViewportHeight();
+    handleScroll();
+
+    container.addEventListener("scroll", handleScroll, { passive: true });
+    window.addEventListener("resize", updateViewportHeight);
+
+    return () => {
+      container.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("resize", updateViewportHeight);
+    };
+  }, []);
 
   // ── Render header rows ──
   const renderHeaderRows = () => {
@@ -1304,16 +1452,16 @@ export default function StudentProgressDashboard() {
     return (
       <>
         {/* Row 1 – part-level headers */}
-        <TableRow>
+        <TableRow ref={headerRowOneRef}>
           <TableCell
-            className={`${cls.stickyLeft} ${cls.stickyHeader}`}
+            className={`${cls.stickyLeft} ${cls.stickyHeader} ${cls.compactStickyHeader}`}
             rowSpan={3}
             style={{ minWidth: 220, fontWeight: 700 }}
           >
-            Student
+            {isHomeScopeManager ? "Students" : "Student"}
           </TableCell>
           <TableCell
-            className={`${cls.stickyHeader} ${cls.dataCell}`}
+            className={`${cls.stickyHeader} ${cls.dataCell} ${cls.compactStickyHeader}`}
             rowSpan={3}
             style={{ fontWeight: 700, minWidth: 70, whiteSpace: "nowrap" }}
           >
@@ -1328,6 +1476,9 @@ export default function StudentProgressDashboard() {
               : part.lessons.length * LEVELS.length;
             const partMeta = getPartMeta(part, lessonSections);
             const sectionRules = getSectionRulesForPart(part, rules);
+            const { mainText, exampleWords } = splitExampleWords(
+              partMeta.description,
+            );
             const sectionLabel =
               String(partMeta.title || "")
                 .split(" - ")
@@ -1373,7 +1524,13 @@ export default function StudentProgressDashboard() {
                 (partMeta.description || sectionRules.length > 0) ? (
                   <div className={cls.partDescriptionRow}>
                     <span className={cls.partDescriptionText}>
-                      {partMeta.description}
+                      {mainText || (!exampleWords ? partMeta.description : "")}
+                      {exampleWords ? (
+                        <span style={{ display: "block" }}>
+                          <strong>Example Words:</strong>
+                          {` ${exampleWords}`}
+                        </span>
+                      ) : null}
                     </span>
                     {sectionRules.length > 0 ? (
                       <PatternButton
@@ -1393,7 +1550,7 @@ export default function StudentProgressDashboard() {
         </TableRow>
 
         {/* Row 2 – lesson-level headers */}
-        <TableRow>
+        <TableRow ref={headerRowTwoRef}>
           {parts.map((part) => {
             const isCollapsed = collapsedParts[part.key];
             if (isCollapsed) return null; // rowspan from row 1 covers this
@@ -1425,6 +1582,7 @@ export default function StudentProgressDashboard() {
                   key={lesson.lesson_id}
                   colSpan={LEVELS.length}
                   className={`${cls.stickyHeader} ${cls.lessonSubHeader} ${lIdx === 0 ? cls.partBorderLeft : ""}`}
+                  style={{ top: headerStickyOffsets.row2Top }}
                 >
                   <span>{`Lesson ${lesson.lesson_id}`}</span>
                   <span
@@ -1449,6 +1607,7 @@ export default function StudentProgressDashboard() {
                 <TableCell
                   key={`${lesson.lesson_id}-${lvlIdx}`}
                   className={`${cls.stickyHeader} ${cls.levelSubHeader} ${lIdx === 0 && lvlIdx === 0 ? cls.partBorderLeft : ""}`}
+                  style={{ top: headerStickyOffsets.row3Top }}
                 >
                   {LEVEL_LABELS[lvlIdx]}
                 </TableCell>
@@ -1460,31 +1619,320 @@ export default function StudentProgressDashboard() {
     );
   };
 
-  // ── Render tree rows ──
-  const renderTree = () => {
-    if (tree.length === 0) {
-      return (
-        <TableRow>
-          <TableCell colSpan={999} align="center" style={{ padding: 32 }}>
-            <Typography color="textSecondary">
-              {loading ? "Loading…" : "No students found."}
-            </Typography>
-          </TableCell>
-        </TableRow>
-      );
-    }
-
+  // ── Build tree row descriptors and virtualize rendered rows ──
+  const rowDescriptors = useMemo(() => {
     const rows = [];
 
-    tree.forEach((schoolNode) => {
-      const schoolOpen = openSchools[schoolNode.schoolId] !== false; // default open
+    if (isHomeScopeManager) {
+      // Parent/tutor view: show students directly, without a redundant Home row.
+      const allStudents = [];
+      tree.forEach((schoolNode) => {
+        schoolNode.educators.forEach((educatorNode) => {
+          educatorNode.classes.forEach((classNode) => {
+            classNode.students.forEach((student) => {
+              allStudents.push(student);
+            });
+          });
+        });
+      });
 
-      // School row
-      rows.push(
-        <TableRow
-          key={`school-${schoolNode.schoolId}`}
-          className={cls.rowSchool}
-        >
+      const seen = new Set();
+      allStudents
+        .sort((a, b) =>
+          getStudentDisplayName(a).localeCompare(getStudentDisplayName(b)),
+        )
+        .forEach((student) => {
+          if (seen.has(student.id)) return;
+          seen.add(student.id);
+          rows.push({
+            type: "student",
+            key: `student-${student.id}`,
+            student,
+          });
+        });
+
+      return rows;
+    }
+
+    tree.forEach((schoolNode) => {
+      const schoolOpen = openSchools[schoolNode.schoolId] ?? hasActiveFilters;
+      rows.push({
+        type: "school",
+        key: `school-${schoolNode.schoolId}`,
+        schoolNode,
+        schoolOpen,
+      });
+
+      if (!schoolOpen) return;
+
+      schoolNode.educators.forEach((educatorNode) => {
+        const educatorOpen =
+          openEducators[educatorNode.educatorId] ?? hasActiveFilters;
+        rows.push({
+          type: "educator",
+          key: `educator-${schoolNode.schoolId}-${educatorNode.educatorId}`,
+          schoolNode,
+          educatorNode,
+          educatorOpen,
+        });
+
+        if (!educatorOpen) return;
+
+        educatorNode.classes.forEach((classNode) => {
+          const classOpen = openClasses[classNode.classId] ?? hasActiveFilters;
+          rows.push({
+            type: "class",
+            key: `class-${schoolNode.schoolId}-${educatorNode.educatorId}-${classNode.classId}`,
+            classNode,
+            classOpen,
+          });
+
+          if (!classOpen) return;
+
+          classNode.students.forEach((student) => {
+            rows.push({
+              type: "student",
+              key: `student-${student.id}`,
+              student,
+            });
+          });
+        });
+      });
+    });
+
+    return rows;
+  }, [
+    tree,
+    openSchools,
+    openEducators,
+    openClasses,
+    hasActiveFilters,
+    isHomeScopeManager,
+  ]);
+
+  const getSchoolRowLabel = (schoolNode) => {
+    const rawName = String(
+      schoolNode?.schoolName || schoolNode?.schoolId || "",
+    ).trim();
+    const schoolType = String(schoolNode?.schoolType || "").toLowerCase();
+    if (schoolType !== "home") {
+      return rawName || "Unassigned";
+    }
+
+    const resolveUserByIdentifier = (value) =>
+      userByAnyIdentifier.get(
+        String(value || "")
+          .trim()
+          .toLowerCase(),
+      ) || null;
+
+    const ownerId = String(schoolNode?.parentOwnerId || "").trim();
+    const primaryEducatorId = String(
+      schoolNode?.educators?.[0]?.educatorId || "",
+    ).trim();
+    const primaryEducatorName = String(
+      schoolNode?.educators?.[0]?.educatorName || "",
+    ).trim();
+    const resolvedOwnerId = ownerId || primaryEducatorId;
+    const ownerUser =
+      resolveUserByIdentifier(resolvedOwnerId) ||
+      resolveUserByIdentifier(primaryEducatorName) ||
+      null;
+
+    const normalizeManagerRole = (value) => {
+      const v = String(value || "")
+        .trim()
+        .toLowerCase();
+      if (
+        v === "tutor" ||
+        v === "readingspecialist" ||
+        v === "reading_specialist" ||
+        v === "tutor/readingspecialist"
+      ) {
+        return "tutor";
+      }
+      if (
+        v === "parent" ||
+        v === "home_school_parent" ||
+        v === "homeschool_parent" ||
+        v === "homeschoolparent"
+      ) {
+        return "parent";
+      }
+      return "";
+    };
+
+    const educatorRoleHint = (() => {
+      let hasTutor = false;
+      let hasParent = false;
+
+      (schoolNode?.educators || []).forEach((educatorNode) => {
+        const byId = normalizeManagerRole(
+          resolveUserByIdentifier(educatorNode?.educatorId)?.role,
+        );
+        const byName = normalizeManagerRole(
+          resolveUserByIdentifier(educatorNode?.educatorName)?.role,
+        );
+        const role = byId || byName;
+
+        if (role === "tutor") hasTutor = true;
+        if (role === "parent") hasParent = true;
+      });
+
+      if (hasTutor) return "tutor";
+      if (hasParent) return "parent";
+      return "";
+    })();
+
+    const schoolOwnerRole = normalizeManagerRole(schoolNode?.parentOwnerRole);
+
+    const studentOwnerRole = (() => {
+      const firstStudent =
+        schoolNode?.educators?.[0]?.classes?.[0]?.students?.[0] || null;
+      return normalizeManagerRole(firstStudent?.ownerRole);
+    })();
+    const aggregatedStudentOwnerRole = (() => {
+      let hasTutor = false;
+      let hasParent = false;
+
+      (schoolNode?.educators || []).forEach((educatorNode) => {
+        (educatorNode?.classes || []).forEach((classNode) => {
+          (classNode?.students || []).forEach((student) => {
+            const role = normalizeManagerRole(student?.ownerRole);
+            if (role === "tutor") hasTutor = true;
+            if (role === "parent") hasParent = true;
+          });
+        });
+      });
+
+      if (hasTutor) return "tutor";
+      if (hasParent) return "parent";
+      return "";
+    })();
+
+    const classRoleHint = (() => {
+      let hasTutor = false;
+      let hasParent = false;
+
+      (schoolNode?.educators || []).forEach((educatorNode) => {
+        (educatorNode?.classes || []).forEach((classNode) => {
+          const normalized = String(classNode?.normalizedName || "")
+            .trim()
+            .toLowerCase();
+          const label = String(classNode?.className || "")
+            .trim()
+            .toLowerCase();
+
+          if (normalized === "tutor" || label === "tutor") hasTutor = true;
+          if (normalized === "parent" || label === "parent") hasParent = true;
+        });
+      });
+
+      if (hasTutor) return "tutor";
+      if (hasParent) return "parent";
+      return "";
+    })();
+
+    const ownerRole =
+      schoolOwnerRole ||
+      normalizeManagerRole(ownerUser?.role) ||
+      educatorRoleHint ||
+      classRoleHint ||
+      aggregatedStudentOwnerRole ||
+      studentOwnerRole ||
+      "parent";
+    const ownerRoleLabel = ownerRole === "tutor" ? "Tutor" : "Parent";
+    const ownerName = ownerUser
+      ? [ownerUser.firstName, ownerUser.lastName].filter(Boolean).join(" ") ||
+        ownerUser.email ||
+        resolvedOwnerId
+      : resolvedOwnerId || "Unknown";
+
+    return `Managed by ${ownerRoleLabel}: ${ownerName}`;
+  };
+
+  const virtualWindow = useMemo(() => {
+    if (!rowDescriptors.length) {
+      return {
+        startIndex: 0,
+        endIndex: -1,
+        topSpacerHeight: 0,
+        bottomSpacerHeight: 0,
+      };
+    }
+
+    const overscannedTop = Math.max(0, scrollTop - VIRTUAL_OVERSCAN_PX);
+    const overscannedBottom = scrollTop + viewportHeight + VIRTUAL_OVERSCAN_PX;
+
+    let y = 0;
+    let startIndex = 0;
+    let endIndex = rowDescriptors.length - 1;
+    let topSpacerHeight = 0;
+    let foundStart = false;
+
+    for (let i = 0; i < rowDescriptors.length; i += 1) {
+      const row = rowDescriptors[i];
+      const rowHeight = VIRTUAL_ROW_HEIGHTS[row.type] || 36;
+      const nextY = y + rowHeight;
+
+      if (!foundStart && nextY >= overscannedTop) {
+        startIndex = i;
+        topSpacerHeight = y;
+        foundStart = true;
+      }
+
+      if (foundStart && y > overscannedBottom) {
+        endIndex = Math.max(startIndex, i - 1);
+        break;
+      }
+
+      y = nextY;
+    }
+
+    if (!foundStart) {
+      startIndex = 0;
+      topSpacerHeight = 0;
+    }
+
+    let renderedHeight = 0;
+    for (let i = startIndex; i <= endIndex; i += 1) {
+      renderedHeight += VIRTUAL_ROW_HEIGHTS[rowDescriptors[i].type] || 36;
+    }
+
+    const totalHeight = rowDescriptors.reduce(
+      (sum, row) => sum + (VIRTUAL_ROW_HEIGHTS[row.type] || 36),
+      0,
+    );
+    const bottomSpacerHeight = Math.max(
+      0,
+      totalHeight - topSpacerHeight - renderedHeight,
+    );
+
+    return {
+      startIndex,
+      endIndex,
+      topSpacerHeight,
+      bottomSpacerHeight,
+    };
+  }, [rowDescriptors, scrollTop, viewportHeight]);
+
+  const visibleRows = useMemo(() => {
+    if (
+      !rowDescriptors.length ||
+      virtualWindow.endIndex < virtualWindow.startIndex
+    ) {
+      return [];
+    }
+    return rowDescriptors.slice(
+      virtualWindow.startIndex,
+      virtualWindow.endIndex + 1,
+    );
+  }, [rowDescriptors, virtualWindow]);
+
+  const renderTreeRow = (row) => {
+    if (row.type === "school") {
+      return (
+        <TableRow key={row.key} className={cls.rowSchool}>
           <TableCell
             className={`${cls.stickyLeft} ${cls.indentSchool} ${cls.rowSchool}`}
             style={{ whiteSpace: "nowrap" }}
@@ -1495,142 +1943,97 @@ export default function StudentProgressDashboard() {
               onClick={() =>
                 setOpenSchools((p) => ({
                   ...p,
-                  [schoolNode.schoolId]: !schoolOpen,
+                  [row.schoolNode.schoolId]: !row.schoolOpen,
                 }))
               }
             >
-              {schoolOpen ? (
+              {row.schoolOpen ? (
                 <KeyboardArrowDownIcon fontSize="small" />
               ) : (
                 <KeyboardArrowRightIcon fontSize="small" />
               )}
               <Typography variant="body2" style={{ fontWeight: 700 }}>
-                🏫 {schoolNode.schoolName}
+                🏫 {getSchoolRowLabel(row.schoolNode)}
               </Typography>
             </span>
           </TableCell>
-          {/* Blank data cells so the row spans the full table width */}
           <TableCell colSpan={999} className={cls.rowSchool} />
-        </TableRow>,
+        </TableRow>
       );
+    }
 
-      if (!schoolOpen) return;
-
-      schoolNode.educators.forEach((educatorNode) => {
-        const educatorOpen = openEducators[educatorNode.educatorId] !== false;
-
-        rows.push(
-          <TableRow
-            key={`educator-${schoolNode.schoolId}-${educatorNode.educatorId}`}
-            className={cls.rowEducator}
+    if (row.type === "educator") {
+      return (
+        <TableRow key={row.key} className={cls.rowEducator}>
+          <TableCell
+            className={`${cls.stickyLeft} ${cls.indentEducator} ${cls.rowEducator}`}
+            style={{ whiteSpace: "nowrap" }}
           >
-            <TableCell
-              className={`${cls.stickyLeft} ${cls.indentEducator} ${cls.rowEducator}`}
-              style={{ whiteSpace: "nowrap" }}
+            <span
+              className={cls.treeLabel}
+              onClick={() =>
+                setOpenEducators((p) => ({
+                  ...p,
+                  [row.educatorNode.educatorId]: !row.educatorOpen,
+                }))
+              }
             >
-              <span
-                className={cls.treeLabel}
-                onClick={() =>
-                  setOpenEducators((p) => ({
-                    ...p,
-                    [educatorNode.educatorId]: !educatorOpen,
-                  }))
-                }
-              >
-                {educatorOpen ? (
-                  <KeyboardArrowDownIcon fontSize="small" />
-                ) : (
-                  <KeyboardArrowRightIcon fontSize="small" />
-                )}
-                <Typography variant="body2" style={{ fontWeight: 600 }}>
-                  👤 {educatorNode.educatorName}
-                </Typography>
-              </span>
-            </TableCell>
-            <TableCell colSpan={999} className={cls.rowEducator} />
-          </TableRow>,
-        );
+              {row.educatorOpen ? (
+                <KeyboardArrowDownIcon fontSize="small" />
+              ) : (
+                <KeyboardArrowRightIcon fontSize="small" />
+              )}
+              <Typography variant="body2" style={{ fontWeight: 600 }}>
+                👤 {row.educatorNode.educatorName}
+              </Typography>
+            </span>
+          </TableCell>
+          <TableCell colSpan={999} className={cls.rowEducator} />
+        </TableRow>
+      );
+    }
 
-        if (!educatorOpen) return;
-
-        educatorNode.classes.forEach((classNode) => {
-          const classOpen = openClasses[classNode.classId] !== false;
-
-          rows.push(
-            <TableRow
-              key={`class-${schoolNode.schoolId}-${educatorNode.educatorId}-${classNode.classId}`}
-              className={cls.rowClass}
+    if (row.type === "class") {
+      return (
+        <TableRow key={row.key} className={cls.rowClass}>
+          <TableCell
+            className={`${cls.stickyLeft} ${cls.indentClass} ${cls.rowClass}`}
+            style={{ whiteSpace: "nowrap" }}
+          >
+            <span
+              className={cls.treeLabel}
+              onClick={() =>
+                setOpenClasses((p) => ({
+                  ...p,
+                  [row.classNode.classId]: !row.classOpen,
+                }))
+              }
             >
-              <TableCell
-                className={`${cls.stickyLeft} ${cls.indentClass} ${cls.rowClass}`}
-                style={{ whiteSpace: "nowrap" }}
-              >
-                <span
-                  className={cls.treeLabel}
-                  onClick={() =>
-                    setOpenClasses((p) => ({
-                      ...p,
-                      [classNode.classId]: !classOpen,
-                    }))
-                  }
-                >
-                  {classOpen ? (
-                    <KeyboardArrowDownIcon fontSize="small" />
-                  ) : (
-                    <KeyboardArrowRightIcon fontSize="small" />
-                  )}
-                  <Typography variant="body2" style={{ fontStyle: "italic" }}>
-                    📚 {classNode.className}
-                  </Typography>
-                </span>
-              </TableCell>
-              <TableCell colSpan={999} className={cls.rowClass} />
-            </TableRow>,
-          );
+              {row.classOpen ? (
+                <KeyboardArrowDownIcon fontSize="small" />
+              ) : (
+                <KeyboardArrowRightIcon fontSize="small" />
+              )}
+              <Typography variant="body2" style={{ fontStyle: "italic" }}>
+                📚 {row.classNode.className}
+              </Typography>
+            </span>
+          </TableCell>
+          <TableCell colSpan={999} className={cls.rowClass} />
+        </TableRow>
+      );
+    }
 
-          if (!classOpen) return;
-
-          classNode.students.forEach((student) => {
-            const studentKey = `student-${student.id}`;
-            const studentOpen = openStudents[student.id] === true;
-
-            rows.push(
-              <StudentSummaryRow
-                key={`${studentKey}-summary`}
-                student={student}
-                parts={parts}
-                collapsedParts={collapsedParts}
-                wordsTotalByLessonId={wordsTotalByLessonId}
-                studentOpen={studentOpen}
-                onToggle={() =>
-                  setOpenStudents((p) => ({
-                    ...p,
-                    [student.id]: !studentOpen,
-                  }))
-                }
-                cls={cls}
-              />,
-            );
-
-            // Expanded detail row
-            if (studentOpen) {
-              rows.push(
-                <StudentDetailRow
-                  key={`${studentKey}-detail`}
-                  student={student}
-                  parts={parts}
-                  collapsedParts={collapsedParts}
-                  wordsTotalByLessonId={wordsTotalByLessonId}
-                  cls={cls}
-                />,
-              );
-            }
-          });
-        });
-      });
-    });
-
-    return rows;
+    return (
+      <StudentSummaryRow
+        key={row.key}
+        student={row.student}
+        parts={parts}
+        collapsedParts={collapsedParts}
+        wordsTotalByLessonId={wordsTotalByLessonId}
+        cls={cls}
+      />
+    );
   };
 
   return (
@@ -1764,12 +2167,12 @@ export default function StudentProgressDashboard() {
         color="textSecondary"
         style={{ marginBottom: 8, display: "block" }}
       >
-        Click a Part header to collapse or expand its lesson columns. Click a
-        student row to open full detail.
+        Click a Part header to collapse or expand its lesson columns.
       </Typography>
 
       {/* Progress table */}
       <TableContainer
+        ref={tableContainerRef}
         component={Paper}
         style={{ maxHeight: "calc(100vh - 280px)", overflow: "auto" }}
       >
@@ -1786,8 +2189,44 @@ export default function StudentProgressDashboard() {
                   <CircularProgress />
                 </TableCell>
               </TableRow>
+            ) : rowDescriptors.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={999} align="center" style={{ padding: 32 }}>
+                  <Typography color="textSecondary">
+                    No students found.
+                  </Typography>
+                </TableCell>
+              </TableRow>
             ) : (
-              renderTree()
+              <>
+                {virtualWindow.topSpacerHeight > 0 ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={999}
+                      style={{
+                        height: virtualWindow.topSpacerHeight,
+                        padding: 0,
+                        border: 0,
+                      }}
+                    />
+                  </TableRow>
+                ) : null}
+
+                {visibleRows.map((row) => renderTreeRow(row))}
+
+                {virtualWindow.bottomSpacerHeight > 0 ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={999}
+                      style={{
+                        height: virtualWindow.bottomSpacerHeight,
+                        padding: 0,
+                        border: 0,
+                      }}
+                    />
+                  </TableRow>
+                ) : null}
+              </>
             )}
           </TableBody>
         </Table>

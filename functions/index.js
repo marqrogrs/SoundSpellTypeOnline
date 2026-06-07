@@ -1,9 +1,21 @@
-const functions = require("firebase-functions");
+const functions = require("firebase-functions/v1");
 const admin = require("firebase-admin");
 const bcrypt = require("bcryptjs");
 const fs = require("node:fs");
 const path = require("node:path");
 const { assertCanResetStudentPassword } = require("./resetPasswordAccess");
+const { toStudentRecordKey } = require("./studentKeys");
+const {
+  generateUsername: generateUsernameFromNames,
+} = require("./usernameUtils");
+const {
+  resolveRequesterRole,
+  canRequestSchoolAdminAccess,
+  isPendingSchoolAdminRequest,
+  canManageSchoolAdminRequests,
+  normalizeSchoolAdminRequestListArgs,
+  parseSchoolAdminReviewInput,
+} = require("./schoolAdminRequestUtils");
 const saltRounds = 10;
 
 let _initError = null;
@@ -28,6 +40,32 @@ const getFirestore = () => {
   if (!_firestore) _firestore = admin.firestore();
   return _firestore;
 };
+const getStudentRef = (username) =>
+  getDb().ref(`/students/${toStudentRecordKey(username)}`);
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const isValidEmail = (value) =>
+  EMAIL_REGEX.test(
+    String(value || "")
+      .trim()
+      .toLowerCase(),
+  );
+
+// ─── Username generation ──────────────────────────────────────────────────────
+
+/**
+ * Generates a unique username by delegating slug logic to usernameUtils and
+ * checking uniqueness against both Realtime DB and Firestore.
+ */
+async function generateUsername(firstName, lastName) {
+  const isTaken = async (name) => {
+    const [rtSnap, fsDoc] = await Promise.all([
+      getDb().ref(`/students/${name}`).once("value"),
+      getFirestore().collection("users").doc(name).get(),
+    ]);
+    return rtSnap.exists() || fsDoc.exists;
+  };
+  return generateUsernameFromNames(firstName, lastName, isTaken);
+}
 
 const escapeXml = (value) =>
   String(value || "")
@@ -45,8 +83,7 @@ exports.authenticateStudent = functions.https.onCall(async (data, context) => {
     callerAuthenticated: Boolean(context && context.auth && context.auth.uid),
   });
 
-  return getDb()
-    .ref("/students/" + username)
+  return getStudentRef(username)
     .once("value")
     .then((snap) => {
       if (!snap.exists()) {
@@ -83,19 +120,26 @@ exports.createStudentAccount = functions.https.onCall(async (data, context) => {
     );
   }
 
-  const { username, password, classroom } = data || {};
-  if (!username || !password || !classroom) {
+  const { firstName, lastName, password, classroom } = data || {};
+
+  if (!password || !classroom) {
     throw new functions.https.HttpsError(
       "invalid-argument",
-      "username, password, and classroom are required.",
+      "password and classroom are required.",
+    );
+  }
+  if (!String(firstName || "").trim() || !String(lastName || "").trim()) {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      "First and last name are required.",
     );
   }
 
   const educator_uid = context.auth.uid;
   try {
-    const existing = await getDb()
-      .ref("/students/" + username)
-      .once("value");
+    const username = await generateUsername(firstName, lastName);
+
+    const existing = await getStudentRef(username).once("value");
     if (existing.exists()) {
       throw new functions.https.HttpsError(
         "already-exists",
@@ -104,15 +148,24 @@ exports.createStudentAccount = functions.https.onCall(async (data, context) => {
     }
 
     const hash = await bcrypt.hash(password, saltRounds);
-    await getDb()
-      .ref("/students/" + username)
-      .set({ p: hash, educator: educator_uid });
+    await getStudentRef(username).set({ p: hash, educator: educator_uid });
 
     console.log("Created realtime db entry - creating student user doc");
     await getFirestore()
       .collection("users")
       .doc(username)
-      .set({ username, educator: educator_uid, classroom, progress: {} });
+      .set({
+        username,
+        firstName: String(firstName || "").trim(),
+        lastName: String(lastName || "").trim(),
+        email: null,
+        educator: educator_uid,
+        ownerId: educator_uid,
+        ownerRole: "educator",
+        parentOwnerId: educator_uid,
+        classroom,
+        progress: {},
+      });
 
     console.log("Created student db entry - adding to teacher doc");
     await getFirestore()
@@ -127,7 +180,10 @@ exports.createStudentAccount = functions.https.onCall(async (data, context) => {
         { merge: true },
       );
 
-    return { status: "success" };
+    return {
+      status: "success",
+      userId: username,
+    };
   } catch (error) {
     console.error("createStudentAccount error:", error);
     if (error instanceof functions.https.HttpsError) {
@@ -144,7 +200,7 @@ exports.resetStudentPassword = functions.https.onCall(async (data, context) => {
   if (!context.auth || !context.auth.uid) {
     throw new functions.https.HttpsError(
       "unauthenticated",
-      "You must be signed in as an educator to reset student passwords.",
+      "You must be signed in to reset student passwords.",
     );
   }
 
@@ -163,24 +219,32 @@ exports.resetStudentPassword = functions.https.onCall(async (data, context) => {
       .doc(callerUid)
       .get();
     const callerData = callerDoc.exists ? callerDoc.data() : null;
+    const callerRole = normalizeRole(
+      context?.auth?.token?.role || callerData?.role || "student",
+    );
 
-    const studentSnap = await getDb()
-      .ref("/students/" + username)
-      .once("value");
+    const studentSnap = await getStudentRef(username).once("value");
     const studentExists = studentSnap.exists();
     const studentRecord = studentExists ? studentSnap.val() || {} : null;
+    const studentUserSnap = await getFirestore()
+      .collection("users")
+      .doc(String(username || "").trim())
+      .get();
+    const studentUserDoc = studentUserSnap.exists
+      ? studentUserSnap.data() || {}
+      : null;
 
     assertCanResetStudentPassword({
       callerUid,
+      callerRole,
       callerData,
       studentExists,
       studentRecord,
+      studentUserDoc,
     });
 
     const hash = await bcrypt.hash(password, saltRounds);
-    await getDb()
-      .ref("/students/" + username)
-      .update({ p: hash });
+    await getStudentRef(username).update({ p: hash });
     return { status: "success" };
   } catch (error) {
     console.error("resetStudentPassword error:", error);
@@ -511,6 +575,7 @@ exports.applyWordFix = functions.https.onCall(async (data, context) => {
 const ROLE_RANK = {
   student: 0,
   parent: 1,
+  tutor: 1,
   educator: 2,
   schoolAdmin: 3,
   admin: 4,
@@ -520,23 +585,57 @@ const RESET_EMAIL_API_KEY = "AIzaSyBC9FNI_d_Lse9Kw1u_1jbWUvqcHShHXZQ";
 
 function normalizeRole(input) {
   const value = String(input || "").trim();
-  if (value === "admin") return "admin";
-  if (value === "schoolAdmin") return "schoolAdmin";
-  if (value === "educator") return "educator";
-  if (value === "parent") return "parent";
+  const v = value.toLowerCase().replace(/\s+/g, "");
+  if (v === "admin") return "admin";
+  if (v === "schooladmin" || value === "schoolAdmin") return "schoolAdmin";
+  if (v === "educator" || v === "teacher") return "educator";
+  if (
+    v === "parent" ||
+    v === "homeschoolparent" ||
+    v === "home_school_parent" ||
+    v === "homeschool_parent"
+  )
+    return "parent";
+  if (
+    v === "tutor" ||
+    v === "readingspecialist" ||
+    v === "reading_specialist" ||
+    v === "tutor/readingspecialist"
+  )
+    return "tutor";
   return "student";
 }
 
 function deriveRoleFromClaims(claims, fallbackEmail = "") {
+  void fallbackEmail;
   const roleFromClaim = normalizeRole(claims?.role);
   if (claims?.admin) return "admin";
   if (claims?.schoolAdmin) return "schoolAdmin";
+  if (claims?.parent) return "parent";
+  if (claims?.tutor) return "tutor";
   if (roleFromClaim !== "student") return roleFromClaim;
-  return fallbackEmail ? "educator" : "student";
+  return "student";
+}
+
+function pickEffectiveRole(claimsRole, docRole) {
+  if (claimsRole === "admin" || claimsRole === "schoolAdmin") {
+    return claimsRole;
+  }
+  if (
+    docRole === "admin" ||
+    docRole === "schoolAdmin" ||
+    docRole === "educator" ||
+    docRole === "parent" ||
+    docRole === "tutor" ||
+    docRole === "student"
+  ) {
+    return docRole;
+  }
+  return claimsRole || docRole || "student";
 }
 
 function isParentRole(role) {
-  return role === "parent";
+  return role === "parent" || role === "tutor";
 }
 
 function ensureAuthenticated(context) {
@@ -549,17 +648,192 @@ function ensureAuthenticated(context) {
   return context.auth.uid;
 }
 
+async function inferManagedRoleFromOwnedStudents(uid) {
+  const db = getFirestore();
+  const [ownerSnap, legacyOwnerSnap] = await Promise.all([
+    db.collection("users").where("ownerId", "==", uid).limit(1).get(),
+    db.collection("users").where("parentOwnerId", "==", uid).limit(1).get(),
+  ]);
+
+  const sourceDoc = ownerSnap.docs[0] || legacyOwnerSnap.docs[0] || null;
+  if (!sourceDoc) {
+    const homeClassSnap = await db
+      .collection("classes")
+      .where("educatorId", "==", uid)
+      .where("schoolType", "==", "home")
+      .limit(1)
+      .get();
+
+    if (homeClassSnap.empty) {
+      return { role: null, docPatch: null };
+    }
+
+    const homeClassDoc = homeClassSnap.docs[0];
+    const homeClass = homeClassDoc.data() || {};
+    const className = String(
+      homeClass.normalizedName || homeClass.name || "",
+    ).toLowerCase();
+    const inferredRole = className.includes("tutor") ? "tutor" : "parent";
+
+    return {
+      role: inferredRole,
+      docPatch: {
+        role: inferredRole,
+        homeSchoolId: String(homeClass.schoolId || "").trim(),
+        homeClassId: String(homeClassDoc.id || "").trim(),
+      },
+    };
+  }
+
+  const source = sourceDoc.data() || {};
+  const ownerRole = normalizeRole(source.ownerRole || "");
+  const inferredRole = ownerRole === "tutor" ? "tutor" : "parent";
+  const classIds = Array.isArray(source.classIds) ? source.classIds : [];
+
+  return {
+    role: inferredRole,
+    docPatch: {
+      role: inferredRole,
+      homeSchoolId: String(
+        source.homeSchoolId || source.schoolId || source.school || "",
+      ).trim(),
+      homeClassId: String(classIds[0] || source.homeClassId || "").trim(),
+    },
+  };
+}
+
+async function inferEducatorRoleFromAssignedClasses(uid) {
+  const classSnap = await getFirestore()
+    .collection("classes")
+    .where("educatorId", "==", uid)
+    .where("isActive", "==", true)
+    .limit(1)
+    .get();
+
+  if (classSnap.empty) {
+    return { role: null, docPatch: null };
+  }
+
+  const classDoc = classSnap.docs[0];
+  const classData = classDoc.data() || {};
+  return {
+    role: "educator",
+    docPatch: {
+      role: "educator",
+      schoolId: String(classData.schoolId || "").trim(),
+      classIds: [String(classDoc.id || "").trim()].filter(Boolean),
+    },
+  };
+}
+
 async function getCallerAccess(context) {
   const callerUid = ensureAuthenticated(context);
   const callerRecord = await admin.auth().getUser(callerUid);
-  const callerRole = deriveRoleFromClaims(
+  const claimsRole = deriveRoleFromClaims(
     callerRecord.customClaims || {},
     callerRecord.email || "",
   );
+  let callerDoc = {};
+  try {
+    let callerDocSnap = await getFirestore()
+      .collection("users")
+      .doc(callerUid)
+      .get();
+
+    if (!callerDocSnap.exists) {
+      const normalizedEmail = String(callerRecord.email || "")
+        .trim()
+        .toLowerCase();
+      if (normalizedEmail) {
+        const emailLocalPart = normalizedEmail.split("@")[0] || "";
+        const [
+          emailDocSnap,
+          emailQuerySnap,
+          usernameEmailSnap,
+          usernameLocalSnap,
+        ] = await Promise.all([
+          getFirestore().collection("users").doc(normalizedEmail).get(),
+          getFirestore()
+            .collection("users")
+            .where("email", "==", normalizedEmail)
+            .limit(1)
+            .get(),
+          getFirestore()
+            .collection("users")
+            .where("username", "==", normalizedEmail)
+            .limit(1)
+            .get(),
+          emailLocalPart
+            ? getFirestore()
+                .collection("users")
+                .where("username", "==", emailLocalPart)
+                .limit(1)
+                .get()
+            : Promise.resolve({ empty: true, docs: [] }),
+        ]);
+        if (emailDocSnap.exists) {
+          callerDocSnap = emailDocSnap;
+        } else if (!emailQuerySnap.empty) {
+          callerDocSnap = emailQuerySnap.docs[0];
+        } else if (!usernameEmailSnap.empty) {
+          callerDocSnap = usernameEmailSnap.docs[0];
+        } else if (!usernameLocalSnap.empty) {
+          callerDocSnap = usernameLocalSnap.docs[0];
+        }
+      }
+    }
+
+    callerDoc = callerDocSnap.exists ? callerDocSnap.data() || {} : {};
+  } catch (_err) {
+    callerDoc = {};
+  }
+
+  if (!String(callerDoc?.role || "").trim()) {
+    try {
+      const inferred = await inferManagedRoleFromOwnedStudents(callerUid);
+      if (inferred?.role) {
+        callerDoc = {
+          ...callerDoc,
+          ...(inferred.docPatch || {}),
+        };
+      } else {
+        const inferredEducator =
+          await inferEducatorRoleFromAssignedClasses(callerUid);
+        if (inferredEducator?.role) {
+          callerDoc = {
+            ...callerDoc,
+            ...(inferredEducator.docPatch || {}),
+          };
+        }
+      }
+    } catch (_err) {
+      // Keep best-effort callerDoc from direct lookup.
+    }
+  }
+
+  const docRole = normalizeRole(callerDoc?.role || "");
+  let callerRole = pickEffectiveRole(
+    claimsRole,
+    callerDoc?.role ? docRole : null,
+  );
+
+  // Legacy safety: authenticated email users without explicit role metadata
+  // should default to managed parent scope, not student scope.
+  if (
+    callerRole === "student" &&
+    String(callerRecord.email || "").trim().length > 0
+  ) {
+    callerRole = "parent";
+    if (!String(callerDoc?.role || "").trim()) {
+      callerDoc = { ...callerDoc, role: "parent" };
+    }
+  }
+
   return {
     uid: callerUid,
     role: callerRole,
     email: String(callerRecord.email || "").toLowerCase(),
+    doc: callerDoc,
   };
 }
 
@@ -580,6 +854,7 @@ function buildClaimsForRole(role) {
     admin: role === "admin",
     schoolAdmin: role === "schoolAdmin",
     parent: role === "parent",
+    tutor: role === "tutor",
   };
 }
 
@@ -605,6 +880,42 @@ async function sendResetEmailInvite(email) {
       `Failed to send reset email invite (${response.status}). ${bodyText}`,
     );
   }
+}
+
+async function queueEmailNotification({ to, subject, text, html }) {
+  const recipients = Array.isArray(to)
+    ? to
+        .map((v) =>
+          String(v || "")
+            .trim()
+            .toLowerCase(),
+        )
+        .filter(Boolean)
+    : [
+        String(to || "")
+          .trim()
+          .toLowerCase(),
+      ].filter(Boolean);
+
+  if (!recipients.length) return { queued: false, reason: "no-recipients" };
+
+  // Uses Firebase "Trigger Email" extension convention (collection: mail).
+  // If the extension is not installed, this write is harmless and provides an
+  // audit trail for what would have been sent.
+  await getFirestore()
+    .collection("mail")
+    .add({
+      to: recipients,
+      message: {
+        subject: String(subject || "Notification"),
+        text: String(text || ""),
+        html: String(html || text || ""),
+      },
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      source: "functions/index.js",
+    });
+
+  return { queued: true };
 }
 
 async function countTopAdmins() {
@@ -697,7 +1008,6 @@ async function moveStudentClassMembership({
         { merge: true },
       );
   }
-
   if (nextEducatorId && nextClassId) {
     await getFirestore()
       .collection("users")
@@ -711,6 +1021,64 @@ async function moveStudentClassMembership({
         { merge: true },
       );
   }
+}
+
+async function deleteQueryDocs(query, handleDoc) {
+  const snap = await query.get();
+  for (const doc of snap.docs) {
+    await handleDoc(doc);
+  }
+  return snap.docs.length;
+}
+
+async function removeStudentFromClassDocs(userId) {
+  const classesSnap = await getFirestore()
+    .collection("classes")
+    .where("studentIds", "array-contains", userId)
+    .get();
+
+  for (const doc of classesSnap.docs) {
+    await doc.ref.set(
+      {
+        studentIds: admin.firestore.FieldValue.arrayRemove(userId),
+      },
+      { merge: true },
+    );
+  }
+}
+
+async function removeStudentFromCustomLessons(userId) {
+  const lessonsSnap = await getFirestore()
+    .collection("customLessons")
+    .where("assignedStudentIds", "array-contains", userId)
+    .get();
+
+  for (const doc of lessonsSnap.docs) {
+    const assignedStudentIds = Array.isArray(doc.data()?.assignedStudentIds)
+      ? doc.data().assignedStudentIds
+      : [];
+    if (assignedStudentIds.length <= 1) {
+      await doc.ref.delete();
+    } else {
+      await doc.ref.set(
+        {
+          assignedStudentIds: admin.firestore.FieldValue.arrayRemove(userId),
+        },
+        { merge: true },
+      );
+    }
+  }
+}
+
+async function deleteStudentProgress(userId) {
+  await deleteQueryDocs(
+    getFirestore()
+      .collection("customLessonProgress")
+      .where("studentId", "==", userId),
+    async (doc) => {
+      await doc.ref.delete();
+    },
+  );
 }
 
 function randomPassword(length = 12) {
@@ -756,6 +1124,20 @@ exports.ensureInitialAdmin = functions.https.onCall(async (data, context) => {
   return { status: "success", role: "admin" };
 });
 
+// Returns server-resolved caller role/doc so client login routing does not
+// depend on Firestore rules for legacy non-uid keyed user docs.
+exports.resolveMyRoleContext = functions.https.onCall(
+  async (_data, context) => {
+    const caller = await getCallerAccess(context);
+    return {
+      uid: caller.uid,
+      role: caller.role,
+      email: caller.email,
+      userDoc: caller.doc || null,
+    };
+  },
+);
+
 exports.adminListUsers = functions.https.onCall(async (data, context) => {
   const caller = await getCallerAccess(context);
   requireAtLeastRole(caller, "schoolAdmin");
@@ -770,10 +1152,17 @@ exports.adminListUsers = functions.https.onCall(async (data, context) => {
   const studentsObj = studentsSnap.exists() ? studentsSnap.val() || {} : {};
 
   const educatorCounts = {};
+  const ownerCounts = {};
   for (const doc of docs) {
     const educatorId = String(doc.data.educator || "").trim();
     if (educatorId) {
       educatorCounts[educatorId] = (educatorCounts[educatorId] || 0) + 1;
+    }
+    const ownerId = String(
+      doc.data.ownerId || doc.data.parentOwnerId || "",
+    ).trim();
+    if (ownerId) {
+      ownerCounts[ownerId] = (ownerCounts[ownerId] || 0) + 1;
     }
   }
 
@@ -798,7 +1187,10 @@ exports.adminListUsers = functions.https.onCall(async (data, context) => {
       lastName: String(doc.data.lastName || ""),
       role,
       educator: String(doc.data.educator || ""),
-      assignedStudentCount: educatorCounts[doc.id] || 0,
+      assignedStudentCount:
+        role === "parent" || role === "tutor"
+          ? ownerCounts[doc.id] || 0
+          : educatorCounts[doc.id] || 0,
       createdAt: authUser?.metadata?.creationTime || doc.data.createdAt || null,
       hasPassword:
         role === "student"
@@ -880,17 +1272,46 @@ exports.adminCreateUser = functions.https.onCall(async (data, context) => {
   const firstName = String(data?.firstName || "").trim();
   const lastName = String(data?.lastName || "").trim();
   const username = String(data?.username || "").trim();
+  const requestedMode = String(data?.usernameMode || data?.usernameChoice || "")
+    .trim()
+    .toLowerCase();
+  const useGeneratedMode = requestedMode === "generated";
+  const useEmailMode = requestedMode === "email";
   const displayName = [firstName, lastName].filter(Boolean).join(" ");
 
   if (role === "student") {
-    if (!username) {
+    const providedEmail = String(data?.email || "")
+      .trim()
+      .toLowerCase();
+
+    if (useGeneratedMode && (!firstName || !lastName)) {
       throw new functions.https.HttpsError(
         "invalid-argument",
-        "username is required for student accounts.",
+        "First and last name are required for generated usernames.",
+      );
+    }
+    if (useEmailMode && !isValidEmail(providedEmail || username)) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "A valid student email is required for email sign-in.",
       );
     }
 
-    const existing = await getDb().ref(`/students/${username}`).once("value");
+    let resolvedUsername = "";
+    if (useGeneratedMode) {
+      resolvedUsername = await generateUsername(firstName, lastName);
+    } else {
+      const manualIdentifier = username || providedEmail;
+      if (manualIdentifier) {
+        resolvedUsername = isValidEmail(manualIdentifier)
+          ? manualIdentifier.toLowerCase()
+          : manualIdentifier;
+      } else {
+        resolvedUsername = await generateUsername(firstName, lastName);
+      }
+    }
+
+    const existing = await getStudentRef(resolvedUsername).once("value");
     if (existing.exists()) {
       throw new functions.https.HttpsError(
         "already-exists",
@@ -903,24 +1324,42 @@ exports.adminCreateUser = functions.https.onCall(async (data, context) => {
     const tempPassword = randomPassword(12);
     const hash = await bcrypt.hash(tempPassword, saltRounds);
 
-    await getDb()
-      .ref(`/students/${username}`)
-      .set({
-        p: hash,
-        educator: educatorId || null,
-      });
+    await getStudentRef(resolvedUsername).set({
+      p: hash,
+      educator: educatorId || null,
+    });
 
     const studentSchoolId = String(data?.schoolId || "").trim();
+    const studentEmail =
+      providedEmail ||
+      (isValidEmail(resolvedUsername) ? resolvedUsername.toLowerCase() : "");
+    const requestedOwnerId = String(
+      data?.ownerId || data?.parentOwnerId || "",
+    ).trim();
+    const defaultOwnerId =
+      caller.role === "admin" ? "" : String(caller.uid || "").trim();
+    const ownerId = requestedOwnerId || defaultOwnerId;
+    const requestedOwnerRole = normalizeRole(data?.ownerRole || "");
+    const ownerRole =
+      requestedOwnerRole !== "student"
+        ? requestedOwnerRole
+        : caller.role === "admin"
+          ? "student"
+          : normalizeRole(caller.role);
 
     await getFirestore()
       .collection("users")
-      .doc(username)
+      .doc(resolvedUsername)
       .set(
         {
-          username,
+          username: resolvedUsername,
           firstName,
           lastName,
+          email: studentEmail || null,
           role: "student",
+          ...(ownerId ? { ownerId } : {}),
+          ...(ownerRole !== "student" ? { ownerRole } : {}),
+          ...(ownerId ? { parentOwnerId: ownerId } : {}),
           educator: educatorId || null,
           classroom: classroom || null,
           ...(studentSchoolId
@@ -938,7 +1377,7 @@ exports.adminCreateUser = functions.https.onCall(async (data, context) => {
 
     if (educatorId && classroom) {
       await moveStudentClassMembership({
-        username,
+        username: resolvedUsername,
         previousEducator: null,
         previousClassroom: null,
         nextEducator: educatorId,
@@ -950,14 +1389,19 @@ exports.adminCreateUser = functions.https.onCall(async (data, context) => {
       actorUid: caller.uid,
       actorRole: caller.role,
       action: "adminCreateUser",
-      targetUserId: username,
+      targetUserId: resolvedUsername,
       status: "success",
-      after: { role: "student", educator: educatorId || null },
+      after: {
+        role: "student",
+        educator: educatorId || null,
+        ownerId: ownerId || null,
+        ownerRole: ownerRole !== "student" ? ownerRole : null,
+      },
     });
 
     return {
       status: "success",
-      userId: username,
+      userId: resolvedUsername,
       role: "student",
       tempPassword,
       inviteSent: false,
@@ -1058,6 +1502,7 @@ exports.adminUpdateUser = functions.https.onCall(async (data, context) => {
   const existing = userSnap.exists ? userSnap.data() || {} : {};
   let existingRole = normalizeRole(existing.role);
   if (existingRole === "student" && !existing.role) {
+    const hasStudentUsername = Boolean(String(existing.username || "").trim());
     const requestedRole = Object.prototype.hasOwnProperty.call(updates, "role")
       ? normalizeRole(updates.role)
       : "student";
@@ -1065,10 +1510,13 @@ exports.adminUpdateUser = functions.https.onCall(async (data, context) => {
       existingRole = requestedRole;
     }
 
-    if (existingRole === "student") {
+    // Legacy student records can miss the explicit role field. Treat records
+    // that already have a student username as student, even if an email is
+    // being edited, to avoid misclassifying them as educator.
+    if (existingRole === "student" && !hasStudentUsername) {
       const inferredRole = deriveRoleFromClaims(
         {},
-        String(existing.email || updates.email || ""),
+        String(existing.email || ""),
       );
       if (inferredRole !== "student") {
         existingRole = inferredRole;
@@ -1091,22 +1539,31 @@ exports.adminUpdateUser = functions.https.onCall(async (data, context) => {
     }
   }
 
-  const isParentOrEducator =
-    caller.role === "parent" || caller.role === "educator";
-  if (isParentOrEducator) {
+  const isParentOrEducatorTutorOrSchoolAdmin =
+    caller.role === "parent" ||
+    caller.role === "educator" ||
+    caller.role === "tutor" ||
+    caller.role === "schoolAdmin";
+  if (isParentOrEducatorTutorOrSchoolAdmin) {
     if (existingRole !== "student") {
       throw new functions.https.HttpsError(
         "permission-denied",
-        "Parents and educators can only update student accounts.",
+        "Management users can only update student accounts.",
       );
     }
 
-    if (caller.role === "parent") {
-      const ownerId = String(existing.parentOwnerId || "").trim();
+    if (
+      caller.role === "parent" ||
+      caller.role === "tutor" ||
+      caller.role === "schoolAdmin"
+    ) {
+      const ownerId = String(
+        existing.ownerId || existing.parentOwnerId || "",
+      ).trim();
       if (!ownerId || ownerId !== caller.uid) {
         throw new functions.https.HttpsError(
           "permission-denied",
-          "You can only update your own students.",
+          "You can only update students you created.",
         );
       }
     }
@@ -1274,19 +1731,15 @@ exports.adminUpdateUser = functions.https.onCall(async (data, context) => {
     const studentUsername = String(
       existing.username || patch.username || userId,
     ).trim();
-    const existingStudent = await getDb()
-      .ref(`/students/${studentUsername}`)
-      .once("value");
+    const existingStudent = await getStudentRef(studentUsername).once("value");
     if (!existingStudent.exists()) {
       const initialPassword = nextPassword || randomPassword(12);
       const hash = await bcrypt.hash(initialPassword, saltRounds);
-      await getDb()
-        .ref(`/students/${studentUsername}`)
-        .set({
-          p: hash,
-          educator:
-            String(patch.educator || existing.educator || "").trim() || null,
-        });
+      await getStudentRef(studentUsername).set({
+        p: hash,
+        educator:
+          String(patch.educator || existing.educator || "").trim() || null,
+      });
     } else {
       const studentPatch = {
         educator:
@@ -1295,7 +1748,7 @@ exports.adminUpdateUser = functions.https.onCall(async (data, context) => {
       if (nextPassword) {
         studentPatch.p = await bcrypt.hash(nextPassword, saltRounds);
       }
-      await getDb().ref(`/students/${studentUsername}`).update(studentPatch);
+      await getStudentRef(studentUsername).update(studentPatch);
     }
 
     const previousEducator = existing.educator || null;
@@ -1324,7 +1777,7 @@ exports.adminUpdateUser = functions.https.onCall(async (data, context) => {
     }
   } else if (existingRole === "student") {
     const studentUsername = String(existing.username || userId).trim();
-    await getDb().ref(`/students/${studentUsername}`).remove();
+    await getStudentRef(studentUsername).remove();
     await moveStudentClassMembership({
       username: studentUsername,
       previousEducator: existing.educator || null,
@@ -1438,32 +1891,21 @@ exports.adminDeleteUser = functions.https.onCall(async (data, context) => {
     );
   }
 
-  const progressRef = await getFirestore()
-    .collection("customLessonProgress")
-    .where("studentId", "==", userId)
-    .limit(1)
-    .get();
-  if (!progressRef.empty) {
-    throw new functions.https.HttpsError(
-      "failed-precondition",
-      "Cannot delete this user while lesson progress exists.",
-    );
-  }
-
-  const assignedRef = await getFirestore()
-    .collection("customLessons")
-    .where("assignedStudentIds", "array-contains", userId)
-    .limit(1)
-    .get();
-  if (!assignedRef.empty) {
-    throw new functions.https.HttpsError(
-      "failed-precondition",
-      "Cannot delete this user while assigned custom lessons exist.",
-    );
-  }
+  await deleteStudentProgress(userId);
+  await removeStudentFromCustomLessons(userId);
+  await removeStudentFromClassDocs(userId);
 
   await userRef.delete();
-  await getDb().ref(`/students/${userId}`).remove();
+  if (role === "student") {
+    await getStudentRef(existing.username || userId).remove();
+    await moveStudentClassMembership({
+      username: String(existing.username || userId).trim(),
+      previousEducator: existing.educator || null,
+      previousClassroom: existing.classroom || null,
+      nextEducator: null,
+      nextClassroom: null,
+    });
+  }
 
   if (role !== "student") {
     try {
@@ -1558,6 +2000,323 @@ exports.adminSendResetEmail = functions.https.onCall(async (data, context) => {
 
   return { status: "success", email };
 });
+
+function getSchoolAdminRequestCollection() {
+  return getFirestore().collection("schoolAdminRoleRequests");
+}
+
+function getAdminNotificationEmails() {
+  const cfg = functions.config();
+  const raw = String(cfg?.notifications?.admin_email || "").trim();
+  if (!raw) return ["mark@birdhaven.us"];
+  return raw
+    .split(/[;,\s]+/)
+    .map((v) =>
+      String(v || "")
+        .trim()
+        .toLowerCase(),
+    )
+    .filter(Boolean);
+}
+
+exports.requestSchoolAdminAccess = functions.https.onCall(
+  async (data, context) => {
+    const caller = await getCallerAccess(context);
+    const callerDocRef = getFirestore().collection("users").doc(caller.uid);
+    const callerDocSnap = await callerDocRef.get();
+    const callerDoc = callerDocSnap.exists ? callerDocSnap.data() || {} : {};
+    const effectiveRole = resolveRequesterRole({
+      callerRole: caller.role,
+      callerDocRole: callerDoc.role,
+    });
+
+    if (!canRequestSchoolAdminAccess(effectiveRole)) {
+      throw new functions.https.HttpsError(
+        "failed-precondition",
+        "This account already has admin-level access.",
+      );
+    }
+
+    const requestedSchoolId = String(data?.schoolId || "").trim();
+    const requestedSchoolName = String(data?.schoolName || "").trim();
+    const reason = String(data?.reason || "").trim();
+    const requestRef = getSchoolAdminRequestCollection().doc(caller.uid);
+    const existingSnap = await requestRef.get();
+    const existing = existingSnap.exists ? existingSnap.data() || {} : null;
+
+    if (isPendingSchoolAdminRequest(existing)) {
+      return { status: "already-pending", requestId: requestRef.id };
+    }
+
+    const payload = {
+      requesterUid: caller.uid,
+      requesterEmail: caller.email,
+      firstName: String(callerDoc.firstName || "").trim(),
+      lastName: String(callerDoc.lastName || "").trim(),
+      requestedSchoolId: requestedSchoolId || null,
+      requestedSchoolName: requestedSchoolName || null,
+      reason: reason || null,
+      status: "pending",
+      createdAt: existing
+        ? existing.createdAt || admin.firestore.FieldValue.serverTimestamp()
+        : admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      reviewedAt: null,
+      reviewedByUid: null,
+      decisionNote: null,
+    };
+
+    await requestRef.set(payload, { merge: true });
+    await callerDocRef.set(
+      {
+        requestedRole: "schoolAdmin",
+        schoolAdminRequestStatus: "pending",
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+
+    await writeAdminAuditLog({
+      actorUid: caller.uid,
+      actorRole: effectiveRole,
+      action: "requestSchoolAdminAccess",
+      targetUserId: caller.uid,
+      status: "success",
+      after: {
+        requestedRole: "schoolAdmin",
+        requestedSchoolId: requestedSchoolId || null,
+      },
+      reason,
+    });
+
+    const requesterName = [payload.firstName, payload.lastName]
+      .filter(Boolean)
+      .join(" ");
+    const recipients = getAdminNotificationEmails();
+    await queueEmailNotification({
+      to: recipients,
+      subject: "School Admin Access Request",
+      text:
+        `A user requested School Admin access.\n\n` +
+        `Name: ${requesterName || "(not provided)"}\n` +
+        `Email: ${caller.email || "(not provided)"}\n` +
+        `User ID: ${caller.uid}\n` +
+        `Requested School ID: ${requestedSchoolId || "(not provided)"}\n` +
+        `Requested School Name: ${requestedSchoolName || "(not provided)"}\n` +
+        `Reason: ${reason || "(not provided)"}\n\n` +
+        `Review in Management > Requests.`,
+    });
+
+    return { status: "success", requestId: requestRef.id };
+  },
+);
+
+exports.adminListSchoolAdminRequests = functions.https.onCall(
+  async (data, context) => {
+    const caller = await getCallerAccess(context);
+    if (!canManageSchoolAdminRequests(caller.role)) {
+      throw new functions.https.HttpsError(
+        "permission-denied",
+        "Only top-level admins can perform this action.",
+      );
+    }
+
+    const { statusFilter, isValidStatusFilter, limit } =
+      normalizeSchoolAdminRequestListArgs(data);
+
+    // Keep this callable resilient even when a composite index is missing.
+    // When filtering by status, avoid requiring status+updatedAt by sorting
+    // the filtered result in memory.
+    const baseCollection = getSchoolAdminRequestCollection();
+    const snap = isValidStatusFilter
+      ? await baseCollection.where("status", "==", statusFilter).get()
+      : await baseCollection.orderBy("updatedAt", "desc").limit(limit).get();
+
+    let requests = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+
+    if (isValidStatusFilter) {
+      requests = requests
+        .sort((a, b) => {
+          const aMs =
+            typeof a?.updatedAt?.toMillis === "function"
+              ? a.updatedAt.toMillis()
+              : 0;
+          const bMs =
+            typeof b?.updatedAt?.toMillis === "function"
+              ? b.updatedAt.toMillis()
+              : 0;
+          return bMs - aMs;
+        })
+        .slice(0, limit);
+    }
+
+    return { requests };
+  },
+);
+
+exports.adminReviewSchoolAdminRequest = functions.https.onCall(
+  async (data, context) => {
+    const caller = await getCallerAccess(context);
+    if (!canManageSchoolAdminRequests(caller.role)) {
+      throw new functions.https.HttpsError(
+        "permission-denied",
+        "Only top-level admins can perform this action.",
+      );
+    }
+
+    const { requestId, decision, decisionNote, forcedSchoolId, isValid } =
+      parseSchoolAdminReviewInput(data);
+
+    if (!requestId) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "requestId is required.",
+      );
+    }
+    if (!isValid) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "decision must be approve or deny.",
+      );
+    }
+
+    const requestRef = getSchoolAdminRequestCollection().doc(requestId);
+    const requestSnap = await requestRef.get();
+    if (!requestSnap.exists) {
+      throw new functions.https.HttpsError("not-found", "Request not found.");
+    }
+
+    const request = requestSnap.data() || {};
+    if (String(request.status || "") !== "pending") {
+      throw new functions.https.HttpsError(
+        "failed-precondition",
+        "Only pending requests can be reviewed.",
+      );
+    }
+
+    // requestId is validated above, so in practice this fallback makes
+    // missing requesterUid data recoverable for legacy/incomplete records.
+    const requesterUid = String(request.requesterUid || requestId).trim();
+    if (!requesterUid) {
+      throw new functions.https.HttpsError(
+        "failed-precondition",
+        "Request is missing requester uid.",
+      );
+    }
+
+    const requesterDocRef = getFirestore()
+      .collection("users")
+      .doc(requesterUid);
+    const requesterDocSnap = await requesterDocRef.get();
+    const requesterDoc = requesterDocSnap.exists
+      ? requesterDocSnap.data() || {}
+      : {};
+
+    const requestedSchoolId =
+      forcedSchoolId || String(request.requestedSchoolId || "").trim();
+
+    if (decision === "approve") {
+      if (requestedSchoolId) {
+        const schoolSnap = await getFirestore()
+          .collection("schools")
+          .doc(requestedSchoolId)
+          .get();
+        if (!schoolSnap.exists || schoolSnap.data()?.isActive === false) {
+          throw new functions.https.HttpsError(
+            "not-found",
+            "Requested school not found or inactive.",
+          );
+        }
+      }
+
+      await admin
+        .auth()
+        .setCustomUserClaims(requesterUid, buildClaimsForRole("schoolAdmin"));
+
+      await requesterDocRef.set(
+        {
+          role: "schoolAdmin",
+          requestedRole: admin.firestore.FieldValue.delete(),
+          schoolAdminRequestStatus: "approved",
+          ...(requestedSchoolId
+            ? {
+                schoolId: requestedSchoolId,
+                school: requestedSchoolId,
+                homeSchoolId: requestedSchoolId,
+              }
+            : {}),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+    } else {
+      await requesterDocRef.set(
+        {
+          requestedRole: admin.firestore.FieldValue.delete(),
+          schoolAdminRequestStatus: "denied",
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+    }
+
+    await requestRef.set(
+      {
+        status: decision === "approve" ? "approved" : "denied",
+        reviewedAt: admin.firestore.FieldValue.serverTimestamp(),
+        reviewedByUid: caller.uid,
+        decisionNote: decisionNote || null,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+
+    await writeAdminAuditLog({
+      actorUid: caller.uid,
+      actorRole: caller.role,
+      action: "adminReviewSchoolAdminRequest",
+      targetUserId: requesterUid,
+      status: "success",
+      before: {
+        requestStatus: "pending",
+        role: normalizeRole(requesterDoc.role),
+      },
+      after: {
+        requestStatus: decision === "approve" ? "approved" : "denied",
+        role:
+          decision === "approve"
+            ? "schoolAdmin"
+            : normalizeRole(requesterDoc.role),
+      },
+      reason: decisionNote,
+    });
+
+    const requesterEmail = String(
+      request.requesterEmail || requesterDoc.email || "",
+    )
+      .trim()
+      .toLowerCase();
+    if (requesterEmail) {
+      await queueEmailNotification({
+        to: requesterEmail,
+        subject:
+          decision === "approve"
+            ? "School Admin Access Approved"
+            : "School Admin Access Request Update",
+        text:
+          decision === "approve"
+            ? "Your School Admin access request has been approved. Please sign in again to refresh permissions."
+            : `Your School Admin access request was not approved.${decisionNote ? ` Note: ${decisionNote}` : ""}`,
+      });
+    }
+
+    return {
+      status: "success",
+      requestId,
+      decision: decision === "approve" ? "approved" : "denied",
+    };
+  },
+);
 
 exports.adminListAuditLogs = functions.https.onCall(async (data, context) => {
   const caller = await getCallerAccess(context);

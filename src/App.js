@@ -6,11 +6,12 @@ import { BrowserRouter as Router } from "react-router-dom";
 
 import PublicRoutes from "./routes/PublicRoutes";
 import PrivateRoutes from "./routes/PrivateRoutes";
+import PerfDebugPanel from "./components/PerfDebugPanel";
 
-import { createMuiTheme, ThemeProvider } from "@material-ui/core/styles";
+import { createTheme, ThemeProvider } from "@material-ui/core/styles";
 import { SnackbarProvider } from "notistack";
 
-const theme = createMuiTheme({
+const theme = createTheme({
   palette: {
     primary: {
       light: "#5472d3",
@@ -35,6 +36,7 @@ const App = (props) => {
           <Router>
             <Auth>
               <RequireAuthentication />
+              <AdminPerfDebugPanelGate />
             </Auth>
           </Router>
         </SnackbarProvider>
@@ -59,10 +61,23 @@ function RequireAuthentication() {
           isAdmin={auth.isAdmin}
           isSchoolAdmin={auth.isSchoolAdmin}
           isParent={auth.isParent}
+          isTutor={auth.isTutor}
         />
       ) : (
         <PublicRoutes user={auth.user} />
       )}
     </>
   );
+}
+
+function AdminPerfDebugPanelGate() {
+  const auth = useAuth();
+  const showPerfDebugPanel =
+    process.env.NODE_ENV !== "production" && Boolean(auth?.isAdmin);
+
+  if (!showPerfDebugPanel) {
+    return null;
+  }
+
+  return <PerfDebugPanel />;
 }

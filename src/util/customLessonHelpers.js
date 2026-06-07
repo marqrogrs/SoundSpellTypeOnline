@@ -299,8 +299,8 @@ export const subscribeToLessonsByCreator = (creatorId, callback) => {
 export const subscribeToLessonsForStudent = (studentId, callback) => {
   return db
     .collection(CUSTOM_LESSONS)
+    .where("type", "==", "forStudent")
     .where("assignedStudentIds", "array-contains", studentId)
-    .orderBy("createdAt", "desc")
     .onSnapshot((snap) => {
       callback(snap.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
     });
@@ -440,14 +440,21 @@ export const startCustomLessonAttempt = async ({
   };
 
   if (existing.docs.length > 0) {
-    const prevAttempts = existing.docs[0].data().attempts || 0;
-    await existing.docs[0].ref.update({ ...base, attempts: prevAttempts + 1 });
+    const prevData = existing.docs[0].data() || {};
+    const prevAttempts = prevData.attempts || 0;
+    await existing.docs[0].ref.update({
+      ...base,
+      masteredWordsLevel3: Array.isArray(prevData.masteredWordsLevel3)
+        ? prevData.masteredWordsLevel3
+        : [],
+      attempts: prevAttempts + 1,
+    });
     return existing.docs[0].id;
   }
 
   const ref = await db
     .collection(CUSTOM_LESSON_PROGRESS)
-    .add({ ...base, attempts: 1 });
+    .add({ ...base, masteredWordsLevel3: [], attempts: 1 });
   return ref.id;
 };
 
@@ -468,11 +475,15 @@ export const updateCustomLessonProgress = (progressId, updates) => {
 /**
  * Mark a lesson attempt as complete.
  */
-export const completeCustomLessonAttempt = (progressId) => {
-  return db.collection(CUSTOM_LESSON_PROGRESS).doc(progressId).update({
-    completedAt: serverTimestamp(),
-    lastAttemptAt: serverTimestamp(),
-  });
+export const completeCustomLessonAttempt = (progressId, updates = {}) => {
+  return db
+    .collection(CUSTOM_LESSON_PROGRESS)
+    .doc(progressId)
+    .update({
+      ...updates,
+      completedAt: serverTimestamp(),
+      lastAttemptAt: serverTimestamp(),
+    });
 };
 
 /**
@@ -493,12 +504,18 @@ export const subscribeToEducatorLessonProgress = (educatorId, callback) => {
  * Subscribe (real-time) to all of a student's custom lesson progress records.
  * Used on the student's Custom Lessons page.
  */
-export const subscribeToStudentProgress = (studentId, callback) => {
+export const subscribeToStudentProgress = (studentId, callback, onError) => {
   return db
     .collection(CUSTOM_LESSON_PROGRESS)
     .where("studentId", "==", studentId)
-    .orderBy("lastAttemptAt", "desc")
-    .onSnapshot((snap) => {
-      callback(snap.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
-    });
+    .onSnapshot(
+      (snap) => {
+        callback(snap.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+      },
+      (error) => {
+        if (typeof onError === "function") {
+          onError(error);
+        }
+      },
+    );
 };

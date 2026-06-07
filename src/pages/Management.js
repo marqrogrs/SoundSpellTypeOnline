@@ -5,10 +5,11 @@
  * Tabs and controls shown are scoped strictly to the logged-in user's role.
  *
  * Role → visible tabs:
- *   admin       – Users | Schools | Classes
+ *   admin       – Users | Schools | Classes | Requests
  *   schoolAdmin – Users | Classes
  *   educator    – Students (roster view)
  *   parent      – My Students
+ *   tutor       – My Students
  */
 import React, {
   useState,
@@ -37,7 +38,10 @@ import {
   adminUpdateUser,
   adminDeleteUser,
   adminSendResetEmail,
+  adminListSchoolAdminRequests,
+  adminReviewSchoolAdminRequest,
   mgmtDebugUser,
+  resolveMyRoleContext,
 } from "../firebase";
 import {
   Box,
@@ -123,6 +127,74 @@ const writeMgmtCache = (key, data) => {
   }
 };
 
+const normalizeText = (value) => String(value || "").trim();
+const normalizeLowerEmail = (value) =>
+  String(value || "")
+    .trim()
+    .toLowerCase();
+const normalizeClassIds = (ids) =>
+  [...new Set((Array.isArray(ids) ? ids : []).map(String))]
+    .map((id) => id.trim())
+    .filter(Boolean)
+    .sort();
+
+const formatManagedByLabel = (value) => {
+  const raw = String(value || "").trim();
+  if (!raw) return raw;
+
+  const match = raw.match(/^Managed\s+by\s+(Parent|Tutor)\s*:\s*(.+)$/i);
+  if (!match) return raw;
+
+  const role =
+    String(match[1] || "")
+      .trim()
+      .toLowerCase() === "tutor"
+      ? "Tutor"
+      : "Parent";
+  const managerName = String(match[2] || "").trim();
+  return managerName ? `${managerName} (${role})` : `(${role})`;
+};
+
+const buildUserUpdates = (initial = {}, form = {}) => {
+  const updates = {};
+
+  if (normalizeText(form.role) !== normalizeText(initial.role)) {
+    updates.role = form.role;
+  }
+  if (normalizeLowerEmail(form.email) !== normalizeLowerEmail(initial.email)) {
+    updates.email = form.email;
+  }
+  if (normalizeText(form.username) !== normalizeText(initial.username)) {
+    updates.username = form.username;
+  }
+  if (normalizeText(form.firstName) !== normalizeText(initial.firstName)) {
+    updates.firstName = form.firstName;
+  }
+  if (normalizeText(form.lastName) !== normalizeText(initial.lastName)) {
+    updates.lastName = form.lastName;
+  }
+  if (normalizeText(form.schoolId) !== normalizeText(initial.schoolId)) {
+    updates.schoolId = form.schoolId;
+  }
+
+  const nextPassword = String(form.password || "").trim();
+  if (nextPassword) {
+    updates.password = nextPassword;
+  }
+
+  return updates;
+};
+
+const classIdsChanged = (initialClassIds = [], nextClassIds = []) => {
+  const previousNormalized = normalizeClassIds(initialClassIds);
+  const nextNormalized = normalizeClassIds(nextClassIds);
+
+  return (
+    previousNormalized.length !== nextNormalized.length ||
+    previousNormalized.some((id, index) => id !== nextNormalized[index])
+  );
+};
+
 // ─── Error boundary ─────────────────────────────────────────────────────────────
 
 class ManagementErrorBoundary extends React.Component {
@@ -160,14 +232,22 @@ class ManagementErrorBoundary extends React.Component {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const ALL_ROLES = ["student", "educator", "parent", "schoolAdmin", "admin"];
+const ALL_ROLES = [
+  "student",
+  "educator",
+  "parent",
+  "tutor",
+  "schoolAdmin",
+  "admin",
+];
 
 const prettyRole = (role) => {
   const map = {
     admin: "Admin",
     schoolAdmin: "School Admin",
-    educator: "Educator",
-    parent: "Parent",
+    educator: "Teacher",
+    parent: "Home School Parent",
+    tutor: "Tutor/Reading Specialist",
     student: "Student",
   };
   return map[role] || role || "—";
@@ -180,10 +260,50 @@ const formatDate = (v) => {
   return d.toLocaleDateString();
 };
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const MANAGER_ROLE_ORDER = {
+  admin: 0,
+  schoolAdmin: 1,
+  educator: 2,
+  tutor: 3,
+  parent: 4,
+};
+
+const normalizeMgmtRole = (value) => {
+  const raw = String(value || "").trim();
+  const compact = raw.toLowerCase().replace(/\s+/g, "");
+  if (compact === "admin") return "admin";
+  if (compact === "schooladmin" || compact === "school_admin") {
+    return "schoolAdmin";
+  }
+  if (compact === "educator" || compact === "teacher") return "educator";
+  if (
+    compact === "parent" ||
+    compact === "homeschoolparent" ||
+    compact === "home_school_parent" ||
+    compact === "homeschool_parent"
+  ) {
+    return "parent";
+  }
+  if (
+    compact === "tutor" ||
+    compact === "readingspecialist" ||
+    compact === "reading_specialist" ||
+    compact === "tutor/readingspecialist"
+  ) {
+    return "tutor";
+  }
+  if (compact === "student") return "student";
+  if (raw === "schoolAdmin") return "schoolAdmin";
+  return "";
+};
+
 // ─── Users tab ────────────────────────────────────────────────────────────────
 
 const EMPTY_USER_FORM = {
   role: "student",
+  usernameMode: "email",
   email: "",
   username: "",
   password: "",
@@ -239,11 +359,41 @@ function UserDialog({
   };
 
   const handleSave = () => {
-    if (isStudent && !String(form.username || "").trim()) {
-      triggerErrorAlert("Username is required for student accounts.");
+    const normalizedFirstName = String(form.firstName || "").trim();
+    const normalizedLastName = String(form.lastName || "").trim();
+    const normalizedEmail = String(form.email || "")
+      .trim()
+      .toLowerCase();
+    const studentMode =
+      form.usernameMode === "generated" ? "generated" : "email";
+
+    if (!normalizedFirstName) {
+      triggerErrorAlert("First name is required.");
       return;
     }
-    if (!isStudent && !String(form.email || "").trim()) {
+    if (!normalizedLastName) {
+      triggerErrorAlert("Last name is required.");
+      return;
+    }
+    if (
+      isStudent &&
+      mode === "add" &&
+      studentMode === "email" &&
+      !normalizedEmail
+    ) {
+      triggerErrorAlert("Email is required when using email sign-in.");
+      return;
+    }
+    if (
+      isStudent &&
+      mode === "add" &&
+      studentMode === "email" &&
+      !EMAIL_REGEX.test(normalizedEmail)
+    ) {
+      triggerErrorAlert("Enter a valid student email address.");
+      return;
+    }
+    if (!isStudent && !normalizedEmail) {
       triggerErrorAlert("Email is required.");
       return;
     }
@@ -252,7 +402,26 @@ function UserDialog({
       triggerErrorAlert("Password must be at least 6 characters.");
       return;
     }
-    onSubmit(form);
+    const payload = {
+      ...form,
+      firstName: normalizedFirstName,
+      lastName: normalizedLastName,
+      usernameMode: studentMode,
+    };
+
+    if (isStudent && mode === "add") {
+      if (studentMode === "email") {
+        payload.email = normalizedEmail;
+        payload.username = normalizedEmail;
+      } else {
+        payload.email = "";
+        payload.username = "";
+      }
+    } else {
+      payload.email = normalizedEmail;
+    }
+
+    onSubmit(payload);
   };
 
   return (
@@ -272,28 +441,64 @@ function UserDialog({
             </Select>
           </FormControl>
 
+          {isStudent && mode === "add" && (
+            <FormControl variant="outlined" fullWidth>
+              <InputLabel>Student Sign-in</InputLabel>
+              <Select
+                value={form.usernameMode || "email"}
+                onChange={set("usernameMode")}
+                label="Student Sign-in"
+              >
+                <MenuItem value="email">Use real email address</MenuItem>
+                <MenuItem value="generated">
+                  Auto-generate username (first_last_1234)
+                </MenuItem>
+              </Select>
+            </FormControl>
+          )}
+
           {/* Email */}
-          <TextField
-            label="Email"
-            value={form.email}
-            onChange={set("email")}
-            variant="outlined"
-            fullWidth
-            disabled={isStudent}
-            helperText={
-              isStudent ? "Students use username / password login" : ""
-            }
-          />
+          {(!isStudent || mode !== "add" || form.usernameMode === "email") && (
+            <TextField
+              label={
+                isStudent && mode === "add"
+                  ? "Student Email (used as username)"
+                  : "Email"
+              }
+              value={form.email}
+              onChange={set("email")}
+              variant="outlined"
+              fullWidth
+              helperText={
+                isStudent && mode === "add"
+                  ? "Required for email sign-in"
+                  : isStudent
+                    ? "Optional — used for account recovery if provided"
+                    : ""
+              }
+            />
+          )}
 
           {/* Username */}
-          <TextField
-            label="Username"
-            value={form.username}
-            onChange={set("username")}
-            variant="outlined"
-            fullWidth
-            helperText={isStudent ? "Required" : "Optional display name"}
-          />
+          {(!isStudent ||
+            mode !== "add" ||
+            form.usernameMode === "generated") && (
+            <TextField
+              label="Username"
+              value={form.username}
+              onChange={set("username")}
+              variant="outlined"
+              fullWidth
+              InputProps={{ readOnly: isStudent }}
+              helperText={
+                isStudent && mode === "add"
+                  ? "Generated on create from first and last name"
+                  : isStudent
+                    ? "Auto-generated (read-only)"
+                    : "Optional display name"
+              }
+            />
+          )}
 
           {/* Password */}
           <TextField
@@ -733,7 +938,6 @@ function ParentStudentDialog({
   saving,
 }) {
   const [form, setForm] = useState({
-    username: "",
     password: "",
     firstName: "",
     lastName: "",
@@ -741,30 +945,48 @@ function ParentStudentDialog({
 
   useEffect(() => {
     setForm({
-      username: initial?.username || "",
       password: "",
       firstName: initial?.firstName || "",
       lastName: initial?.lastName || "",
     });
   }, [initial, open]);
 
-  const set = (field) => (e) =>
-    setForm((p) => ({ ...p, [field]: e.target.value }));
+  const set = (field) => (e) => {
+    const value =
+      e &&
+      typeof e === "object" &&
+      Object.prototype.hasOwnProperty.call(e, "target")
+        ? String(e.target?.value || "")
+        : typeof e === "string"
+          ? e
+          : "";
+    setForm((p) => ({ ...p, [field]: value }));
+  };
 
   const handleSave = () => {
-    if (!String(form.username || "").trim()) {
-      triggerErrorAlert("Username is required.");
+    const normalizedFirstName = String(form.firstName || "").trim();
+    const normalizedLastName = String(form.lastName || "").trim();
+
+    if (!normalizedFirstName) {
+      triggerErrorAlert("First name is required.");
       return;
     }
-    if (!/^[a-z0-9]+$/i.test(form.username.trim())) {
-      triggerErrorAlert("Username can only contain letters and numbers.");
+    if (!normalizedLastName) {
+      triggerErrorAlert("Last name is required.");
       return;
     }
     if (mode === "add" && String(form.password || "").trim().length < 6) {
       triggerErrorAlert("Password must be at least 6 characters.");
       return;
     }
-    onSubmit(form);
+
+    const payload = {
+      password: String(form.password || ""),
+      firstName: normalizedFirstName,
+      lastName: normalizedLastName,
+    };
+
+    onSubmit(payload);
   };
 
   return (
@@ -774,15 +996,6 @@ function ParentStudentDialog({
       </DialogTitle>
       <DialogContent>
         <Box mt={1} display="grid" gridGap={12}>
-          <TextField
-            label="Username"
-            value={form.username}
-            onChange={set("username")}
-            variant="outlined"
-            fullWidth
-            disabled={mode === "edit"}
-            helperText="Letters and numbers only"
-          />
           <TextField
             label="Password"
             value={form.password}
@@ -796,6 +1009,12 @@ function ParentStudentDialog({
                 : "Min 6 characters"
             }
           />
+          {mode === "add" && (
+            <Typography variant="caption" color="textSecondary">
+              Username is auto-generated from first and last name and emailed to
+              you with the password.
+            </Typography>
+          )}
           <Box display="grid" gridTemplateColumns="1fr 1fr" gridGap={12}>
             <TextField
               label="First Name"
@@ -844,23 +1063,72 @@ function ManagementInner() {
   const history = useHistory();
   const { refreshRules, rulesLoading } = useContext(LessonContext);
 
-  const callerRole = auth.isAdmin
+  const [resolvedMgmtRole, setResolvedMgmtRole] = useState("");
+  const [mgmtMeta, setMgmtMeta] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+    if (!auth.user) {
+      setResolvedMgmtRole("");
+      return () => {
+        active = false;
+      };
+    }
+
+    resolveMyRoleContext({})
+      .then((result) => {
+        if (!active) return;
+        const role = String(result?.data?.role || "").trim();
+        setResolvedMgmtRole(role);
+      })
+      .catch(() => {
+        if (!active) return;
+        setResolvedMgmtRole("");
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [auth.user]);
+
+  const callerRoleFromAuth = auth.isAdmin
     ? "admin"
     : auth.isSchoolAdmin
       ? "schoolAdmin"
       : auth.role === "parent"
         ? "parent"
-        : "educator";
+        : auth.role === "tutor"
+          ? "tutor"
+          : auth.role === "educator"
+            ? "educator"
+            : "student";
+
+  const callerRoleFromServer =
+    normalizeMgmtRole(resolvedMgmtRole) ||
+    normalizeMgmtRole(mgmtMeta?.callerRole);
+
+  const callerRole = callerRoleFromServer || callerRoleFromAuth;
 
   // ── Tabs ──
-  const tabsForRole = () => {
-    if (callerRole === "admin") return ["users", "schools", "classes"];
+  const tabs = useMemo(() => {
+    if (callerRole === "admin")
+      return ["users", "schools", "classes", "requests"];
     if (callerRole === "schoolAdmin") return ["users", "classes"];
-    if (callerRole === "parent") return ["students"];
-    return ["students"]; // educator
-  };
-  const tabs = tabsForRole();
+    if (callerRole === "parent" || callerRole === "tutor") return ["students"];
+    if (callerRole === "educator") return ["students"];
+    return [];
+  }, [callerRole]);
   const [activeTab, setActiveTab] = useState(tabs[0]);
+
+  useEffect(() => {
+    if (!tabs.length) {
+      if (activeTab) setActiveTab("");
+      return;
+    }
+    if (!tabs.includes(activeTab)) {
+      setActiveTab(tabs[0]);
+    }
+  }, [tabs, activeTab]);
 
   // ── Data ──
   const [loading, setLoading] = useState(false);
@@ -868,6 +1136,8 @@ function ManagementInner() {
   const [schools, setSchools] = useState([]);
   const [classes, setClasses] = useState([]);
   const [users, setUsers] = useState([]);
+  const [roleRequests, setRoleRequests] = useState([]);
+  const [roleRequestsLoading, setRoleRequestsLoading] = useState(false);
 
   // ── Dialog state ──
   const [userDialog, setUserDialog] = useState({
@@ -921,6 +1191,7 @@ function ManagementInner() {
           classes: Array.isArray(d.classes) ? d.classes : [],
           users: Array.isArray(d.users) ? d.users : [],
         };
+        setMgmtMeta(d.meta || null);
         setSchools(payload.schools);
         setClasses(payload.classes);
         setUsers(payload.users);
@@ -937,12 +1208,44 @@ function ManagementInner() {
 
   // Bootstrap parent home scope once per load.
   useEffect(() => {
-    if (auth.user && callerRole === "parent" && !parentBootstrapped) {
+    if (
+      auth.user &&
+      (callerRole === "parent" || callerRole === "tutor") &&
+      !parentBootstrapped
+    ) {
       mgmtBootstrapParentHomeScope({})
         .then(() => setParentBootstrapped(true))
         .catch(() => setParentBootstrapped(true)); // non-fatal
     }
   }, [auth.user, callerRole, parentBootstrapped]);
+
+  const loadRoleRequests = useCallback(async () => {
+    if (callerRole !== "admin") {
+      setRoleRequests([]);
+      return;
+    }
+
+    setRoleRequestsLoading(true);
+    try {
+      const result = await adminListSchoolAdminRequests({
+        status: "pending",
+        limit: 200,
+      });
+      const list = Array.isArray(result?.data?.requests)
+        ? result.data.requests
+        : [];
+      setRoleRequests(list);
+    } catch (err) {
+      if (isUnauthenticatedError(err)) return;
+      triggerErrorAlert(err?.message || "Could not load role requests.");
+    } finally {
+      setRoleRequestsLoading(false);
+    }
+  }, [callerRole]);
+
+  useEffect(() => {
+    loadRoleRequests();
+  }, [loadRoleRequests]);
 
   useEffect(() => {
     if (auth.user) {
@@ -957,12 +1260,29 @@ function ManagementInner() {
       const isEdit = userDialog.mode === "edit";
       if (isEdit) {
         const userId = userDialog.initial?.id;
-        await adminUpdateUser({ userId, updates: form });
-        // If student class assignment changed, use v2 callable.
-        if (form.role === "student" && Array.isArray(form.classIds)) {
+        const initial = userDialog.initial || {};
+        const updates = buildUserUpdates(initial, form);
+
+        if (Object.keys(updates).length > 0) {
+          await adminUpdateUser({ userId, updates });
+        }
+
+        // Only call class assignment when classIds actually changed. This
+        // avoids unrelated edits (e.g., email) failing due to class-scope
+        // constraints for legacy student records.
+        const initialClassIds = Array.isArray(initial.classIds)
+          ? initial.classIds
+          : [];
+        const nextClassIds = Array.isArray(form.classIds) ? form.classIds : [];
+        const nextNormalized = normalizeClassIds(nextClassIds);
+
+        if (
+          form.role === "student" &&
+          classIdsChanged(initialClassIds, nextClassIds)
+        ) {
           await mgmtAssignStudentClasses({
             studentId: userId,
-            classIds: form.classIds,
+            classIds: nextNormalized,
           });
         }
       } else {
@@ -985,7 +1305,7 @@ function ManagementInner() {
         }
       }
       setUserDialog((p) => ({ ...p, open: false }));
-      await loadData();
+      await loadData({ force: true });
     } catch (err) {
       if (isUnauthenticatedError(err)) return;
       triggerErrorAlert(err?.message || "Could not save user.");
@@ -996,6 +1316,13 @@ function ManagementInner() {
 
   const handleDeleteUser = async (user) => {
     if (!window.confirm(`Delete ${user.email || user.username}?`)) return;
+    if (
+      !window.confirm(
+        "This will permanently delete the user, their lesson progress, and any custom lesson assignments. Continue?",
+      )
+    ) {
+      return;
+    }
     try {
       await adminDeleteUser({ userId: user.id });
       await loadData();
@@ -1122,8 +1449,10 @@ function ManagementInner() {
     try {
       if (parentStudentDialog.mode === "add") {
         const res = await mgmtParentCreateStudent(form);
-        const tmp = res?.data?.tempPassword;
-        if (tmp) alert(`Student password: ${tmp}`);
+        const username = String(res?.data?.userId || "").trim();
+        alert(
+          `Sound Spell Type Online says You have created a student with the login username of (${username || "unknown"}). Please make a note of it.`,
+        );
       } else {
         await adminUpdateUser({
           userId: parentStudentDialog.initial.id,
@@ -1135,7 +1464,7 @@ function ManagementInner() {
         });
       }
       setParentStudentDialog((p) => ({ ...p, open: false }));
-      await loadData();
+      await loadData({ force: true });
     } catch (err) {
       if (isUnauthenticatedError(err)) return;
       triggerErrorAlert(err?.message || "Could not save student.");
@@ -1234,9 +1563,86 @@ function ManagementInner() {
 
   const schoolNameForUser = (u) => {
     const directName = String(u.schoolName || "").trim();
-    if (directName) return directName;
+    if (directName) return formatManagedByLabel(directName);
     return schoolName(u.schoolId || u.school || u.homeSchoolId);
   };
+  const getUserDisplayName = (u) => {
+    const fullName = [u?.firstName, u?.lastName]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+    if (fullName) return fullName;
+
+    const explicitName = String(u?.displayName || u?.name || "").trim();
+    if (explicitName) return explicitName;
+
+    const username = String(u?.username || "").trim();
+    if (username) return username;
+
+    return String(u?.email || "").trim() || "—";
+  };
+
+  const deriveFirstLastForUser = useCallback((u) => {
+    const first = String(u?.firstName || "").trim();
+    const last = String(u?.lastName || "").trim();
+    if (first || last) return { first, last };
+
+    const explicit = String(u?.displayName || u?.name || "").trim();
+    if (!explicit) return { first: "", last: "" };
+
+    const parts = explicit.split(/\s+/).filter(Boolean);
+    if (parts.length <= 1) {
+      return { first: explicit, last: "" };
+    }
+
+    return {
+      first: parts.slice(0, -1).join(" "),
+      last: parts[parts.length - 1],
+    };
+  }, []);
+
+  const getUserLastFirstDisplay = useCallback(
+    (u) => {
+      const { first, last } = deriveFirstLastForUser(u);
+      if (first && last) return `${last}, ${first}`;
+      if (last) return last;
+      if (first) return first;
+      return getUserDisplayName(u);
+    },
+    [deriveFirstLastForUser],
+  );
+
+  const userNameSortKey = useCallback(
+    (u) => {
+      const derived = deriveFirstLastForUser(u);
+      const last = String(derived.last || "")
+        .trim()
+        .toLowerCase();
+      const first = String(derived.first || "")
+        .trim()
+        .toLowerCase();
+      const display = getUserDisplayName(u).toLowerCase();
+      const idKey = String(u?.username || u?.email || u?.id || "")
+        .trim()
+        .toLowerCase();
+      return { last, first, display, idKey };
+    },
+    [deriveFirstLastForUser],
+  );
+
+  const compareUsersByName = useCallback(
+    (a, b) => {
+      const ak = userNameSortKey(a);
+      const bk = userNameSortKey(b);
+      return (
+        ak.last.localeCompare(bk.last) ||
+        ak.first.localeCompare(bk.first) ||
+        ak.display.localeCompare(bk.display) ||
+        ak.idKey.localeCompare(bk.idKey)
+      );
+    },
+    [userNameSortKey],
+  );
   const schoolById = useMemo(() => {
     const out = {};
     schools.forEach((s) => {
@@ -1254,19 +1660,146 @@ function ManagementInner() {
     return out;
   }, [classes]);
 
+  const isHomeScopeManager = useMemo(() => {
+    if (callerRole === "parent" || callerRole === "tutor") return true;
+    if (callerRole !== "educator") return false;
+    // Legacy parent/tutor accounts can sometimes resolve as educator but still
+    // only own home-scope classes/students.
+    if (classes.some((c) => c?.schoolType === "home")) return true;
+    return users.some(
+      (u) =>
+        u?.role === "student" &&
+        (u?.ownerId === auth.user?.uid || u?.parentOwnerId === auth.user?.uid),
+    );
+  }, [callerRole, classes, users, auth.user?.uid]);
+
   const className = (id) => classById[id]?.name || id || "—";
+  const ownershipStats = useMemo(() => {
+    const countByOwnerId = new Map();
+    const roleByOwnerId = new Map();
+
+    users.forEach((u) => {
+      if (normalizeMgmtRole(u?.role) !== "student") return;
+      const ownerId = String(u?.ownerId || u?.parentOwnerId || "").trim();
+      if (!ownerId) return;
+
+      countByOwnerId.set(ownerId, (countByOwnerId.get(ownerId) || 0) + 1);
+
+      const ownerRole = normalizeMgmtRole(u?.ownerRole || "");
+      if (ownerRole === "tutor") {
+        roleByOwnerId.set(ownerId, "tutor");
+      } else if (!roleByOwnerId.has(ownerId)) {
+        roleByOwnerId.set(ownerId, "parent");
+      }
+    });
+
+    return { countByOwnerId, roleByOwnerId };
+  }, [users]);
+
+  const effectiveRoleForUser = useCallback(
+    (u) => {
+      const normalized = normalizeMgmtRole(u?.role) || "student";
+      if (normalized !== "student") return normalized;
+
+      const userId = String(u?.id || "").trim();
+      if (!userId) return normalized;
+
+      const managedCount = ownershipStats.countByOwnerId.get(userId) || 0;
+      if (managedCount <= 0) return normalized;
+
+      return ownershipStats.roleByOwnerId.get(userId) || "parent";
+    },
+    [ownershipStats],
+  );
+
   const educators = useMemo(
-    () => users.filter((u) => u.role === "educator"),
-    [users],
+    () => users.filter((u) => effectiveRoleForUser(u) === "educator"),
+    [users, effectiveRoleForUser],
   );
   const students = useMemo(
-    () => users.filter((u) => u.role === "student"),
-    [users],
+    () => users.filter((u) => effectiveRoleForUser(u) === "student"),
+    [users, effectiveRoleForUser],
   );
   const visibleUsers = useMemo(
     () =>
-      users.filter((u) => u.role !== "student" || callerRole !== "educator"),
-    [users, callerRole],
+      users.filter(
+        (u) =>
+          effectiveRoleForUser(u) !== "student" || callerRole !== "educator",
+      ),
+    [users, callerRole, effectiveRoleForUser],
+  );
+
+  const sortedVisibleUsers = useMemo(() => {
+    const base = [...visibleUsers];
+    if (base.length <= 1) return base;
+
+    // Educator view only contains non-student rows; simple name ordering is enough.
+    if (callerRole === "educator") {
+      return base.sort(compareUsersByName);
+    }
+
+    const managerById = new Map();
+    const managers = [];
+    const studentsOnly = [];
+
+    base.forEach((u) => {
+      if (effectiveRoleForUser(u) === "student") {
+        studentsOnly.push(u);
+      } else {
+        managers.push(u);
+        managerById.set(String(u.id || "").trim(), u);
+      }
+    });
+
+    const managerComparator = (a, b) => {
+      const aRank = MANAGER_ROLE_ORDER[effectiveRoleForUser(a)] ?? 99;
+      const bRank = MANAGER_ROLE_ORDER[effectiveRoleForUser(b)] ?? 99;
+      return aRank - bRank || compareUsersByName(a, b);
+    };
+
+    managers.sort(managerComparator);
+
+    const studentsByManagerId = new Map();
+    const unassignedStudents = [];
+    studentsOnly.forEach((student) => {
+      const ownerId = String(
+        student?.ownerId || student?.parentOwnerId || "",
+      ).trim();
+      const educatorId = String(student?.educator || "").trim();
+      const managerId = ownerId || educatorId;
+
+      if (managerId && managerById.has(managerId)) {
+        const existing = studentsByManagerId.get(managerId) || [];
+        existing.push(student);
+        studentsByManagerId.set(managerId, existing);
+      } else {
+        unassignedStudents.push(student);
+      }
+    });
+
+    const ordered = [];
+    managers.forEach((manager) => {
+      ordered.push(manager);
+      const managerId = String(manager?.id || "").trim();
+      const managedStudents = [
+        ...(studentsByManagerId.get(managerId) || []),
+      ].sort(compareUsersByName);
+      ordered.push(...managedStudents);
+    });
+
+    if (unassignedStudents.length > 0) {
+      ordered.push(...unassignedStudents.sort(compareUsersByName));
+    }
+
+    return ordered;
+  }, [visibleUsers, callerRole, effectiveRoleForUser, compareUsersByName]);
+
+  const sortedParentStudents = useMemo(
+    () =>
+      users
+        .filter((u) => effectiveRoleForUser(u) === "student")
+        .sort(compareUsersByName),
+    [users, effectiveRoleForUser, compareUsersByName],
   );
   const regularSchools = useMemo(
     () => schools.filter((s) => s.type === "regular"),
@@ -1298,21 +1831,24 @@ function ManagementInner() {
       if (sid) countBySchoolId.set(sid, (countBySchoolId.get(sid) || 0) + 1);
     });
 
-    // Build a map of parentOwnerId → student count.
-    const countByParentId = new Map();
+    // Build a map of ownerId/legacy parentOwnerId → student count.
+    const countByOwnerId = new Map();
     students.forEach((s) => {
-      const pid = String(s.parentOwnerId || "");
-      if (pid) countByParentId.set(pid, (countByParentId.get(pid) || 0) + 1);
+      const ownerId = String(s.ownerId || s.parentOwnerId || "");
+      if (ownerId) {
+        countByOwnerId.set(ownerId, (countByOwnerId.get(ownerId) || 0) + 1);
+      }
     });
 
     users.forEach((u) => {
       if (!u?.id) return;
-      if (u.role === "admin") {
+      const effectiveRole = effectiveRoleForUser(u);
+      if (effectiveRole === "admin") {
         map.set(u.id, adminCount);
-      } else if (u.role === "schoolAdmin") {
+      } else if (effectiveRole === "schoolAdmin") {
         const sid = toSchoolId(u.schoolId || u.school || u.homeSchoolId);
         map.set(u.id, sid ? countBySchoolId.get(sid) || 0 : 0);
-      } else if (u.role === "educator") {
+      } else if (effectiveRole === "educator") {
         const classIds = Array.isArray(u.classIds) ? u.classIds : [];
         const uniqueStudentIds = new Set();
         classIds.forEach((classId) => {
@@ -1321,14 +1857,14 @@ function ManagementInner() {
           });
         });
         map.set(u.id, uniqueStudentIds.size);
-      } else if (u.role === "parent") {
-        map.set(u.id, countByParentId.get(u.id) || 0);
+      } else if (effectiveRole === "parent" || effectiveRole === "tutor") {
+        map.set(u.id, countByOwnerId.get(u.id) || 0);
       } else {
         map.set(u.id, 0);
       }
     });
     return map;
-  }, [users, students, studentsByClassId]);
+  }, [users, students, studentsByClassId, effectiveRoleForUser]);
 
   const userStudentCount = (u) => studentCountByUserId.get(u?.id) ?? 0;
 
@@ -1340,7 +1876,7 @@ function ManagementInner() {
       if (!u?.id) return;
       const directName = String(u.schoolName || "").trim();
       if (directName) {
-        map.set(u.id, directName);
+        map.set(u.id, formatManagedByLabel(directName));
         return;
       }
       const id = toSchoolId(u.schoolId || u.school || u.homeSchoolId);
@@ -1365,9 +1901,114 @@ function ManagementInner() {
   }, [users, schoolById]);
 
   const isSelfManagedAdult = (u) => {
-    if (!u || u.role !== "parent") return false;
+    const effectiveRole = effectiveRoleForUser(u);
+    if (!u || (effectiveRole !== "parent" && effectiveRole !== "tutor")) {
+      return false;
+    }
     return userStudentCount(u) === 0;
   };
+
+  const handleRoleRequestDecision = async (request, decision) => {
+    if (!request?.id) return;
+    const decisionNote =
+      decision === "deny"
+        ? window.prompt("Optional denial note:", "") || ""
+        : "";
+    setSaving(true);
+    try {
+      await adminReviewSchoolAdminRequest({
+        requestId: request.id,
+        decision,
+        decisionNote,
+      });
+      await Promise.all([loadData({ force: true }), loadRoleRequests()]);
+    } catch (err) {
+      if (isUnauthenticatedError(err)) return;
+      triggerErrorAlert(err?.message || "Could not review request.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const renderRequests = () => (
+    <>
+      <Box
+        display="flex"
+        justifyContent="space-between"
+        alignItems="center"
+        mb={2}
+      >
+        <Typography variant="h6">School Admin Requests</Typography>
+        <Button
+          startIcon={<RefreshIcon />}
+          onClick={loadRoleRequests}
+          disabled={roleRequestsLoading}
+        >
+          Refresh
+        </Button>
+      </Box>
+
+      <TableContainer component={Paper}>
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell>Name</TableCell>
+              <TableCell>Email</TableCell>
+              <TableCell>School</TableCell>
+              <TableCell>Reason</TableCell>
+              <TableCell align="right">Actions</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {roleRequestsLoading ? (
+              <TableRow>
+                <TableCell colSpan={5} align="center">
+                  <CircularProgress size={24} />
+                </TableCell>
+              </TableRow>
+            ) : roleRequests.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5} align="center">
+                  No pending requests.
+                </TableCell>
+              </TableRow>
+            ) : (
+              roleRequests.map((r) => (
+                <TableRow key={r.id}>
+                  <TableCell>
+                    {[r.firstName, r.lastName].filter(Boolean).join(" ") || "—"}
+                  </TableCell>
+                  <TableCell>{r.requesterEmail || "—"}</TableCell>
+                  <TableCell>
+                    {r.requestedSchoolName || r.requestedSchoolId || "—"}
+                  </TableCell>
+                  <TableCell>{r.reason || "—"}</TableCell>
+                  <TableCell align="right">
+                    <Button
+                      size="small"
+                      color="primary"
+                      onClick={() => handleRoleRequestDecision(r, "approve")}
+                      disabled={saving}
+                    >
+                      Approve
+                    </Button>
+                    <Button
+                      size="small"
+                      color="secondary"
+                      onClick={() => handleRoleRequestDecision(r, "deny")}
+                      disabled={saving}
+                    >
+                      Deny
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </TableContainer>
+    </>
+  );
 
   // ─── Render tabs ──────────────────────────────────────────────────────────
 
@@ -1425,24 +2066,25 @@ function ManagementInner() {
                   <CircularProgress size={24} />
                 </TableCell>
               </TableRow>
-            ) : visibleUsers.length === 0 ? (
+            ) : sortedVisibleUsers.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={8} align="center">
                   No users found.
                 </TableCell>
               </TableRow>
             ) : (
-              visibleUsers.map((u) => (
+              sortedVisibleUsers.map((u) => (
                 <TableRow key={u.id}>
-                  <TableCell>
-                    {[u.firstName, u.lastName].filter(Boolean).join(" ") || "—"}
-                  </TableCell>
+                  <TableCell>{getUserLastFirstDisplay(u)}</TableCell>
                   <TableCell>{u.email || u.username || "—"}</TableCell>
                   <TableCell>
                     {u.hasPassword === false ? "—" : "********"}
                   </TableCell>
                   <TableCell>
-                    <Chip size="small" label={prettyRole(u.role)} />
+                    <Chip
+                      size="small"
+                      label={prettyRole(effectiveRoleForUser(u))}
+                    />
                   </TableCell>
                   <TableCell>
                     {isSelfManagedAdult(u)
@@ -1482,7 +2124,7 @@ function ManagementInner() {
                           mode: "edit",
                           initial: {
                             id: u.id,
-                            role: u.role,
+                            role: effectiveRoleForUser(u),
                             email: u.email,
                             username: u.username,
                             password: "",
@@ -1732,7 +2374,7 @@ function ManagementInner() {
               <TableCell>First Name</TableCell>
               <TableCell>Last Name</TableCell>
               <TableCell align="right">Progress</TableCell>
-              <TableCell align="right">Actions</TableCell>
+              <TableCell align="right">Edit</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -1742,45 +2384,47 @@ function ManagementInner() {
                   <CircularProgress size={24} />
                 </TableCell>
               </TableRow>
-            ) : users.filter((u) => u.role === "student").length === 0 ? (
+            ) : sortedParentStudents.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} align="center">
                   No students yet. Add your first student!
                 </TableCell>
               </TableRow>
             ) : (
-              users
-                .filter((u) => u.role === "student")
-                .map((u) => (
-                  <TableRow key={u.id}>
-                    <TableCell>{u.username}</TableCell>
-                    <TableCell>{u.firstName || "—"}</TableCell>
-                    <TableCell>{u.lastName || "—"}</TableCell>
-                    <TableCell align="right">
-                      <Button
-                        size="small"
-                        color="primary"
-                        onClick={() => history.push(`/students/${u.username}`)}
-                      >
-                        View
-                      </Button>
-                    </TableCell>
-                    <TableCell align="right">
-                      <IconButton
-                        size="small"
-                        onClick={() =>
-                          setParentStudentDialog({
-                            open: true,
-                            mode: "edit",
-                            initial: u,
-                          })
-                        }
-                      >
-                        <EditIcon fontSize="small" />
-                      </IconButton>
-                    </TableCell>
-                  </TableRow>
-                ))
+              sortedParentStudents.map((u) => (
+                <TableRow key={u.id}>
+                  <TableCell>{u.username}</TableCell>
+                  <TableCell>{u.firstName || "—"}</TableCell>
+                  <TableCell>{u.lastName || "—"}</TableCell>
+                  <TableCell align="right">
+                    <Button
+                      size="small"
+                      color="primary"
+                      onClick={() =>
+                        history.push(
+                          `/student-progress?student=${encodeURIComponent(String(u.username || u.id || ""))}`,
+                        )
+                      }
+                    >
+                      View
+                    </Button>
+                  </TableCell>
+                  <TableCell align="right">
+                    <IconButton
+                      size="small"
+                      onClick={() =>
+                        setParentStudentDialog({
+                          open: true,
+                          mode: "edit",
+                          initial: u,
+                        })
+                      }
+                    >
+                      <EditIcon fontSize="small" />
+                    </IconButton>
+                  </TableCell>
+                </TableRow>
+              ))
             )}
           </TableBody>
         </Table>
@@ -1829,6 +2473,12 @@ function ManagementInner() {
       return (
         <Box display="flex" alignItems="center" style={{ gap: 4 }}>
           <ClassIcon fontSize="small" /> Classes
+        </Box>
+      );
+    if (t === "requests")
+      return (
+        <Box display="flex" alignItems="center" style={{ gap: 4 }}>
+          <PeopleIcon fontSize="small" /> Requests
         </Box>
       );
     return (
@@ -1883,8 +2533,9 @@ function ManagementInner() {
       {activeTab === "users" && renderUsers()}
       {activeTab === "schools" && renderSchools()}
       {activeTab === "classes" && renderClasses()}
+      {activeTab === "requests" && renderRequests()}
       {activeTab === "students" &&
-        (callerRole === "parent" ? renderParentStudents() : renderClasses())}
+        (isHomeScopeManager ? renderParentStudents() : renderClasses())}
 
       {/* Dialogs */}
       <UserDialog

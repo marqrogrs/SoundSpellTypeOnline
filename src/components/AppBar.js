@@ -131,6 +131,10 @@ export default function AppBar({ user }) {
     }
   };
 
+  const handleMenuMouseLeave = (menu) => {
+    handleClose(menu);
+  };
+
   const handleSignOut = () => {
     auth.signOut();
   };
@@ -158,6 +162,31 @@ export default function AppBar({ user }) {
 
   const handleViewAbout = () => {
     history.push("/about");
+    setLeftAnchorEl(null);
+  };
+
+  const handleViewScopeSequence = () => {
+    history.push("/scope-sequence");
+    setLeftAnchorEl(null);
+  };
+
+  const handleViewTouchTyping = () => {
+    history.push("/touch-typing");
+    setLeftAnchorEl(null);
+  };
+
+  const handleViewSoundSpelling = () => {
+    history.push("/sound-spelling");
+    setLeftAnchorEl(null);
+  };
+
+  const handleViewAccountSetUp = () => {
+    history.push("/account-set-up");
+    setLeftAnchorEl(null);
+  };
+
+  const handleViewContactUs = () => {
+    window.location.assign("mailto:mark@birdhaven.us");
     setLeftAnchorEl(null);
   };
 
@@ -192,16 +221,26 @@ export default function AppBar({ user }) {
             }}
             open={leftMenuOpen}
             onClose={() => handleClose("left")}
+            PaperProps={{
+              onMouseLeave: () => handleMenuMouseLeave("left"),
+            }}
+            MenuListProps={{
+              onMouseLeave: () => handleMenuMouseLeave("left"),
+            }}
           >
             <MenuItem onClick={handleViewAbout}>About</MenuItem>
+            <MenuItem onClick={handleViewScopeSequence}>
+              Scope & Sequence
+            </MenuItem>
+            <MenuItem onClick={handleViewTouchTyping}>Touch Typing</MenuItem>
+            <MenuItem onClick={handleViewSoundSpelling}>
+              Sound Spelling
+            </MenuItem>
+            <MenuItem onClick={handleViewAccountSetUp}>Account Set Up</MenuItem>
             {/* <MenuItem onClick={() => window.open(PAYPAL_URL, '_blank')}>
               Donate
             </MenuItem> */}
-            <MenuItem
-              onClick={() => window.location.assign("mailto:mark@birdhaven.us")}
-            >
-              Contact Us
-            </MenuItem>
+            <MenuItem onClick={handleViewContactUs}>Contact Us</MenuItem>
           </Menu>
           <Typography
             variant="h6"
@@ -235,14 +274,19 @@ export default function AppBar({ user }) {
                 }}
                 open={rightMenuOpen}
                 onClose={() => handleClose("right")}
+                PaperProps={{
+                  onMouseLeave: () => handleMenuMouseLeave("right"),
+                }}
+                MenuListProps={{
+                  onMouseLeave: () => handleMenuMouseLeave("right"),
+                }}
               >
-                {(auth.role === "student" || hasFirstLessonAttempted) && (
-                  <MenuItem onClick={handleViewLessons}>My Progress</MenuItem>
-                )}
+                <MenuItem onClick={handleViewLessons}>My Progress</MenuItem>
                 {(auth.isAdmin ||
                   auth.isSchoolAdmin ||
                   auth.isEducator ||
-                  auth.isParent) && (
+                  auth.isParent ||
+                  auth.isTutor) && (
                   <MenuItem onClick={handleViewStudentProgress}>
                     Student Progress
                   </MenuItem>
@@ -253,7 +297,8 @@ export default function AppBar({ user }) {
                 {(auth.isAdmin ||
                   auth.isSchoolAdmin ||
                   auth.isEducator ||
-                  auth.isParent) && (
+                  auth.isParent ||
+                  auth.isTutor) && (
                   <MenuItem onClick={handleViewManagement}>Management</MenuItem>
                 )}
                 <MenuItem onClick={handleSignOut}>Sign Out</MenuItem>

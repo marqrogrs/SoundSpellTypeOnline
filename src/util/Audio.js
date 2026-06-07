@@ -84,7 +84,16 @@ const speakTextWithBrowser = async (text, rate = SPEECH_RATE) => {
     speech.rate = rate;
     speech.lang = "en-US";
     speech.onend = () => resolve(true);
-    speech.onerror = () => resolve(false);
+    speech.onerror = (event) => {
+      // "interrupted" and "canceled" are fired when synthesis.cancel() clears
+      // the queue before a new utterance; they are not real failures.
+      const errorType = event?.error;
+      if (errorType === "interrupted" || errorType === "canceled") {
+        resolve(true);
+        return;
+      }
+      resolve(false);
+    };
     try {
       synthesis.speak(speech);
     } catch (error) {
@@ -97,6 +106,21 @@ const speakTextWithBrowser = async (text, rate = SPEECH_RATE) => {
       Math.max(5000, (safeText.length / 10) * (1 / Math.max(rate, 0.1)) * 1000),
     );
   });
+};
+
+export const speakText = async (text, rate = SPEECH_RATE) => {
+  return speakTextWithBrowser(text, rate);
+};
+
+export const stopSpeaking = () => {
+  if (!synthesis) {
+    return;
+  }
+  try {
+    synthesis.cancel();
+  } catch (error) {
+    return;
+  }
 };
 
 const resolvePhonemeAudioFile = (phoneme) => {
@@ -179,7 +203,7 @@ export const speakWord = async (word, wordNumber = 1) => {
 
 export const speakWordSlow = async (word, phonemeSequence = []) => {
   if (!PLAY_AUDIO) {
-    return;
+    return false;
   }
 
   if (Array.isArray(phonemeSequence) && phonemeSequence.length > 0) {
@@ -187,10 +211,10 @@ export const speakWordSlow = async (word, phonemeSequence = []) => {
       await speakPhoneme(phonemeSequence[i]);
       await new Promise((resolve) => setTimeout(resolve, 80));
     }
-    return;
+    return true;
   }
 
-  await speakTextWithBrowser(word, Math.max(0.1, SPEECH_RATE * 0.4));
+  return speakTextWithBrowser(word, Math.max(0.1, SPEECH_RATE * 0.4));
 };
 
 export const speakPhoneme = async (phoneme) => {

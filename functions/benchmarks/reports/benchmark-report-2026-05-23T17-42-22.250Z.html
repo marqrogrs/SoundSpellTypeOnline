@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Module Load Benchmark Report</title>
+  <style>
+    :root { --bg:#f7f9fc; --ink:#1f2937; --card:#ffffff; --line:#e5e7eb; }
+    body { margin:0; font:14px/1.4 -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif; background:var(--bg); color:var(--ink); }
+    main { max-width: 980px; margin: 24px auto; padding: 0 16px; }
+    h1 { font-size: 22px; margin: 0 0 8px; }
+    .meta { margin: 0 0 16px; color:#4b5563; }
+    .card { background: var(--card); border:1px solid var(--line); border-radius: 10px; padding: 14px; margin-bottom: 14px; }
+    .stats { margin: 0 0 10px; color:#374151; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    svg { width: 100%; height: 140px; background: #fbfdff; border:1px solid #eef2f7; border-radius: 8px; }
+    table { width:100%; border-collapse: collapse; background: var(--card); border:1px solid var(--line); }
+    th, td { text-align:left; border-bottom:1px solid var(--line); padding:8px; }
+    th { background:#f9fafb; }
+    .status-pass { color:#137333; }
+    .status-fail { color:#b42318; font-weight:600; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Module Load Benchmark Report</h1>
+    <p class="meta">input=/Users/markrogers/Desktop/sound-spell-type-online/functions/benchmarks/module-load-tidy-2026-05-22T13-23-04.792Z.csv baseline=none generatedAt=2026-05-23T17:42:22.254Z</p>
+    
+      <section class="card">
+        <h2>./index.js</h2>
+        <div class="stats">runs=100 min=85 p50=86 p95=89 p99=94 max=133 avg=86.96</div>
+        <svg viewBox="0 0 600 140" preserveAspectRatio="none" aria-label="./index.js ms trend"><polyline fill="none" stroke="#0b6efd" stroke-width="2" points="0.00,0.00 6.06,137.08 12.12,134.17 18.18,137.08 24.24,137.08 30.30,137.08 36.36,131.25 42.42,137.08 48.48,134.17 54.55,134.17 60.61,134.17 66.67,134.17 72.73,137.08 78.79,134.17 84.85,140.00 90.91,134.17 96.97,137.08 103.03,137.08 109.09,140.00 115.15,134.17 121.21,134.17 127.27,137.08 133.33,137.08 139.39,137.08 145.45,137.08 151.52,134.17 157.58,134.17 163.64,137.08 169.70,134.17 175.76,137.08 181.82,137.08 187.88,134.17 193.94,140.00 200.00,134.17 206.06,137.08 212.12,134.17 218.18,137.08 224.24,134.17 230.30,137.08 236.36,134.17 242.42,137.08 248.48,137.08 254.55,140.00 260.61,140.00 266.67,137.08 272.73,140.00 278.79,137.08 284.85,137.08 290.91,128.33 296.97,128.33 303.03,131.25 309.09,137.08 315.15,134.17 321.21,137.08 327.27,137.08 333.33,137.08 339.39,134.17 345.45,134.17 351.52,137.08 357.58,137.08 363.64,137.08 369.70,137.08 375.76,140.00 381.82,137.08 387.88,113.75 393.94,134.17 400.00,134.17 406.06,140.00 412.12,134.17 418.18,140.00 424.24,134.17 430.30,137.08 436.36,137.08 442.42,134.17 448.48,137.08 454.55,137.08 460.61,137.08 466.67,137.08 472.73,137.08 478.79,134.17 484.85,140.00 490.91,137.08 496.97,140.00 503.03,134.17 509.09,137.08 515.15,137.08 521.21,137.08 527.27,137.08 533.33,137.08 539.39,137.08 545.45,134.17 551.52,137.08 557.58,134.17 563.64,137.08 569.70,137.08 575.76,134.17 581.82,128.33 587.88,125.42 593.94,122.50 600.00,137.08" /></svg>
+      </section>
+
+      <section class="card">
+        <h2>@google-cloud/firestore</h2>
+        <div class="stats">runs=100 min=24 p50=26 p95=26 p99=27 max=27 avg=25.58</div>
+        <svg viewBox="0 0 600 140" preserveAspectRatio="none" aria-label="@google-cloud/firestore ms trend"><polyline fill="none" stroke="#198754" stroke-width="2" points="0.00,0.00 6.06,46.67 12.12,93.33 18.18,93.33 24.24,46.67 30.30,93.33 36.36,93.33 42.42,46.67 48.48,0.00 54.55,46.67 60.61,46.67 66.67,93.33 72.73,46.67 78.79,93.33 84.85,46.67 90.91,93.33 96.97,46.67 103.03,0.00 109.09,0.00 115.15,46.67 121.21,93.33 127.27,93.33 133.33,93.33 139.39,46.67 145.45,93.33 151.52,93.33 157.58,46.67 163.64,93.33 169.70,46.67 175.76,140.00 181.82,93.33 187.88,93.33 193.94,46.67 200.00,46.67 206.06,46.67 212.12,46.67 218.18,93.33 224.24,46.67 230.30,46.67 236.36,46.67 242.42,46.67 248.48,46.67 254.55,46.67 260.61,93.33 266.67,46.67 272.73,93.33 278.79,46.67 284.85,93.33 290.91,93.33 296.97,93.33 303.03,93.33 309.09,46.67 315.15,93.33 321.21,46.67 327.27,46.67 333.33,140.00 339.39,46.67 345.45,46.67 351.52,46.67 357.58,46.67 363.64,46.67 369.70,46.67 375.76,93.33 381.82,46.67 387.88,140.00 393.94,46.67 400.00,93.33 406.06,46.67 412.12,46.67 418.18,93.33 424.24,46.67 430.30,93.33 436.36,46.67 442.42,93.33 448.48,46.67 454.55,46.67 460.61,46.67 466.67,46.67 472.73,93.33 478.79,93.33 484.85,46.67 490.91,46.67 496.97,46.67 503.03,93.33 509.09,93.33 515.15,93.33 521.21,46.67 527.27,93.33 533.33,93.33 539.39,93.33 545.45,93.33 551.52,46.67 557.58,46.67 563.64,93.33 569.70,93.33 575.76,46.67 581.82,93.33 587.88,46.67 593.94,46.67 600.00,46.67" /></svg>
+      </section>
+    <section class="card">
+      <h2>Checks</h2>
+      <p class="status-pass">status=PASS</p>
+      <table>
+        <thead><tr><th>level</th><th>target</th><th>rule</th><th>message</th></tr></thead>
+        <tbody><tr><td>pass</td><td>./index.js</td><td>hard_max</td><td>max 133ms within HARD_MAX_MS 300ms</td></tr>
+<tr><td>info</td><td>./index.js</td><td>outliers</td><td>1/100 points > p95*1.25 (111.25ms)</td></tr>
+<tr><td>info</td><td>./index.js</td><td>baseline</td><td>No baseline provided; skipped p95/avg regression checks</td></tr>
+<tr><td>pass</td><td>@google-cloud/firestore</td><td>hard_max</td><td>max 27ms within HARD_MAX_MS 300ms</td></tr>
+<tr><td>info</td><td>@google-cloud/firestore</td><td>outliers</td><td>0/100 points > p95*1.25 (32.5ms)</td></tr>
+<tr><td>info</td><td>@google-cloud/firestore</td><td>baseline</td><td>No baseline provided; skipped p95/avg regression checks</td></tr></tbody>
+      </table>
+    </section>
+  </main>
+</body>
+</html>

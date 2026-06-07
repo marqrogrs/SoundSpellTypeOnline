@@ -1,18 +1,30 @@
 import React, { useState } from "react";
 import { useAuth } from "../hooks/useAuth";
-import { useHistory } from "react-router-dom";
 
 import Grid from "@material-ui/core/Grid";
 import TextField from "@material-ui/core/TextField";
-import { Typography } from "@material-ui/core";
+import {
+  Typography,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+} from "@material-ui/core";
 import Button from "@material-ui/core/Button";
 
 import { useStyles } from "../styles/material";
 import { useFormik } from "formik";
 
+const ROLE_OPTIONS = [
+  { value: "student", label: "Student" },
+  { value: "parent", label: "Home School Parent" },
+  { value: "tutor", label: "Tutor/Reading Specialist" },
+  { value: "educator", label: "Teacher" },
+  { value: "schoolAdmin", label: "School Admin" },
+];
+
 export default function EducatorLogin() {
   const classes = useStyles();
-  const history = useHistory();
   const [isSignUp, setIsSignUp] = useState(false);
 
   const auth = useAuth();
@@ -35,7 +47,8 @@ export default function EducatorLogin() {
 
   const validate = (values) => {
     const errors = {};
-    const { email, password, confirmPassword } = values;
+    const { firstName, lastName, role, email, password, confirmPassword } =
+      values;
 
     if (!email) {
       errors.email = "Required";
@@ -46,6 +59,15 @@ export default function EducatorLogin() {
       errors.password = "Password must be 6+ characters";
     }
     if (isSignUp) {
+      if (!firstName) {
+        errors.firstName = "Required";
+      }
+      if (!lastName) {
+        errors.lastName = "Required";
+      }
+      if (!role) {
+        errors.role = "Required";
+      }
       if (!confirmPassword) {
         errors.confirmPassword = "Required";
       } else if (password !== confirmPassword) {
@@ -53,24 +75,29 @@ export default function EducatorLogin() {
       }
     }
 
-    // console.log(errors)
     return errors;
   };
 
   const formik = useFormik({
     initialValues: {
+      firstName: "",
+      lastName: "",
+      role: "student",
       email: "",
       password: "",
       confirmPassword: "",
     },
     validate,
     onSubmit: (values) => {
-      const { email, password } = values;
+      const { firstName, lastName, role, email, password } = values;
       if (!isSignUp) {
         setIsSignUp(true);
       } else {
-        console.log("Creating user");
-        auth.createUserWithEmailAndPassword(email, password);
+        auth.createUserWithEmailAndPassword(email, password, {
+          firstName,
+          lastName,
+          role,
+        });
       }
     },
   });
@@ -89,14 +116,60 @@ export default function EducatorLogin() {
             <Grid item>
               <Typography>Welcome to Sound Spell Type Online!</Typography>
             </Grid>
+            {isSignUp && (
+              <>
+                <Grid item>
+                  <TextField
+                    name="firstName"
+                    label="First Name"
+                    variant="outlined"
+                    color="primary"
+                    value={formik.values.firstName}
+                    error={Boolean(formik.errors.firstName)}
+                    helperText={formik.errors.firstName}
+                    onChange={formik.handleChange}
+                  ></TextField>
+                </Grid>
+                <Grid item>
+                  <TextField
+                    name="lastName"
+                    label="Last Name"
+                    variant="outlined"
+                    color="primary"
+                    value={formik.values.lastName}
+                    error={Boolean(formik.errors.lastName)}
+                    helperText={formik.errors.lastName}
+                    onChange={formik.handleChange}
+                  ></TextField>
+                </Grid>
+                <Grid item style={{ minWidth: 240 }}>
+                  <FormControl variant="outlined" fullWidth>
+                    <InputLabel>Role</InputLabel>
+                    <Select
+                      name="role"
+                      value={formik.values.role}
+                      onChange={formik.handleChange}
+                      label="Role"
+                      error={Boolean(formik.errors.role)}
+                    >
+                      {ROLE_OPTIONS.map((option) => (
+                        <MenuItem key={option.value} value={option.value}>
+                          {option.label}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+              </>
+            )}
             <Grid item>
               <TextField
                 name="email"
-                label="Email"
+                label="Email / Username"
                 variant="outlined"
                 color="primary"
                 value={formik.values.email}
-                error={formik.errors.email}
+                error={Boolean(formik.errors.email)}
                 helperText={formik.errors.email}
                 onChange={formik.handleChange}
               ></TextField>
@@ -109,7 +182,7 @@ export default function EducatorLogin() {
                 color="primary"
                 type="password"
                 value={formik.values.password}
-                error={formik.errors.password}
+                error={Boolean(formik.errors.password)}
                 helperText={formik.errors.password}
                 onChange={formik.handleChange}
               ></TextField>
@@ -123,7 +196,7 @@ export default function EducatorLogin() {
                   color="primary"
                   type="password"
                   value={formik.values.confirmPassword}
-                  error={formik.errors.confirmPassword}
+                  error={Boolean(formik.errors.confirmPassword)}
                   helperText={formik.errors.confirmPassword}
                   onChange={formik.handleChange}
                 ></TextField>
@@ -143,11 +216,12 @@ export default function EducatorLogin() {
 
             <Grid item>
               <Button
-                variant="contained"
+                variant={isSignUp ? "contained" : "outlined"}
                 color="primary"
                 onClick={formik.handleSubmit}
+                size="small"
               >
-                Sign Up
+                {isSignUp ? "Create Account" : "Sign Up"}
               </Button>
             </Grid>
             {!isSignUp && (
@@ -164,9 +238,6 @@ export default function EducatorLogin() {
                 Return to Sign In
               </div>
             )}
-            <Button color="primary" onClick={() => history.push("/")}>
-              Go Back
-            </Button>
           </Grid>
         </form>
       </div>

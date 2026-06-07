@@ -1,5 +1,13 @@
 {
   "projects": {
     "default": "soundspeller-c5e53"
+  },
+  "targets": {},
+  "etags": {
+    "soundspeller-c5e53": {
+      "extensionInstances": {
+        "firestore-send-email-h4iq": "3cc734cb0a7ef7c992949c5ca1a5d005c0ecbbdea4ef25f585a0fa1e1b613333"
+      }
+    }
   }
 }

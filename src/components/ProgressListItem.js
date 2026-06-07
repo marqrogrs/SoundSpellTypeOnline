@@ -19,14 +19,41 @@ import { buildActiveLessonWords } from "../util/functions";
 
 import { useStyles } from "../styles/material";
 
+const REQUIRED_ACCURACY_FOR_CHECKMARK = 90;
+
+function splitExampleWords(description) {
+  const raw = String(description || "").trim();
+  if (!raw) {
+    return { mainText: "", exampleWords: "" };
+  }
+
+  const markerPattern = /\b(?:examaple words|example words)\b/i;
+  const markerMatch = raw.match(markerPattern);
+
+  if (!markerMatch || typeof markerMatch.index !== "number") {
+    return { mainText: raw, exampleWords: "" };
+  }
+
+  const markerStart = markerMatch.index;
+  const markerEnd = markerStart + markerMatch[0].length;
+  const before = raw.slice(0, markerStart).trim();
+  const after = raw
+    .slice(markerEnd)
+    .replace(/^[:\-\u2013\u2014.\s]+/, "")
+    .trim();
+
+  return {
+    mainText: before,
+    exampleWords: after,
+  };
+}
+
 export default function ProgressListItem({
   lesson,
   progress,
   showButtons,
   patternRules,
 }) {
-  const REQUIRED_ACCURACY_FOR_CHECKMARK = 90;
-  const REQUIRED_ACCURACY_FOR_LESSON_COMPLETION = 100;
   const [open, setOpen] = useState(false);
 
   const classes = useStyles();
@@ -36,12 +63,6 @@ export default function ProgressListItem({
     lesson?.words,
     lesson?.lesson_id,
   ).length;
-
-  // Used only for checkmark / completed status (best single-session score).
-  const getLevelAccuracy = (levelProgress) => {
-    const rawPercent = Number(levelProgress?.high_score) || 0;
-    return Math.max(0, Math.min(100, rawPercent));
-  };
 
   // Unique words the student has ever spelled correctly at this level in this
   // lesson, as a percentage of the total lesson word count.
@@ -66,26 +87,34 @@ export default function ProgressListItem({
     return Math.round((uniqueCount / totalLessonWords) * 100);
   };
 
+  const hasLevelStarted = (levelProgress) => {
+    const completedWords = Number(levelProgress?.completed_words) || 0;
+    const hasCompletedFlag = Boolean(levelProgress?.completed);
+    const hasCorrectWords =
+      Array.isArray(levelProgress?.correct_words) &&
+      levelProgress.correct_words.length > 0;
+    const hasScore = Number(levelProgress?.score) > 0;
+
+    return (
+      completedWords > 0 || hasCompletedFlag || hasCorrectWords || hasScore
+    );
+  };
+
   const activeLevelIndexes = LEVELS.map((_, index) => index);
+  const isLevelMastered = (levelProgress) =>
+    getLevelWordsCorrectPercent(levelProgress) >=
+    REQUIRED_ACCURACY_FOR_CHECKMARK;
+  const masteryLevelIndex =
+    activeLevelIndexes[activeLevelIndexes.length - 1] ?? 2;
 
   const isInProgress = activeLevelIndexes.some((index) => {
     const levelProgress = progress[index] || {};
-    return levelProgress.completed_words > 0 || levelProgress.completed;
+    return hasLevelStarted(levelProgress);
   });
 
-  const hasCheckmark = activeLevelIndexes.every((index) => {
-    const levelProgress = progress[index] || {};
-    return getLevelAccuracy(levelProgress) >= REQUIRED_ACCURACY_FOR_CHECKMARK;
-  });
+  const isCompleted = isLevelMastered(progress[masteryLevelIndex] || {});
 
-  const isCompleted = activeLevelIndexes.every((index) => {
-    const levelProgress = progress[index] || {};
-    return (
-      getLevelAccuracy(levelProgress) >= REQUIRED_ACCURACY_FOR_LESSON_COMPLETION
-    );
-  });
-
-  const status = hasCheckmark ? (
+  const status = isCompleted ? (
     <CheckCircleIcon color="primary" />
   ) : isInProgress ? (
     "In progress"
@@ -94,6 +123,9 @@ export default function ProgressListItem({
   );
 
   const lessonButtonStyle = { fontSize: "0.6875rem", padding: "2px 8px" };
+  const { mainText, exampleWords } = splitExampleWords(
+    lesson.description || lesson.title,
+  );
 
   const button = isCompleted ? null : isInProgress ? (
     <Link to={`/lessons/${lesson.lesson_id}`}>
@@ -134,7 +166,16 @@ export default function ProgressListItem({
         <TableCell component="th" scope="row">
           {lesson.lesson_id}
         </TableCell>
-        <TableCell>{lesson.description || lesson.title}</TableCell>
+        <TableCell>
+          {mainText ||
+            (!exampleWords ? lesson.description || lesson.title : "")}
+          {exampleWords ? (
+            <span style={{ display: "block" }}>
+              <strong>Example Words:</strong>
+              {` ${exampleWords}`}
+            </span>
+          ) : null}
+        </TableCell>
         <TableCell align="right">
           <PatternButton
             rules={patternRules}
@@ -159,13 +200,12 @@ export default function ProgressListItem({
                 <TableBody>
                   {activeLevelIndexes.map((i) => {
                     const levelProgress = progress[i] || {};
-                    const levelAccuracy = getLevelAccuracy(levelProgress);
+                    const levelPercent =
+                      getLevelWordsCorrectPercent(levelProgress);
+                    const levelStarted = hasLevelStarted(levelProgress);
                     const isCompleted =
-                      levelAccuracy >= REQUIRED_ACCURACY_FOR_CHECKMARK;
-                    const isInProgress =
-                      (levelProgress.completed_words > 0 ||
-                        levelProgress.completed) &&
-                      !isCompleted;
+                      levelPercent >= REQUIRED_ACCURACY_FOR_CHECKMARK;
+                    const isInProgress = levelStarted && !isCompleted;
 
                     var levelStatus;
                     if (isCompleted) {
@@ -175,8 +215,6 @@ export default function ProgressListItem({
                     } else {
                       levelStatus = "Not Started";
                     }
-                    const levelPercent =
-                      getLevelWordsCorrectPercent(levelProgress);
                     return (
                       <TableRow key={`${lesson.lesson_id}.${i}`}>
                         <TableCell component="th" scope="row">

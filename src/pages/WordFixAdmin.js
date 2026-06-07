@@ -618,9 +618,10 @@ export default function WordFixAdmin() {
           Word Fix Admin
         </Typography>
         <Typography variant="body1" color="textSecondary" paragraph>
-          Update a single word in Firestore and patch
-          data/SoundSpellerDatabase.json in one submit. Use comma or space
-          separators for graphemes and phonemes.
+          Update a single word in Firestore and patch the core database JSON
+          (data/SoundSpellerDatabase.json — legacy filename kept for
+          compatibility) in one submit. Use comma or space separators for
+          graphemes and phonemes.
         </Typography>
 
         <Grid container spacing={2}>

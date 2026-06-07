@@ -16,8 +16,9 @@ export default function Error() {
         <Typography className="lower-text">
           The page you are looking for does not exist.{" "}
           <Link onClick={() => history.push("/")}>Click here</Link> to go back
-          home or <Link href="mailto:mark@birdhaven.us">contact us</Link> for
-          help.
+          home or{" "}
+          <Link href="mailto:support@soundspelltype.online">contact us</Link>{" "}
+          for help.
         </Typography>
       </div>
     </div>

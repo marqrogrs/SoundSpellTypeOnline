@@ -25,15 +25,11 @@ export const DEFAULT_BUTTONS_THEME = [
   },
   {
     class: "gold light",
-    buttons: "R U V M r u v m",
+    buttons: "R U V M T Y G H B N r u v m t y g h b n",
   },
   {
     class: "gold dark",
     buttons: "F J f j",
-  },
-  {
-    class: "grey light",
-    buttons: "N B H G Y T n b h y g t",
   },
 ];
 
