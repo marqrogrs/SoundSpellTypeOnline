@@ -29,3 +29,16 @@ firestore-debug.log
 functions/firebase-debug.log
 .firebase/
 *.tar.gz
+
+# local workspace temp artifacts
+.node_modules_stale_*/
+
+# package manager leftovers (root uses npm lockfile)
+yarn.lock
+
+# large/generated local data artifacts
+data/enwiktionary-english.jsonl
+data/wiktionary-definitions.json
+data/wiktionary-missing.json
+data/wiktionary-misspelling-pairs.csv
+data/wiktionary-misspelling-suggestions.csv
