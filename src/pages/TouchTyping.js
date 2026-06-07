@@ -41,6 +41,24 @@ const useStyles = makeStyles((theme) => ({
     border: "1px solid rgba(13, 71, 161, 0.2)",
     marginBottom: theme.spacing(2),
   },
+  videoWrapper: {
+    position: "relative",
+    width: "100%",
+    paddingTop: "56.25%",
+    borderRadius: 12,
+    overflow: "hidden",
+    border: "1px solid rgba(13, 71, 161, 0.2)",
+    marginBottom: theme.spacing(2),
+    backgroundColor: "#000",
+  },
+  video: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: "100%",
+    height: "100%",
+    border: 0,
+  },
 }));
 
 export default function TouchTyping() {
@@ -78,6 +96,15 @@ export default function TouchTyping() {
           <Typography variant="h6" className={classes.sectionTitle}>
             The Home Row:
           </Typography>
+          <Box className={classes.videoWrapper}>
+            <iframe
+              className={classes.video}
+              src="https://www.youtube.com/embed/MPPG9GbNUg0?start=164&end=362&rel=0"
+              title="Touch typing home row video"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowFullScreen
+            />
+          </Box>
           <Typography variant="body1" className={classes.paragraph}>
             The Home Row means the &ldquo;home&rdquo;, or resting, positions for
             your fingers while typing. Always have your fingers on the Home Row
