@@ -79,6 +79,14 @@ npm run deploy:functions
 
 - That script automatically sets the extra local Node heap and Firebase discovery timeout needed for this repo.
 
+- For hosting deploys that must be saved to GitHub first, use:
+
+```
+npm run deploy:web-app
+```
+
+- This route checks for a clean working tree, pushes your current branch to GitHub, then builds and deploys hosting.
+
 Before making any changes, make sure to change branches:
 
 ```
