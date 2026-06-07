@@ -96,6 +96,13 @@ export default function TouchTyping() {
           <Typography variant="h6" className={classes.sectionTitle}>
             The Home Row:
           </Typography>
+          <Typography variant="body1" className={classes.paragraph}>
+            The Home Row means the &ldquo;home&rdquo;, or resting, positions for
+            your fingers while typing. Always have your fingers on the Home Row
+            while you look at the screen; not your fingers! The Home Row keys
+            for the Left Hand are the keys A, S, D, F. For the Right Hand they
+            are J, K, L, ;.
+          </Typography>
           <Box className={classes.videoWrapper}>
             <iframe
               className={classes.video}
@@ -105,13 +112,6 @@ export default function TouchTyping() {
               allowFullScreen
             />
           </Box>
-          <Typography variant="body1" className={classes.paragraph}>
-            The Home Row means the &ldquo;home&rdquo;, or resting, positions for
-            your fingers while typing. Always have your fingers on the Home Row
-            while you look at the screen; not your fingers! The Home Row keys
-            for the Left Hand are the keys A, S, D, F. For the Right Hand they
-            are J, K, L, ;.
-          </Typography>
           <Typography variant="body1" className={classes.paragraph}>
             When typing, always have your Pinky, Ring, Middle and Index finger
             on the Home Row of the keyboard. Move only the finger you are typing
