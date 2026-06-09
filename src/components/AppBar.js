@@ -190,6 +190,11 @@ export default function AppBar({ user }) {
     setLeftAnchorEl(null);
   };
 
+  const handleViewHome = () => {
+    history.push("/");
+    setLeftAnchorEl(null);
+  };
+
   const handleRedirectToHome = () => {
     history.push("/");
   };
@@ -228,6 +233,7 @@ export default function AppBar({ user }) {
               onMouseLeave: () => handleMenuMouseLeave("left"),
             }}
           >
+            {!user && <MenuItem onClick={handleViewHome}>Home</MenuItem>}
             <MenuItem onClick={handleViewAbout}>About</MenuItem>
             <MenuItem onClick={handleViewScopeSequence}>
               Scope & Sequence
