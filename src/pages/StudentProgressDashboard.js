@@ -935,9 +935,23 @@ export default function StudentProgressDashboard() {
           nextRules = cachedStatic.rules;
         }
 
+        const mgmtPromise = mgmtListData({}).catch((err) => {
+          console.warn("student progress mgmtListData fallback", {
+            code: err?.code || "",
+            message: err?.message || String(err || ""),
+          });
+          return {
+            data: {
+              schools: [],
+              classes: [],
+              users: [],
+            },
+          };
+        });
+
         const [result, lessonDocs, lessonSectionsSnap, rulesSnap] =
           await Promise.all([
-            mgmtListData({}),
+            mgmtPromise,
             cachedStatic
               ? Promise.resolve(null)
               : db.collection("lessons").get(),

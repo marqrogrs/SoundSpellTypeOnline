@@ -17,13 +17,30 @@
  */
 
 const functions = require("firebase-functions/v1");
-const admin = require("firebase-admin");
+const { getApps, initializeApp } = require("firebase-admin/app");
+const { getAuth } = require("firebase-admin/auth");
+const { getDatabase } = require("firebase-admin/database");
+const {
+  getFirestore: getFirestoreService,
+  FieldValue,
+} = require("firebase-admin/firestore");
 const {
   normalizeRole: _normalizeRoleUtil,
   rankOf: _rankOfUtil,
   buildClaimsForRole: _buildClaimsUtil,
 } = require("./roleUtils");
 const { generateUsername: _generateUsernameUtil } = require("./usernameUtils");
+
+const admin = {
+  get apps() {
+    return getApps();
+  },
+  initializeApp,
+  auth: () => getAuth(),
+  database: () => getDatabase(),
+  firestore: () => getFirestoreService(),
+};
+admin.firestore.FieldValue = FieldValue;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

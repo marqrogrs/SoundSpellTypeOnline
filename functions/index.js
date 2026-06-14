@@ -1,5 +1,11 @@
 const functions = require("firebase-functions/v1");
-const admin = require("firebase-admin");
+const { getApps, initializeApp } = require("firebase-admin/app");
+const { getAuth } = require("firebase-admin/auth");
+const { getDatabase } = require("firebase-admin/database");
+const {
+  getFirestore: getFirestoreService,
+  FieldValue,
+} = require("firebase-admin/firestore");
 const bcrypt = require("bcryptjs");
 const fs = require("node:fs");
 const path = require("node:path");
@@ -16,12 +22,22 @@ const {
   normalizeSchoolAdminRequestListArgs,
   parseSchoolAdminReviewInput,
 } = require("./schoolAdminRequestUtils");
+const admin = {
+  get apps() {
+    return getApps();
+  },
+  initializeApp,
+  auth: () => getAuth(),
+  database: () => getDatabase(),
+  firestore: () => getFirestoreService(),
+};
+admin.firestore.FieldValue = FieldValue;
 const saltRounds = 10;
 
 let _initError = null;
 try {
-  if (!admin.apps.length) {
-    admin.initializeApp({
+  if (!getApps().length) {
+    initializeApp({
       databaseURL: "https://soundspeller-c5e53.firebaseio.com",
     });
   }
@@ -33,11 +49,11 @@ try {
 let _db = null;
 let _firestore = null;
 const getDb = () => {
-  if (!_db) _db = admin.database();
+  if (!_db) _db = getDatabase();
   return _db;
 };
 const getFirestore = () => {
-  if (!_firestore) _firestore = admin.firestore();
+  if (!_firestore) _firestore = getFirestoreService();
   return _firestore;
 };
 const getStudentRef = (username) =>
@@ -97,7 +113,7 @@ exports.authenticateStudent = functions.https.onCall(async (data, context) => {
           if (!result) {
             return { error: "Invalid password" };
           }
-          return admin.auth().createCustomToken(requestUser);
+          return getAuth().createCustomToken(requestUser);
         })
         .then((token) => {
           if (typeof token !== "string") {
@@ -3105,19 +3121,38 @@ exports.adminListAuditLogs = functions.https.onCall(async (data, context) => {
 });
 
 // ─── v2 Org Management callables ─────────────────────────────────────────────
-// All management callables live in orgManagement.js; re-export them here so
-// Firebase Functions picks them up from the single entry point.
-const orgMgmt = require("./orgManagement");
-exports.mgmtListData = orgMgmt.mgmtListData;
-exports.mgmtCreateSchool = orgMgmt.mgmtCreateSchool;
-exports.mgmtUpdateSchool = orgMgmt.mgmtUpdateSchool;
-exports.mgmtArchiveSchool = orgMgmt.mgmtArchiveSchool;
-exports.mgmtCreateClass = orgMgmt.mgmtCreateClass;
-exports.mgmtUpdateClass = orgMgmt.mgmtUpdateClass;
-exports.mgmtArchiveClass = orgMgmt.mgmtArchiveClass;
-exports.mgmtAssignStudentClasses = orgMgmt.mgmtAssignStudentClasses;
-exports.mgmtBootstrapParentHomeScope = orgMgmt.mgmtBootstrapParentHomeScope;
-exports.mgmtParentCreateStudent = orgMgmt.mgmtParentCreateStudent;
-exports.mgmtAssignSchoolAdmin = orgMgmt.mgmtAssignSchoolAdmin;
-exports.mgmtAssignEducatorToSchool = orgMgmt.mgmtAssignEducatorToSchool;
-exports.mgmtDebugUser = orgMgmt.mgmtDebugUser;
+// Load the management module lazily so backend discovery does not pay the
+// startup cost of parsing and initializing it unless a callable is invoked.
+function wrapOrgMgmtExport(exportName) {
+  return functions.https.onCall(async (data, context) => {
+    const orgMgmt = require("./orgManagement");
+    const handler = orgMgmt[exportName];
+    if (typeof handler !== "function") {
+      throw new functions.https.HttpsError(
+        "internal",
+        `Missing management handler: ${exportName}`,
+      );
+    }
+    return handler(data, context);
+  });
+}
+
+exports.mgmtListData = wrapOrgMgmtExport("mgmtListData");
+exports.mgmtCreateSchool = wrapOrgMgmtExport("mgmtCreateSchool");
+exports.mgmtUpdateSchool = wrapOrgMgmtExport("mgmtUpdateSchool");
+exports.mgmtArchiveSchool = wrapOrgMgmtExport("mgmtArchiveSchool");
+exports.mgmtCreateClass = wrapOrgMgmtExport("mgmtCreateClass");
+exports.mgmtUpdateClass = wrapOrgMgmtExport("mgmtUpdateClass");
+exports.mgmtArchiveClass = wrapOrgMgmtExport("mgmtArchiveClass");
+exports.mgmtAssignStudentClasses = wrapOrgMgmtExport(
+  "mgmtAssignStudentClasses",
+);
+exports.mgmtBootstrapParentHomeScope = wrapOrgMgmtExport(
+  "mgmtBootstrapParentHomeScope",
+);
+exports.mgmtParentCreateStudent = wrapOrgMgmtExport("mgmtParentCreateStudent");
+exports.mgmtAssignSchoolAdmin = wrapOrgMgmtExport("mgmtAssignSchoolAdmin");
+exports.mgmtAssignEducatorToSchool = wrapOrgMgmtExport(
+  "mgmtAssignEducatorToSchool",
+);
+exports.mgmtDebugUser = wrapOrgMgmtExport("mgmtDebugUser");
