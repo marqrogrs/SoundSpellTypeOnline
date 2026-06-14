@@ -3121,38 +3121,18 @@ exports.adminListAuditLogs = functions.https.onCall(async (data, context) => {
 });
 
 // ─── v2 Org Management callables ─────────────────────────────────────────────
-// Load the management module lazily so backend discovery does not pay the
-// startup cost of parsing and initializing it unless a callable is invoked.
-function wrapOrgMgmtExport(exportName) {
-  return functions.https.onCall(async (data, context) => {
-    const orgMgmt = require("./orgManagement");
-    const handler = orgMgmt[exportName];
-    if (typeof handler !== "function") {
-      throw new functions.https.HttpsError(
-        "internal",
-        `Missing management handler: ${exportName}`,
-      );
-    }
-    return handler(data, context);
-  });
-}
-
-exports.mgmtListData = wrapOrgMgmtExport("mgmtListData");
-exports.mgmtCreateSchool = wrapOrgMgmtExport("mgmtCreateSchool");
-exports.mgmtUpdateSchool = wrapOrgMgmtExport("mgmtUpdateSchool");
-exports.mgmtArchiveSchool = wrapOrgMgmtExport("mgmtArchiveSchool");
-exports.mgmtCreateClass = wrapOrgMgmtExport("mgmtCreateClass");
-exports.mgmtUpdateClass = wrapOrgMgmtExport("mgmtUpdateClass");
-exports.mgmtArchiveClass = wrapOrgMgmtExport("mgmtArchiveClass");
-exports.mgmtAssignStudentClasses = wrapOrgMgmtExport(
-  "mgmtAssignStudentClasses",
-);
-exports.mgmtBootstrapParentHomeScope = wrapOrgMgmtExport(
-  "mgmtBootstrapParentHomeScope",
-);
-exports.mgmtParentCreateStudent = wrapOrgMgmtExport("mgmtParentCreateStudent");
-exports.mgmtAssignSchoolAdmin = wrapOrgMgmtExport("mgmtAssignSchoolAdmin");
-exports.mgmtAssignEducatorToSchool = wrapOrgMgmtExport(
-  "mgmtAssignEducatorToSchool",
-);
-exports.mgmtDebugUser = wrapOrgMgmtExport("mgmtDebugUser");
+// Re-export callable functions from orgManagement.js.
+const orgMgmt = require("./orgManagement");
+exports.mgmtListData = orgMgmt.mgmtListData;
+exports.mgmtCreateSchool = orgMgmt.mgmtCreateSchool;
+exports.mgmtUpdateSchool = orgMgmt.mgmtUpdateSchool;
+exports.mgmtArchiveSchool = orgMgmt.mgmtArchiveSchool;
+exports.mgmtCreateClass = orgMgmt.mgmtCreateClass;
+exports.mgmtUpdateClass = orgMgmt.mgmtUpdateClass;
+exports.mgmtArchiveClass = orgMgmt.mgmtArchiveClass;
+exports.mgmtAssignStudentClasses = orgMgmt.mgmtAssignStudentClasses;
+exports.mgmtBootstrapParentHomeScope = orgMgmt.mgmtBootstrapParentHomeScope;
+exports.mgmtParentCreateStudent = orgMgmt.mgmtParentCreateStudent;
+exports.mgmtAssignSchoolAdmin = orgMgmt.mgmtAssignSchoolAdmin;
+exports.mgmtAssignEducatorToSchool = orgMgmt.mgmtAssignEducatorToSchool;
+exports.mgmtDebugUser = orgMgmt.mgmtDebugUser;

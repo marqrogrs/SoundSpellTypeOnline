@@ -37,7 +37,16 @@ import {
   writePendingPlacementReport,
 } from "../util/placementStorage";
 
-const { PLACEMENT_TEST_PARTS } = require("../data/placementTestData.cjs");
+const placementDataModule = require("../data/placementTestData.cjs");
+const PLACEMENT_TEST_PARTS = Array.isArray(placementDataModule)
+  ? placementDataModule
+  : Array.isArray(placementDataModule?.PLACEMENT_TEST_PARTS)
+    ? placementDataModule.PLACEMENT_TEST_PARTS
+    : Array.isArray(placementDataModule?.default)
+      ? placementDataModule.default
+      : Array.isArray(placementDataModule?.default?.PLACEMENT_TEST_PARTS)
+        ? placementDataModule.default.PLACEMENT_TEST_PARTS
+        : [];
 
 const REPORT_VERSION = 1;
 
