@@ -336,6 +336,613 @@ exports.synthesizeWordAudio = functions.https.onCall(async (data) => {
   }
 });
 
+async function resolvePlacementStudentContext(studentId) {
+  const normalizedStudentId = String(studentId || "").trim();
+  if (!normalizedStudentId) {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      "studentId is required.",
+    );
+  }
+
+  const studentDocRef = getFirestore()
+    .collection("users")
+    .doc(normalizedStudentId);
+  const studentDocSnap = await studentDocRef.get();
+  if (!studentDocSnap.exists) {
+    throw new functions.https.HttpsError(
+      "not-found",
+      "Student user document was not found.",
+    );
+  }
+
+  const studentDoc = studentDocSnap.data() || {};
+  const normalizedRole = normalizeRole(studentDoc.role || "student", "student");
+  if (normalizedRole !== "student") {
+    throw new functions.https.HttpsError(
+      "failed-precondition",
+      "Target user is not a student.",
+    );
+  }
+
+  let authRecord = null;
+  try {
+    authRecord = await admin.auth().getUser(normalizedStudentId);
+  } catch (_error) {
+    authRecord = null;
+  }
+
+  return {
+    studentId: normalizedStudentId,
+    docRef: studentDocRef,
+    doc: studentDoc,
+    authRecord,
+  };
+}
+
+function canCallerManagePlacementStudent(caller, studentContext) {
+  const callerUid = String(caller?.uid || "").trim();
+  const callerRole = String(caller?.role || "student").trim();
+  const studentDoc = studentContext?.doc || {};
+
+  if (!callerUid) return false;
+  if (callerRole === "admin") return true;
+
+  const ownerId = String(
+    studentDoc.ownerId || studentDoc.parentOwnerId || "",
+  ).trim();
+  const educatorId = String(studentDoc.educator || "").trim();
+  const studentSchoolId = String(studentDoc.schoolId || "").trim();
+  const callerSchoolId = String(caller?.doc?.schoolId || "").trim();
+
+  if (callerRole === "parent" || callerRole === "tutor") {
+    return ownerId === callerUid;
+  }
+
+  if (callerRole === "educator") {
+    return educatorId === callerUid || ownerId === callerUid;
+  }
+
+  if (callerRole === "schoolAdmin") {
+    if (
+      callerSchoolId &&
+      studentSchoolId &&
+      callerSchoolId === studentSchoolId
+    ) {
+      return true;
+    }
+    return educatorId === callerUid || ownerId === callerUid;
+  }
+
+  return false;
+}
+
+async function resolvePlacementTarget({ caller, requestedStudentId }) {
+  const hasRequestedTarget = Boolean(String(requestedStudentId || "").trim());
+  const targetStudentId = hasRequestedTarget
+    ? String(requestedStudentId || "").trim()
+    : String(caller.uid || "").trim();
+
+  const studentContext = await resolvePlacementStudentContext(targetStudentId);
+  const isSelf = String(caller.uid || "").trim() === targetStudentId;
+
+  if (!isSelf && !canCallerManagePlacementStudent(caller, studentContext)) {
+    throw new functions.https.HttpsError(
+      "permission-denied",
+      "You cannot manage placement data for this student.",
+    );
+  }
+
+  return {
+    targetStudentId,
+    studentContext,
+    isSelf,
+  };
+}
+
+exports.assignPlacementTest = functions.https.onCall(async (data, context) => {
+  const caller = await getCallerAccess(context);
+  const callerRole = String(caller.role || "student");
+  if (
+    callerRole !== "admin" &&
+    callerRole !== "schoolAdmin" &&
+    callerRole !== "educator" &&
+    callerRole !== "parent" &&
+    callerRole !== "tutor"
+  ) {
+    throw new functions.https.HttpsError(
+      "permission-denied",
+      "Only managers can assign placement tests.",
+    );
+  }
+
+  const { targetStudentId, studentContext } = await resolvePlacementTarget({
+    caller,
+    requestedStudentId: data?.studentId,
+  });
+
+  const assignmentRef = getFirestore()
+    .collection("placementAssignments")
+    .doc(targetStudentId);
+
+  await assignmentRef.set(
+    {
+      studentId: targetStudentId,
+      studentName: String(
+        studentContext?.doc?.name ||
+          studentContext?.doc?.displayName ||
+          studentContext?.doc?.username ||
+          targetStudentId,
+      ).trim(),
+      assignedByUid: String(caller.uid || "").trim(),
+      assignedByRole: callerRole,
+      assignedByEmail: String(caller.email || "")
+        .trim()
+        .toLowerCase(),
+      assignedAt: admin.firestore.FieldValue.serverTimestamp(),
+      active: true,
+    },
+    { merge: true },
+  );
+
+  return {
+    assigned: true,
+    studentId: targetStudentId,
+  };
+});
+
+exports.getPlacementAssignmentStatus = functions.https.onCall(
+  async (data, context) => {
+    const caller = await getCallerAccess(context);
+    const { targetStudentId } = await resolvePlacementTarget({
+      caller,
+      requestedStudentId: data?.studentId,
+    });
+
+    const assignmentSnap = await getFirestore()
+      .collection("placementAssignments")
+      .doc(targetStudentId)
+      .get();
+
+    if (!assignmentSnap.exists) {
+      return {
+        assigned: false,
+        studentId: targetStudentId,
+      };
+    }
+
+    const assignment = assignmentSnap.data() || {};
+    return {
+      assigned: Boolean(assignment.active !== false),
+      studentId: targetStudentId,
+      assignment: {
+        studentName: String(assignment.studentName || "").trim(),
+        assignedByUid: String(assignment.assignedByUid || "").trim(),
+        assignedByRole: String(assignment.assignedByRole || "").trim(),
+        assignedByEmail: String(assignment.assignedByEmail || "").trim(),
+        active: assignment.active !== false,
+      },
+    };
+  },
+);
+
+exports.getPlacementReport = functions.https.onCall(async (data, context) => {
+  const caller = await getCallerAccess(context);
+  const { targetStudentId } = await resolvePlacementTarget({
+    caller,
+    requestedStudentId: data?.studentId,
+  });
+
+  const reportSnap = await getFirestore()
+    .collection("placementReports")
+    .doc(targetStudentId)
+    .get();
+
+  if (!reportSnap.exists) {
+    return {
+      found: false,
+      studentId: targetStudentId,
+    };
+  }
+
+  const raw = reportSnap.data() || {};
+  return {
+    found: true,
+    studentId: targetStudentId,
+    attemptId: String(raw.attemptId || ""),
+    report: sanitizePlacementReport(raw.report || {}),
+    updatedAt: raw.updatedAt || null,
+    emailedAt: raw.emailedAt || null,
+  };
+});
+
+exports.submitPublicPlacementReport = functions.https.onCall(async (data) => {
+  const studentFirstName = String(data?.studentFirstName || "").trim();
+  const proctorFirstName = String(data?.proctorFirstName || "").trim();
+  const proctorLastName = String(data?.proctorLastName || "").trim();
+  const proctorEmail = String(data?.proctorEmail || "")
+    .trim()
+    .toLowerCase();
+
+  if (
+    !studentFirstName ||
+    !proctorFirstName ||
+    !proctorLastName ||
+    !proctorEmail
+  ) {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      "studentFirstName, proctorFirstName, proctorLastName, and proctorEmail are required.",
+    );
+  }
+
+  if (!isValidEmail(proctorEmail)) {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      "A valid proctor email is required.",
+    );
+  }
+
+  const safeReport = sanitizePlacementReport(data?.report || {});
+  const docRef = getFirestore().collection("placementPublicReports").doc();
+  const reportId = docRef.id;
+
+  await docRef.set({
+    reportId,
+    studentFirstName,
+    proctorFirstName,
+    proctorLastName,
+    proctorEmail,
+    report: safeReport,
+    status: "new",
+    submittedAt: admin.firestore.FieldValue.serverTimestamp(),
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    notifiedAdminAt: null,
+  });
+
+  const cfg = functions.config();
+  const alertCfg = (cfg && cfg.placement_alert) || {};
+  const configuredEmails = String(
+    alertCfg.admin_emails || alertCfg.admin_email || "",
+  )
+    .split(",")
+    .map((value) =>
+      String(value || "")
+        .trim()
+        .toLowerCase(),
+    )
+    .filter(Boolean);
+  const notifyEmails = Array.from(new Set(configuredEmails));
+
+  let emailQueued = false;
+  if (notifyEmails.length > 0) {
+    const reportLink = `/placement-reports?report=${encodeURIComponent(reportId)}`;
+    const subject = "New Public Placement Test Report";
+    const text = [
+      "A new public placement test report was submitted.",
+      `Student first name: ${studentFirstName}`,
+      `Proctor: ${proctorFirstName} ${proctorLastName}`,
+      `Proctor email: ${proctorEmail}`,
+      `Report ID: ${reportId}`,
+      `Report link: ${reportLink}`,
+    ].join("\n");
+    const html = `
+      <div style="font-family:Arial,sans-serif;line-height:1.5;color:#111;">
+        <h2>New Public Placement Test Report</h2>
+        <p><strong>Student first name:</strong> ${escapeHtml(studentFirstName)}</p>
+        <p><strong>Proctor:</strong> ${escapeHtml(proctorFirstName)} ${escapeHtml(
+          proctorLastName,
+        )}</p>
+        <p><strong>Proctor email:</strong> ${escapeHtml(proctorEmail)}</p>
+        <p><strong>Report ID:</strong> ${escapeHtml(reportId)}</p>
+        <p><strong>Report link:</strong> ${escapeHtml(reportLink)}</p>
+      </div>
+    `;
+
+    await queueEmailNotification({
+      to: notifyEmails,
+      subject,
+      text,
+      html,
+    });
+
+    await docRef.set(
+      {
+        notifiedAdminAt: admin.firestore.FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+    emailQueued = true;
+  }
+
+  return {
+    saved: true,
+    reportId,
+    emailQueued,
+  };
+});
+
+exports.getPlacementAdminAlerts = functions.https.onCall(
+  async (_data, context) => {
+    const caller = await getCallerAccess(context);
+    if (String(caller.role || "") !== "admin") {
+      throw new functions.https.HttpsError(
+        "permission-denied",
+        "Only admins can view placement admin alerts.",
+      );
+    }
+
+    const snap = await getFirestore()
+      .collection("placementPublicReports")
+      .where("status", "==", "new")
+      .limit(50)
+      .get();
+
+    const items = snap.docs
+      .map((doc) => {
+        const row = doc.data() || {};
+        return {
+          id: doc.id,
+          studentFirstName: String(row.studentFirstName || "").trim(),
+          proctorFirstName: String(row.proctorFirstName || "").trim(),
+          proctorLastName: String(row.proctorLastName || "").trim(),
+          proctorEmail: String(row.proctorEmail || "")
+            .trim()
+            .toLowerCase(),
+          recommendedStartPart:
+            Number(row?.report?.recommendedStartPart || 0) || null,
+          submittedAt: row.submittedAt || null,
+        };
+      })
+      .sort((a, b) => {
+        const aMs = a.submittedAt?.toMillis ? a.submittedAt.toMillis() : 0;
+        const bMs = b.submittedAt?.toMillis ? b.submittedAt.toMillis() : 0;
+        return bMs - aMs;
+      })
+      .slice(0, 25);
+
+    return {
+      newCount: items.length,
+      items,
+    };
+  },
+);
+
+exports.listPlacementPublicReports = functions.https.onCall(
+  async (data, context) => {
+    const caller = await getCallerAccess(context);
+    if (String(caller.role || "") !== "admin") {
+      throw new functions.https.HttpsError(
+        "permission-denied",
+        "Only admins can list public placement reports.",
+      );
+    }
+
+    const status = String(data?.status || "all")
+      .trim()
+      .toLowerCase();
+    const limitRaw = Number(data?.limit || 50);
+    const limit = Math.max(
+      1,
+      Math.min(100, Number.isFinite(limitRaw) ? limitRaw : 50),
+    );
+
+    let query = getFirestore().collection("placementPublicReports");
+    if (status === "new" || status === "reviewed") {
+      query = query.where("status", "==", status);
+    }
+
+    const fetchLimit = Math.max(limit, 200);
+    const snap =
+      status === "all"
+        ? await query.orderBy("submittedAt", "desc").limit(limit).get()
+        : await query.limit(fetchLimit).get();
+    const rows = snap.docs
+      .map((doc) => {
+        const row = doc.data() || {};
+        return {
+          id: doc.id,
+          status: String(row.status || "new"),
+          studentFirstName: String(row.studentFirstName || "").trim(),
+          proctorFirstName: String(row.proctorFirstName || "").trim(),
+          proctorLastName: String(row.proctorLastName || "").trim(),
+          proctorEmail: String(row.proctorEmail || "")
+            .trim()
+            .toLowerCase(),
+          recommendedStartPart:
+            Number(row?.report?.recommendedStartPart || 0) || null,
+          stoppedAtPartNumber:
+            Number(row?.report?.stoppedAtPartNumber || 0) || null,
+          submittedAt: row.submittedAt || null,
+          reviewedAt: row.reviewedAt || null,
+        };
+      })
+      .sort((a, b) => {
+        const aMs = a.submittedAt?.toMillis ? a.submittedAt.toMillis() : 0;
+        const bMs = b.submittedAt?.toMillis ? b.submittedAt.toMillis() : 0;
+        return bMs - aMs;
+      })
+      .slice(0, limit);
+
+    return { rows };
+  },
+);
+
+exports.getPlacementPublicReport = functions.https.onCall(
+  async (data, context) => {
+    const caller = await getCallerAccess(context);
+    if (String(caller.role || "") !== "admin") {
+      throw new functions.https.HttpsError(
+        "permission-denied",
+        "Only admins can read public placement reports.",
+      );
+    }
+
+    const reportId = String(data?.reportId || "").trim();
+    if (!reportId) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "reportId is required.",
+      );
+    }
+
+    const snap = await getFirestore()
+      .collection("placementPublicReports")
+      .doc(reportId)
+      .get();
+    if (!snap.exists) {
+      throw new functions.https.HttpsError("not-found", "Report not found.");
+    }
+
+    const row = snap.data() || {};
+    return {
+      id: snap.id,
+      status: String(row.status || "new"),
+      studentFirstName: String(row.studentFirstName || "").trim(),
+      proctorFirstName: String(row.proctorFirstName || "").trim(),
+      proctorLastName: String(row.proctorLastName || "").trim(),
+      proctorEmail: String(row.proctorEmail || "")
+        .trim()
+        .toLowerCase(),
+      submittedAt: row.submittedAt || null,
+      reviewedAt: row.reviewedAt || null,
+      report: sanitizePlacementReport(row.report || {}),
+    };
+  },
+);
+
+exports.markPlacementPublicReportReviewed = functions.https.onCall(
+  async (data, context) => {
+    const caller = await getCallerAccess(context);
+    if (String(caller.role || "") !== "admin") {
+      throw new functions.https.HttpsError(
+        "permission-denied",
+        "Only admins can review public placement reports.",
+      );
+    }
+
+    const reportId = String(data?.reportId || "").trim();
+    if (!reportId) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "reportId is required.",
+      );
+    }
+
+    await getFirestore()
+      .collection("placementPublicReports")
+      .doc(reportId)
+      .set(
+        {
+          status: "reviewed",
+          reviewedAt: admin.firestore.FieldValue.serverTimestamp(),
+          reviewedByUid: String(caller.uid || "").trim(),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+
+    return {
+      reviewed: true,
+      reportId,
+    };
+  },
+);
+
+exports.upsertPlacementReport = functions.https.onCall(
+  async (data, context) => {
+    if (!context.auth || !context.auth.uid) {
+      throw new functions.https.HttpsError(
+        "unauthenticated",
+        "You must be signed in to save a placement report.",
+      );
+    }
+
+    const attemptId = String(data?.attemptId || "").trim();
+    if (!attemptId) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "attemptId is required.",
+      );
+    }
+
+    const caller = await getCallerAccess(context);
+    const safeReport = sanitizePlacementReport(data?.report || {});
+    const { targetStudentId, studentContext, isSelf } =
+      await resolvePlacementTarget({
+        caller,
+        requestedStudentId: data?.studentId,
+      });
+
+    const callerTokenEmailVerified =
+      context?.auth?.token?.email_verified !== false;
+    const targetEmail = String(
+      studentContext?.authRecord?.email || studentContext?.doc?.email || "",
+    )
+      .trim()
+      .toLowerCase();
+    const emailVerified = isSelf
+      ? callerTokenEmailVerified
+      : Boolean(studentContext?.authRecord?.emailVerified);
+
+    const docRef = getFirestore()
+      .collection("placementReports")
+      .doc(targetStudentId);
+    const existing = await docRef.get();
+    const existingData = existing.exists ? existing.data() || {} : {};
+    const alreadyEmailedAttempt =
+      String(existingData.lastEmailedAttemptId || "") === attemptId;
+
+    await docRef.set(
+      {
+        uid: targetStudentId,
+        email: targetEmail,
+        emailVerified,
+        attemptId,
+        report: safeReport,
+        updatedByUid: String(caller.uid || "").trim(),
+        updatedByRole: String(caller.role || "student").trim(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt:
+          existingData.createdAt ||
+          admin.firestore.FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+
+    let emailed = false;
+    if (emailVerified && targetEmail && !alreadyEmailedAttempt) {
+      const content = buildPlacementReportEmailContent({
+        report: safeReport,
+        recipientLabel: targetEmail,
+      });
+      await queueEmailNotification({
+        to: targetEmail,
+        subject: "Your Sound Spell Type Online Placement Report",
+        text: content.text,
+        html: content.html,
+      });
+
+      await docRef.set(
+        {
+          lastEmailedAttemptId: attemptId,
+          emailedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+      emailed = true;
+    }
+
+    return {
+      saved: true,
+      emailed,
+      needsVerification: !emailVerified,
+      attemptId,
+      studentId: targetStudentId,
+    };
+  },
+);
+
 exports.applyWordFix = functions.https.onCall(async (data, context) => {
   try {
     if (_initError) {
@@ -916,6 +1523,154 @@ async function queueEmailNotification({ to, subject, text, html }) {
     });
 
   return { queued: true };
+}
+
+const escapeHtml = (value) =>
+  String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
+const toFiniteNumberOrNull = (value) => {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+};
+
+function sanitizePlacementReport(rawReport) {
+  const report = rawReport && typeof rawReport === "object" ? rawReport : {};
+  const partResults = Array.isArray(report.partResults)
+    ? report.partResults.map((part) => {
+        const words = Array.isArray(part?.words)
+          ? part.words.map((wordResult) => ({
+              word: String(wordResult?.word || "").trim(),
+              typed: String(wordResult?.typed || "").trim(),
+              isCorrect: Boolean(wordResult?.isCorrect),
+              correctSpelling: String(wordResult?.correctSpelling || "").trim(),
+              alternatives: Array.isArray(wordResult?.alternatives)
+                ? wordResult.alternatives
+                    .map((alt) => String(alt || "").trim())
+                    .filter(Boolean)
+                : [],
+            }))
+          : [];
+
+        return {
+          partNumber: toFiniteNumberOrNull(part?.partNumber),
+          partTitle: String(part?.partTitle || "").trim(),
+          wrongCount: toFiniteNumberOrNull(part?.wrongCount) || 0,
+          outcome: {
+            code: String(part?.outcome?.code || "").trim(),
+            note: String(part?.outcome?.note || "").trim(),
+          },
+          words,
+        };
+      })
+    : [];
+
+  return {
+    version: toFiniteNumberOrNull(report.version) || 1,
+    generatedAt: String(report.generatedAt || new Date().toISOString()),
+    recommendedStartPart:
+      toFiniteNumberOrNull(report.recommendedStartPart) || 1,
+    stoppedAtPartNumber: toFiniteNumberOrNull(report.stoppedAtPartNumber),
+    retakeWarning: String(report.retakeWarning || "").trim(),
+    partResults,
+  };
+}
+
+function buildPlacementReportEmailContent({ report, recipientLabel = "" }) {
+  const safeRecipient = escapeHtml(recipientLabel || "Student");
+  const recommended = escapeHtml(report.recommendedStartPart);
+  const stoppedAt = report.stoppedAtPartNumber
+    ? `<p><strong>Assessment stopped at Part ${escapeHtml(
+        report.stoppedAtPartNumber,
+      )}.</strong></p>`
+    : "";
+
+  const partRows = (Array.isArray(report.partResults) ? report.partResults : [])
+    .map((part) => {
+      const words = (Array.isArray(part.words) ? part.words : [])
+        .map((w) => {
+          const status = w.isCorrect ? "Correct" : "Incorrect";
+          const typed = escapeHtml(w.typed || "(blank)");
+          const correct = escapeHtml(w.correctSpelling || "");
+          const alternatives =
+            Array.isArray(w.alternatives) && w.alternatives.length
+              ? ` (alternatives: ${escapeHtml(w.alternatives.join(", "))})`
+              : "";
+          const correction = w.isCorrect
+            ? ""
+            : ` - typed: <strong>${typed}</strong>; correct: <strong>${correct}</strong>${alternatives}`;
+          return `<li>${escapeHtml(w.word)}: ${status}${correction}</li>`;
+        })
+        .join("");
+
+      return `
+        <section style="margin:12px 0;padding:12px;border:1px solid #ddd;border-radius:8px;">
+          <h3 style="margin:0 0 6px 0;">Part ${escapeHtml(part.partNumber)}: ${escapeHtml(
+            part.partTitle,
+          )}</h3>
+          <p style="margin:0 0 6px 0;"><strong>Wrong answers:</strong> ${escapeHtml(
+            part.wrongCount,
+          )}</p>
+          <p style="margin:0 0 6px 0;">${escapeHtml(part?.outcome?.note || "")}</p>
+          <ul style="margin:0;padding-left:18px;">${words}</ul>
+        </section>
+      `;
+    })
+    .join("");
+
+  const html = `
+    <div style="font-family:Arial,sans-serif;line-height:1.5;color:#111;">
+      <h2>Sound Spell Type Online Placement Report</h2>
+      <p>Hello ${safeRecipient},</p>
+      <p><strong>Recommended starting part:</strong> Part ${recommended}</p>
+      ${stoppedAt}
+      ${report.retakeWarning ? `<p>${escapeHtml(report.retakeWarning)}</p>` : ""}
+      ${partRows}
+    </div>
+  `;
+
+  const textLines = [];
+  textLines.push("Sound Spell Type Online Placement Report");
+  textLines.push(
+    `Recommended starting part: Part ${report.recommendedStartPart}`,
+  );
+  if (report.stoppedAtPartNumber) {
+    textLines.push(`Assessment stopped at Part ${report.stoppedAtPartNumber}.`);
+  }
+  if (report.retakeWarning) {
+    textLines.push(report.retakeWarning);
+  }
+
+  (Array.isArray(report.partResults) ? report.partResults : []).forEach(
+    (part) => {
+      textLines.push("");
+      textLines.push(`Part ${part.partNumber}: ${part.partTitle}`);
+      textLines.push(`Wrong answers: ${part.wrongCount}`);
+      if (part?.outcome?.note) {
+        textLines.push(part.outcome.note);
+      }
+      (Array.isArray(part.words) ? part.words : []).forEach((w) => {
+        if (w.isCorrect) {
+          textLines.push(`- ${w.word}: Correct`);
+        } else {
+          textLines.push(
+            `- ${w.word}: Incorrect (typed: ${w.typed || "(blank)"}; correct: ${
+              w.correctSpelling
+            })`,
+          );
+        }
+      });
+    },
+  );
+
+  return {
+    html,
+    text: textLines.join("\n"),
+  };
 }
 
 async function countTopAdmins() {

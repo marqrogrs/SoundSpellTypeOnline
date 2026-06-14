@@ -16,9 +16,14 @@ import {
   authenticateStudent,
   db,
   ensureInitialAdmin,
+  upsertPlacementReport,
   resolveMyRoleContext,
   requestSchoolAdminAccess,
 } from "../firebase";
+import {
+  clearPendingPlacementReport,
+  readPendingPlacementReport,
+} from "../util/placementStorage";
 
 const AuthContext = React.createContext();
 const ROLE_CONTEXT_CACHE_TTL_MS = 120000;
@@ -28,6 +33,30 @@ const nowMs = () =>
   typeof performance !== "undefined" && typeof performance.now === "function"
     ? performance.now()
     : Date.now();
+
+const flushPendingPlacementReport = async (user) => {
+  if (!user || !user.emailVerified) {
+    return;
+  }
+
+  const pending = readPendingPlacementReport();
+  if (!pending || !pending.report) {
+    return;
+  }
+
+  try {
+    const result = await upsertPlacementReport({
+      attemptId: pending.attemptId || `placement-${Date.now()}`,
+      report: pending.report,
+    });
+    const data = result?.data || {};
+    if (data?.emailed || !data?.needsVerification) {
+      clearPendingPlacementReport();
+    }
+  } catch (_error) {
+    // Keep pending report for the next verified sign-in attempt.
+  }
+};
 
 const cloneRoleContextValue = (
   value,
@@ -638,6 +667,9 @@ const Auth = ({ children }) => {
       }
       setUser(user);
       setIsLoaded(true);
+      if (user && user.emailVerified) {
+        flushPendingPlacementReport(user);
+      }
       const sessionId = user
         ? startPerfSession({
             uid: user.uid,

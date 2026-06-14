@@ -10,6 +10,7 @@ const TouchTyping = React.lazy(() => import("../pages/TouchTyping"));
 const SoundSpelling = React.lazy(() => import("../pages/SoundSpelling"));
 const AccountSetUp = React.lazy(() => import("../pages/AccountSetUp"));
 const ContactUs = React.lazy(() => import("../pages/ContactUs"));
+const PlacementTest = React.lazy(() => import("../pages/PlacementTest"));
 
 export default function PublicRoutes({ user }) {
   return (
@@ -43,6 +44,9 @@ export default function PublicRoutes({ user }) {
           </Route>
           <Route exact path="/contact-us">
             <ContactUs />
+          </Route>
+          <Route exact path="/placement-test">
+            <PlacementTest />
           </Route>
           {/* <Route exact path='/lessons'>
             <Redirect to='/' />

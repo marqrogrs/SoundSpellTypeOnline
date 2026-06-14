@@ -25,6 +25,8 @@ const Management = React.lazy(() => import("../pages/Management"));
 const StudentProgressDashboard = React.lazy(
   () => import("../pages/StudentProgressDashboard"),
 );
+const PlacementTest = React.lazy(() => import("../pages/PlacementTest"));
+const PlacementReports = React.lazy(() => import("../pages/PlacementReports"));
 
 export default function PrivateRoutes({
   user,
@@ -123,6 +125,14 @@ export default function PrivateRoutes({
             <Route exact path="/contact-us">
               <ContactUs />
             </Route>
+            <Route exact path="/placement-test">
+              <PlacementTest />
+            </Route>
+            {isAdmin && (
+              <Route exact path="/placement-reports">
+                <PlacementReports />
+              </Route>
+            )}
             <Route
               exact
               path="/lesson/custom/:lessonId"

@@ -153,6 +153,30 @@ export const adminListSchoolAdminRequests = timedCallable(
 export const adminReviewSchoolAdminRequest = timedCallable(
   "adminReviewSchoolAdminRequest",
 );
+export const upsertPlacementReport = timedCallable("upsertPlacementReport");
+export const assignPlacementTest = timedCallable("assignPlacementTest");
+export const getPlacementReport = timedCallable("getPlacementReport");
+export const getPlacementAssignmentStatus = timedCallable(
+  "getPlacementAssignmentStatus",
+);
+export const submitPublicPlacementReport = timedCallable(
+  "submitPublicPlacementReport",
+);
+export const getPlacementAdminAlerts = timedCallable(
+  "getPlacementAdminAlerts",
+  {
+    dedupeInFlight: true,
+  },
+);
+export const listPlacementPublicReports = timedCallable(
+  "listPlacementPublicReports",
+);
+export const getPlacementPublicReport = timedCallable(
+  "getPlacementPublicReport",
+);
+export const markPlacementPublicReportReviewed = timedCallable(
+  "markPlacementPublicReportReviewed",
+);
 
 // ─── v2 Org Management callables ─────────────────────────────────────────────
 export const mgmtListData = timedCallable("mgmtListData", {

@@ -18,6 +18,7 @@ import IconButton from "@material-ui/core/IconButton";
 import AccountCircle from "@material-ui/icons/AccountCircle";
 
 import { useAuth } from "../hooks/useAuth";
+import { getPlacementAssignmentStatus } from "../firebase";
 import { UserContext } from "../providers/UserProvider";
 import { getCustomLesson } from "../util/customLessonHelpers";
 
@@ -31,8 +32,18 @@ export default function AppBar({ user }) {
 
   const rightMenuOpen = Boolean(rightAnchorEl);
   const leftMenuOpen = Boolean(leftAnchorEl);
+  const [studentHasPlacementAssignment, setStudentHasPlacementAssignment] =
+    useState(false);
 
   const { wordsMasteredTotal, userData } = useContext(UserContext);
+  const isManagerRole =
+    auth.isAdmin ||
+    auth.isSchoolAdmin ||
+    auth.isEducator ||
+    auth.isParent ||
+    auth.isTutor;
+  const showInternalPlacementTest =
+    isManagerRole || studentHasPlacementAssignment;
   const hasFirstLessonAttempted = Boolean(
     userData?.firstLessonAttemptedAt || userData?.first_lesson_attempted_at,
   );
@@ -80,6 +91,42 @@ export default function AppBar({ user }) {
       isActive = false;
     };
   }, [customLessonId]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    if (!auth.user) {
+      setStudentHasPlacementAssignment(false);
+      return () => {
+        isMounted = false;
+      };
+    }
+
+    if (isManagerRole) {
+      setStudentHasPlacementAssignment(false);
+      return () => {
+        isMounted = false;
+      };
+    }
+
+    const checkAssignment = async () => {
+      try {
+        const result = await getPlacementAssignmentStatus({});
+        if (!isMounted) return;
+        const data = result?.data || {};
+        setStudentHasPlacementAssignment(Boolean(data.assigned));
+      } catch (_error) {
+        if (!isMounted) return;
+        setStudentHasPlacementAssignment(false);
+      }
+    };
+
+    checkAssignment();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [auth.user, isManagerRole]);
 
   const formatBreadcrumbLabel = (segment, index) => {
     if (
@@ -155,6 +202,11 @@ export default function AppBar({ user }) {
     history.push("/management");
   };
 
+  const handleViewPlacementReports = () => {
+    history.push("/placement-reports");
+    setRightAnchorEl(null);
+  };
+
   const handleViewStudentProgress = () => {
     history.push("/student-progress");
     setRightAnchorEl(null);
@@ -188,6 +240,12 @@ export default function AppBar({ user }) {
   const handleViewContactUs = () => {
     window.location.assign("mailto:mark@birdhaven.us");
     setLeftAnchorEl(null);
+  };
+
+  const handleViewPlacementTest = () => {
+    history.push("/placement-test");
+    setLeftAnchorEl(null);
+    setRightAnchorEl(null);
   };
 
   const handleViewHome = () => {
@@ -234,6 +292,11 @@ export default function AppBar({ user }) {
             }}
           >
             {!user && <MenuItem onClick={handleViewHome}>Home</MenuItem>}
+            {!user && (
+              <MenuItem onClick={handleViewPlacementTest}>
+                Placement Test
+              </MenuItem>
+            )}
             <MenuItem onClick={handleViewAbout}>About</MenuItem>
             <MenuItem onClick={handleViewScopeSequence}>
               Scope & Sequence
@@ -287,6 +350,11 @@ export default function AppBar({ user }) {
                   onMouseLeave: () => handleMenuMouseLeave("right"),
                 }}
               >
+                {showInternalPlacementTest && (
+                  <MenuItem onClick={handleViewPlacementTest}>
+                    Placement Test
+                  </MenuItem>
+                )}
                 <MenuItem onClick={handleViewLessons}>My Progress</MenuItem>
                 {(auth.isAdmin ||
                   auth.isSchoolAdmin ||
@@ -306,6 +374,11 @@ export default function AppBar({ user }) {
                   auth.isParent ||
                   auth.isTutor) && (
                   <MenuItem onClick={handleViewManagement}>Management</MenuItem>
+                )}
+                {auth.isAdmin && (
+                  <MenuItem onClick={handleViewPlacementReports}>
+                    Placement Reports
+                  </MenuItem>
                 )}
                 <MenuItem onClick={handleSignOut}>Sign Out</MenuItem>
                 {/* <MenuItem onClick={() => history.push('/contact-us')}>
