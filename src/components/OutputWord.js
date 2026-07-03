@@ -677,6 +677,19 @@ export default function OutputWord({
       ]);
     };
 
+    const speakWholeWordWithRetry = async (word) => {
+      const firstAttempt = await withTimeout(speakWordSlow(word), 3500, false);
+      if (firstAttempt) {
+        return true;
+      }
+
+      // Some browsers silently drop the first utterance after audio unlock.
+      // Retry once before continuing into the phoneme sequence.
+      await wait(120);
+      const secondAttempt = await withTimeout(speakWordSlow(word), 3500, false);
+      return Boolean(secondAttempt);
+    };
+
     const playWordFlow = async () => {
       try {
         await primeAudioPlayback();
@@ -862,6 +875,15 @@ export default function OutputWord({
         setActiveStepIndex(-1);
       }
 
+      if (speakPhonemeCue) {
+        // Make the word audible before the cue sequence starts so users hear
+        // the target word even if the later closing TTS is delayed or cut off.
+        await speakWholeWordWithRetry(wordFromSource);
+        if (isCancelled) {
+          return;
+        }
+      }
+
       const syllableCount = Math.max(1, wordDataBySyllable.length);
       const graphemeIndicesBySyllable = Array.from(
         { length: syllableCount },
@@ -984,7 +1006,7 @@ export default function OutputWord({
       }
 
       // 7) Speak the full word with TTS.
-      await withTimeout(speakWordSlow(wordFromSource), 2500, null);
+      await speakWholeWordWithRetry(wordFromSource);
 
       setDisplayedGraphemeUnits([]);
       signalReadyOnce();

@@ -91,6 +91,105 @@ const escapeXml = (value) =>
     .replace(/\"/g, "&quot;")
     .replace(/'/g, "&apos;");
 
+async function synthesizeWordAudioInternal(data) {
+  const word = String((data && data.word) || "").trim();
+  const ipa = String((data && data.ipa) || "").trim();
+
+  if (!word) {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      "word is required.",
+    );
+  }
+
+  let key = "";
+  let region = "";
+  let voice = "en-US-JennyNeural";
+
+  try {
+    const cfg =
+      typeof functions.config === "function" ? functions.config() : null;
+    key = (cfg && cfg.azure_tts && cfg.azure_tts.key) || "";
+    region = (cfg && cfg.azure_tts && cfg.azure_tts.region) || "";
+    voice =
+      (cfg && cfg.azure_tts && cfg.azure_tts.voice) || "en-US-JennyNeural";
+  } catch (_configError) {
+    // functions.config() is unavailable in newer runtimes.
+  }
+
+  key = String(key || process.env.AZURE_TTS_KEY || "").trim();
+  region = String(region || process.env.AZURE_TTS_REGION || "").trim();
+  voice = String(voice || process.env.AZURE_TTS_VOICE || "en-US-JennyNeural");
+
+  if (!key || !region) {
+    try {
+      const fallbackEndpoint =
+        "https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=en&q=" +
+        encodeURIComponent(word);
+      const fallbackResponse = await fetch(fallbackEndpoint, {
+        headers: {
+          "User-Agent": "Mozilla/5.0",
+        },
+      });
+      if (fallbackResponse.ok) {
+        const fallbackBuffer = await fallbackResponse.arrayBuffer();
+        return {
+          available: true,
+          mimeType: "audio/mpeg",
+          audioBase64: Buffer.from(fallbackBuffer).toString("base64"),
+          provider: "google-translate",
+        };
+      }
+    } catch (fallbackError) {
+      console.error("Google translate TTS fallback failed", fallbackError);
+    }
+
+    return {
+      available: false,
+      reason: "not-configured",
+    };
+  }
+
+  const endpoint = `https://${region}.tts.speech.microsoft.com/cognitiveservices/v1`;
+  const escapedWord = escapeXml(word);
+  const ssml = ipa
+    ? `<speak version="1.0" xml:lang="en-US"><voice xml:lang="en-US" name="${escapeXml(voice)}"><phoneme alphabet="ipa" ph="${escapeXml(ipa)}">${escapedWord}</phoneme></voice></speak>`
+    : `<speak version="1.0" xml:lang="en-US"><voice xml:lang="en-US" name="${escapeXml(voice)}">${escapedWord}</voice></speak>`;
+
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Ocp-Apim-Subscription-Key": key,
+      "Content-Type": "application/ssml+xml",
+      "X-Microsoft-OutputFormat": "audio-16khz-64kbitrate-mono-mp3",
+      "User-Agent": "sound-spell-type-online-functions",
+    },
+    body: ssml,
+  });
+
+  if (!response.ok) {
+    const bodyText = await response.text().catch(() => "");
+    console.error("synthesizeWordAudio failed", {
+      status: response.status,
+      bodyText,
+    });
+    throw new functions.https.HttpsError(
+      "internal",
+      `TTS provider returned ${response.status}.`,
+    );
+  }
+
+  const arrayBuffer = await response.arrayBuffer();
+  const audioBase64 = Buffer.from(arrayBuffer).toString("base64");
+
+  return {
+    available: true,
+    mimeType: "audio/mpeg",
+    audioBase64,
+    provider: "azure",
+  };
+}
+
 exports.authenticateStudent = functions.https.onCall(async (data, context) => {
   const { username, password } = data || {};
   const requestUser = String(username || "").trim();
@@ -278,68 +377,8 @@ exports.resetStudentPassword = functions.https.onCall(async (data, context) => {
 });
 
 exports.synthesizeWordAudio = functions.https.onCall(async (data) => {
-  const word = String((data && data.word) || "").trim();
-  const ipa = String((data && data.ipa) || "").trim();
-
-  if (!word) {
-    throw new functions.https.HttpsError(
-      "invalid-argument",
-      "word is required.",
-    );
-  }
-
-  const cfg = functions.config();
-  const key = cfg && cfg.azure_tts && cfg.azure_tts.key;
-  const region = cfg && cfg.azure_tts && cfg.azure_tts.region;
-  const voice =
-    (cfg && cfg.azure_tts && cfg.azure_tts.voice) || "en-US-JennyNeural";
-
-  if (!key || !region) {
-    return {
-      available: false,
-      reason: "not-configured",
-    };
-  }
-
-  const endpoint = `https://${region}.tts.speech.microsoft.com/cognitiveservices/v1`;
-  const escapedWord = escapeXml(word);
-  const ssml = ipa
-    ? `<speak version="1.0" xml:lang="en-US"><voice xml:lang="en-US" name="${escapeXml(voice)}"><phoneme alphabet="ipa" ph="${escapeXml(ipa)}">${escapedWord}</phoneme></voice></speak>`
-    : `<speak version="1.0" xml:lang="en-US"><voice xml:lang="en-US" name="${escapeXml(voice)}">${escapedWord}</voice></speak>`;
-
   try {
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        "Ocp-Apim-Subscription-Key": key,
-        "Content-Type": "application/ssml+xml",
-        "X-Microsoft-OutputFormat": "audio-16khz-64kbitrate-mono-mp3",
-        "User-Agent": "sound-spell-type-online-functions",
-      },
-      body: ssml,
-    });
-
-    if (!response.ok) {
-      const bodyText = await response.text().catch(() => "");
-      console.error("synthesizeWordAudio failed", {
-        status: response.status,
-        bodyText,
-      });
-      throw new functions.https.HttpsError(
-        "internal",
-        `TTS provider returned ${response.status}.`,
-      );
-    }
-
-    const arrayBuffer = await response.arrayBuffer();
-    const audioBase64 = Buffer.from(arrayBuffer).toString("base64");
-
-    return {
-      available: true,
-      mimeType: "audio/mpeg",
-      audioBase64,
-      provider: "azure",
-    };
+    return await synthesizeWordAudioInternal(data);
   } catch (error) {
     if (error instanceof functions.https.HttpsError) {
       throw error;
@@ -351,6 +390,33 @@ exports.synthesizeWordAudio = functions.https.onCall(async (data) => {
     );
   }
 });
+
+exports.synthesizeWordAudioHttp = functions.https.onRequest(
+  async (req, res) => {
+    res.set("Access-Control-Allow-Origin", "*");
+    res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+    res.set("Access-Control-Allow-Headers", "Content-Type");
+
+    if (req.method === "OPTIONS") {
+      res.status(204).send("");
+      return;
+    }
+
+    if (req.method !== "POST") {
+      res.status(405).json({ error: "method-not-allowed" });
+      return;
+    }
+
+    try {
+      const result = await synthesizeWordAudioInternal(req.body || {});
+      res.status(200).json(result);
+    } catch (error) {
+      const code = error?.code || "internal";
+      const message = error?.message || "Failed to synthesize audio.";
+      res.status(500).json({ available: false, error: code, message });
+    }
+  },
+);
 
 async function resolvePlacementStudentContext(studentId) {
   const normalizedStudentId = String(studentId || "").trim();
@@ -569,6 +635,69 @@ exports.getPlacementReport = functions.https.onCall(async (data, context) => {
     report: sanitizePlacementReport(raw.report || {}),
     updatedAt: raw.updatedAt || null,
     emailedAt: raw.emailedAt || null,
+  };
+});
+
+exports.getPlacementWordOverrides = functions.https.onCall(async (data) => {
+  const normalizeWordKey = (value) =>
+    String(value || "")
+      .trim()
+      .toUpperCase();
+
+  const requestedWords = Array.isArray(data?.words) ? data.words : [];
+  const normalizedWords = Array.from(
+    new Set(
+      requestedWords
+        .map((word) => normalizeWordKey(word))
+        .filter((word) => /^[A-Z]+$/.test(word)),
+    ),
+  );
+
+  if (!normalizedWords.length) {
+    return { overrides: {} };
+  }
+
+  if (normalizedWords.length > 500) {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      "Too many words requested.",
+    );
+  }
+
+  const docs = await Promise.all(
+    normalizedWords.map((wordKey) =>
+      getFirestore().collection("words").doc(wordKey).get(),
+    ),
+  );
+
+  const overrides = {};
+  docs.forEach((doc) => {
+    if (!doc.exists) {
+      return;
+    }
+
+    const payload = doc.data() || {};
+    const graphemes = Array.isArray(payload.graphemes)
+      ? payload.graphemes
+      : null;
+    const phonemes = Array.isArray(payload.phonemes) ? payload.phonemes : null;
+
+    if (!graphemes && !phonemes) {
+      return;
+    }
+
+    overrides[
+      String(doc.id || "")
+        .trim()
+        .toUpperCase()
+    ] = {
+      graphemes,
+      phonemes,
+    };
+  });
+
+  return {
+    overrides,
   };
 });
 
@@ -3135,4 +3264,7 @@ exports.mgmtBootstrapParentHomeScope = orgMgmt.mgmtBootstrapParentHomeScope;
 exports.mgmtParentCreateStudent = orgMgmt.mgmtParentCreateStudent;
 exports.mgmtAssignSchoolAdmin = orgMgmt.mgmtAssignSchoolAdmin;
 exports.mgmtAssignEducatorToSchool = orgMgmt.mgmtAssignEducatorToSchool;
+exports.mgmtListAccountabilityQueue = orgMgmt.mgmtListAccountabilityQueue;
+exports.mgmtRecordAccountabilityReminder =
+  orgMgmt.mgmtRecordAccountabilityReminder;
 exports.mgmtDebugUser = orgMgmt.mgmtDebugUser;

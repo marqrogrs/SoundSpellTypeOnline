@@ -4,6 +4,7 @@ import AppBar from "../components/AppBar";
 
 const StudentLogin = React.lazy(() => import("../pages/StudentLogin"));
 const EducatorLogin = React.lazy(() => import("../pages/EducatorLogin"));
+const Landing = React.lazy(() => import("../pages/Landing"));
 const About = React.lazy(() => import("../pages/About"));
 const ScopeSequence = React.lazy(() => import("../pages/ScopeSequence"));
 const TouchTyping = React.lazy(() => import("../pages/TouchTyping"));
@@ -19,7 +20,7 @@ export default function PublicRoutes({ user }) {
       <Suspense fallback={<div>Loading page...</div>}>
         <Switch>
           <Route exact path="/">
-            <EducatorLogin />
+            <Landing />
           </Route>
           <Route exact path="/student">
             <StudentLogin />

@@ -1,10 +1,7 @@
 import React, { useEffect, useRef } from "react";
-import {
-  primeAudioPlayback,
-  speakWordSlow,
-  speakPhoneme,
-  stopSpeaking,
-} from "../util/Audio";
+import { playPlacementWordSequence, primeAudioPlayback } from "../util/Audio";
+
+const PRIME_AUDIO_TIMEOUT_MS = 50;
 
 export default function PlacementOutputWord({
   word,
@@ -29,36 +26,24 @@ export default function PlacementOutputWord({
 
     const play = async () => {
       try {
-        await primeAudioPlayback();
-      } catch (_error) {
-        // Continue even if priming fails.
-      }
-
-      try {
-        await speakWordSlow(word);
-
-        for (const phoneme of Array.isArray(phonemes) ? phonemes : []) {
-          if (cancelled) {
-            return;
-          }
-          await speakPhoneme(phoneme);
-        }
-
-        if (!cancelled) {
-          await speakWordSlow(word);
-        }
+        await Promise.race([
+          primeAudioPlayback(),
+          new Promise((resolve) => setTimeout(resolve, PRIME_AUDIO_TIMEOUT_MS)),
+        ]);
+        await playPlacementWordSequence(word, phonemes, {
+          shouldContinue: () => !cancelled,
+          speakWordStages: true,
+          replayWordAfterPhonemes: true,
+        });
       } finally {
         signalReady();
       }
     };
 
-    const timeoutId = setTimeout(signalReady, 12000);
     play();
 
     return () => {
       cancelled = true;
-      clearTimeout(timeoutId);
-      stopSpeaking();
     };
   }, [phonemes, runKey, word]);
 

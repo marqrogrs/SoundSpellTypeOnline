@@ -219,6 +219,9 @@ function createHarness({
       onCall(fn) {
         return fn;
       },
+      onRequest(fn) {
+        return fn;
+      },
     },
     config() {
       return {};
@@ -228,6 +231,28 @@ function createHarness({
   const originalLoad = Module._load;
   Module._load = function patchedLoad(request, parent, isMain) {
     if (request === "firebase-admin") return adminMock;
+    if (request === "firebase-admin/app") {
+      return {
+        getApps: () => adminMock.apps,
+        initializeApp: (...args) => adminMock.initializeApp(...args),
+      };
+    }
+    if (request === "firebase-admin/auth") {
+      return {
+        getAuth: () => adminMock.auth(),
+      };
+    }
+    if (request === "firebase-admin/database") {
+      return {
+        getDatabase: () => adminMock.database(),
+      };
+    }
+    if (request === "firebase-admin/firestore") {
+      return {
+        getFirestore: () => adminMock.firestore(),
+        FieldValue: adminMock.firestore.FieldValue,
+      };
+    }
     if (request === "firebase-functions") return functionsMock;
     if (request === "firebase-functions/v1") return functionsMock;
     return originalLoad.call(this, request, parent, isMain);

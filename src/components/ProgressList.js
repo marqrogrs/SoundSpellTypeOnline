@@ -30,6 +30,20 @@ const LESSON_SECTIONS_CACHE_KEY = "progress:lessonSections:v1";
 const LESSON_SECTIONS_CACHE_TTL_MS = 10 * 60 * 1000;
 const REQUIRED_ACCURACY_FOR_CHECKMARK = 90;
 
+const asObject = (value) =>
+  value && typeof value === "object" && !Array.isArray(value) ? value : {};
+
+const normalizeWords = (words) =>
+  new Set(
+    (Array.isArray(words) ? words : [])
+      .map((word) =>
+        String(word || "")
+          .trim()
+          .toUpperCase(),
+      )
+      .filter(Boolean),
+  );
+
 function readLessonSectionsCache() {
   try {
     const raw = sessionStorage.getItem(LESSON_SECTIONS_CACHE_KEY);
@@ -130,6 +144,56 @@ export default function ProgressList({ student }) {
     ...firestoreLessonSections,
     ...lessonSections,
   };
+
+  const recommendedLessonId = React.useMemo(() => {
+    const userProgress = asObject(userData?.progress);
+
+    const lessonRows = (Array.isArray(lessons) ? lessons : []).map((lesson) => {
+      const lessonSection = String(lesson?.lesson_section || "").trim();
+      const lessonSubsection = getLessonSubsection(lesson);
+      const sectionProgress = asObject(userProgress[lessonSection]);
+      const rawLessonProgress = asObject(sectionProgress[lessonSubsection]);
+      const masteryLevelProgress =
+        rawLessonProgress[2] || rawLessonProgress["2"] || {};
+
+      const isStarted = activeLevelIndexes.some((index) => {
+        const levelProgress =
+          rawLessonProgress[index] || rawLessonProgress[String(index)] || {};
+        const completedWords = Number(levelProgress?.completed_words) || 0;
+        const hasCompletedFlag = Boolean(levelProgress?.completed);
+        const hasCorrectWords =
+          Array.isArray(levelProgress?.correct_words) &&
+          levelProgress.correct_words.length > 0;
+        const hasScore = Number(levelProgress?.score) > 0;
+
+        return (
+          completedWords > 0 || hasCompletedFlag || hasCorrectWords || hasScore
+        );
+      });
+
+      const totalLessonWords = buildActiveLessonWords(
+        lesson?.words,
+        lesson?.lesson_id,
+      ).length;
+      const masteredCount = normalizeWords(
+        masteryLevelProgress?.correct_words,
+      ).size;
+      const masteredPercent = totalLessonWords
+        ? Math.round((masteredCount / totalLessonWords) * 100)
+        : 0;
+
+      return {
+        lesson,
+        isStarted,
+        isCompleted: masteredPercent >= REQUIRED_ACCURACY_FOR_CHECKMARK,
+      };
+    });
+
+    const nextLesson =
+      lessonRows.find((row) => !row.isCompleted) || lessonRows[0] || null;
+
+    return String(nextLesson?.lesson?.lesson_id || "").trim();
+  }, [lessons, userData]);
 
   const hasLevelStarted = (levelProgress) => {
     const completedWords = Number(levelProgress?.completed_words) || 0;
@@ -555,6 +619,7 @@ export default function ProgressList({ student }) {
                             progress={progress}
                             showButtons={student ? false : true}
                             patternRules={lessonRules}
+                            recommendedLessonId={recommendedLessonId}
                           />
                         )}
                       </React.Fragment>

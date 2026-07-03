@@ -74,14 +74,14 @@ const Home = () => {
             <Button
               variant="contained"
               color="primary"
-              onClick={() => history.push("/admin")}
+              onClick={() => history.push("/management")}
             >
               Open Admin Panel
             </Button>
             <Button
               variant="outlined"
               color="primary"
-              onClick={() => history.push("/students")}
+              onClick={() => history.push("/student-progress")}
             >
               Manage Students
             </Button>

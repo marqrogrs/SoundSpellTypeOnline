@@ -9,10 +9,6 @@ import {
   Button,
   ButtonGroup,
   Container,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   Grid,
   Paper,
   MenuItem,
@@ -22,11 +18,13 @@ import {
 import { useSnackbar } from "notistack";
 import { useAuth } from "../hooks/useAuth";
 import {
+  db,
   upsertPlacementReport,
   submitPublicPlacementReport,
   assignPlacementTest,
   getPlacementReport,
   getPlacementAssignmentStatus,
+  getPlacementWordOverrides,
   mgmtListData,
 } from "../firebase";
 import { useStyles } from "../styles/material";
@@ -36,19 +34,31 @@ import {
   readPendingPlacementReport,
   writePendingPlacementReport,
 } from "../util/placementStorage";
-
-const placementDataModule = require("../data/placementTestData.cjs");
-const PLACEMENT_TEST_PARTS = Array.isArray(placementDataModule)
-  ? placementDataModule
-  : Array.isArray(placementDataModule?.PLACEMENT_TEST_PARTS)
-    ? placementDataModule.PLACEMENT_TEST_PARTS
-    : Array.isArray(placementDataModule?.default)
-      ? placementDataModule.default
-      : Array.isArray(placementDataModule?.default?.PLACEMENT_TEST_PARTS)
-        ? placementDataModule.default.PLACEMENT_TEST_PARTS
-        : [];
+import { primeAudioPlayback, playPlacementWordSequence } from "../util/Audio";
+import { applyLessonFlowTimingPreset } from "../util/constants";
+import { PLACEMENT_TEST_PARTS } from "../data/placementTestParts";
 
 const REPORT_VERSION = 1;
+const PLACEMENT_COMPLETED_STORAGE_KEY = "placementTestCompleted";
+const CUE_SPEED_PRESET_STORAGE_KEY = "soundspeller.placementCueSpeedPreset";
+const CUE_SPEED_PRESET_OPTIONS = ["slower", "normal", "faster"];
+const CUE_SPEED_LABELS = {
+  slower: "Slower",
+  normal: "Normal",
+  faster: "Faster",
+};
+const DIRECTIONS_TEXT =
+  "You are about to hear a list of nonsense (not real) words, one at a time, and you will then type (or have someone type it for you) the word the way you think it should be spelled. Pretend that they are real words and you want to spell them properly following your knowledge of spelling rules (patterns). Spell them the way you think they should be spelled if they were real.";
+const AUDIO_TEST_PRESETS = [
+  { id: "mip", label: "mip (M-IH-P)", word: "mip", phonemes: ["M", "IH", "P"] },
+  { id: "lat", label: "lat (L-AE-T)", word: "lat", phonemes: ["L", "AE", "T"] },
+  {
+    id: "shome",
+    label: "shome (SH-OW-M)",
+    word: "shome",
+    phonemes: ["SH", "OW", "M"],
+  },
+];
 
 const normalizeSpelling = (value) =>
   String(value || "")
@@ -110,13 +120,78 @@ const getPartOutcome = (wrongCount) => {
   };
 };
 
+const upsertPartWordResult = (partResults, wordResult) => {
+  const next = Array.isArray(partResults) ? [...partResults] : [];
+  const index = next.findIndex(
+    (part) => part.partNumber === wordResult.partNumber,
+  );
+
+  if (index < 0) {
+    next.push({
+      partNumber: wordResult.partNumber,
+      partTitle: wordResult.partTitle,
+      words: [wordResult],
+      wrongCount: wordResult.isCorrect ? 0 : 1,
+      outcome: null,
+    });
+    return next;
+  }
+
+  const part = next[index];
+  const updatedWords = [
+    ...(Array.isArray(part.words) ? part.words : []),
+    wordResult,
+  ];
+  const wrongCount = updatedWords.filter((w) => !w.isCorrect).length;
+  next[index] = {
+    ...part,
+    words: updatedWords,
+    wrongCount,
+  };
+  return next;
+};
+
+const finalizePartOutcome = (partResults, targetPartNumber) => {
+  const next = Array.isArray(partResults) ? [...partResults] : [];
+  const index = next.findIndex((part) => part.partNumber === targetPartNumber);
+  if (index < 0) {
+    return {
+      partResults: next,
+      finalPart: null,
+    };
+  }
+
+  const part = next[index];
+  const outcome = getPartOutcome(part.wrongCount);
+  const finalPart = {
+    ...part,
+    outcome,
+  };
+  next[index] = finalPart;
+
+  return {
+    partResults: next,
+    finalPart,
+  };
+};
+
 const buildPlacementReport = ({ partResults, stoppedAtPartNumber = null }) => {
   const firstStartHere = partResults.find(
     (part) => part.outcome?.recommendStartHere,
   );
   const firstReview = partResults.find((part) => part.wrongCount > 0);
+  const highestCompletedPart = partResults.reduce(
+    (max, part) => Math.max(max, Number(part?.partNumber) || 0),
+    0,
+  );
+  const nextPartIfAllPassed =
+    highestCompletedPart > 0
+      ? Math.min(highestCompletedPart + 1, PLACEMENT_TEST_PARTS.length)
+      : 1;
   const recommendedStartPart =
-    firstStartHere?.partNumber || firstReview?.partNumber || 1;
+    firstStartHere?.partNumber ||
+    firstReview?.partNumber ||
+    nextPartIfAllPassed;
 
   const focusParts = partResults
     .filter((part) => part.wrongCount > 0)
@@ -142,6 +217,153 @@ const buildPlacementReport = ({ partResults, stoppedAtPartNumber = null }) => {
 const getWordStatus = (wordResult) =>
   wordResult.isCorrect ? "Correct" : "Incorrect";
 
+const getEventValue = (event) => String(event?.target?.value || "");
+const PRIME_AUDIO_TIMEOUT_MS = 1200;
+
+const PLACEMENT_WORD_KEYS = [
+  ...new Set(
+    PLACEMENT_TEST_PARTS.flatMap((part) =>
+      Array.isArray(part?.words)
+        ? part.words
+            .map((wordDef) =>
+              String(wordDef?.word || "")
+                .trim()
+                .toUpperCase(),
+            )
+            .filter(Boolean)
+        : [],
+    ),
+  ),
+];
+
+const readPlacementInstructions = async (text) => {
+  const safeText = String(text || "").trim();
+  if (!safeText) {
+    return false;
+  }
+
+  const utterance = new SpeechSynthesisUtterance(safeText);
+  utterance.lang = "en-US";
+  utterance.rate = 0.95;
+
+  const voices =
+    typeof window !== "undefined" && window.speechSynthesis
+      ? window.speechSynthesis.getVoices()
+      : [];
+  const preferredVoice =
+    voices.find((voice) => voice.lang === "en-US" && voice.localService) ||
+    voices.find((voice) => voice.lang === "en-US") ||
+    voices[0] ||
+    null;
+  if (preferredVoice) {
+    utterance.voice = preferredVoice;
+  }
+
+  return new Promise((resolve) => {
+    utterance.onend = () => resolve(true);
+    utterance.onerror = () => resolve(false);
+    try {
+      if (typeof window !== "undefined" && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.speak(utterance);
+      } else {
+        resolve(false);
+      }
+    } catch (_error) {
+      resolve(false);
+    }
+  });
+};
+
+const normalizePlacementWordDef = (wordDef) => {
+  const graphemes = Array.isArray(wordDef?.graphemes) ? wordDef.graphemes : [];
+  const phonemes = Array.isArray(wordDef?.phonemes)
+    ? [...wordDef.phonemes]
+    : [];
+
+  if (!graphemes.length || !phonemes.length) {
+    return wordDef;
+  }
+
+  const lastGrapheme = String(graphemes[graphemes.length - 1] || "")
+    .trim()
+    .toUpperCase();
+  const lastPhoneme = String(phonemes[phonemes.length - 1] || "")
+    .trim()
+    .toUpperCase();
+
+  if (lastGrapheme === "L" && lastPhoneme === "L") {
+    phonemes[phonemes.length - 1] = "LL";
+    return {
+      ...wordDef,
+      phonemes,
+    };
+  }
+
+  return wordDef;
+};
+
+const normalizePlacementParts = (parts) =>
+  (Array.isArray(parts) ? parts : []).map((part) => ({
+    ...part,
+    words: (Array.isArray(part?.words) ? part.words : []).map((wordDef) =>
+      normalizePlacementWordDef(wordDef),
+    ),
+  }));
+
+const applyPlacementWordOverrides = (parts, overridesByWord) => {
+  const map =
+    overridesByWord instanceof Map ? overridesByWord : new Map(overridesByWord);
+
+  return normalizePlacementParts(
+    (Array.isArray(parts) ? parts : []).map((part) => ({
+      ...part,
+      words: (Array.isArray(part?.words) ? part.words : []).map((wordDef) => {
+        const key = String(wordDef?.word || "")
+          .trim()
+          .toUpperCase();
+        const override = key ? map.get(key) : null;
+        if (!override) {
+          return wordDef;
+        }
+
+        return {
+          ...wordDef,
+          graphemes: Array.isArray(override.graphemes)
+            ? override.graphemes
+            : wordDef.graphemes,
+          phonemes: Array.isArray(override.phonemes)
+            ? override.phonemes
+            : wordDef.phonemes,
+        };
+      }),
+    })),
+  );
+};
+
+const buildPlacementOverridesMap = (rawOverrides) => {
+  const source =
+    rawOverrides && typeof rawOverrides === "object" ? rawOverrides : {};
+
+  return new Map(
+    Object.entries(source)
+      .map(([wordKey, override]) => [
+        String(wordKey || "")
+          .trim()
+          .toUpperCase(),
+        {
+          graphemes: Array.isArray(override?.graphemes)
+            ? override.graphemes
+            : null,
+          phonemes: Array.isArray(override?.phonemes)
+            ? override.phonemes
+            : null,
+        },
+      ])
+      .filter(([wordKey]) => Boolean(wordKey)),
+  );
+};
+
 export default function PlacementTest() {
   const classes = useStyles();
   const auth = useAuth();
@@ -154,13 +376,27 @@ export default function PlacementTest() {
     role === "parent" ||
     role === "tutor";
 
-  const [directionsOpen, setDirectionsOpen] = useState(true);
+  const [hasCompletedPlacementBefore, setHasCompletedPlacementBefore] =
+    useState(() => {
+      try {
+        return (
+          typeof window !== "undefined" &&
+          window.localStorage.getItem(PLACEMENT_COMPLETED_STORAGE_KEY) === "1"
+        );
+      } catch (_error) {
+        return false;
+      }
+    });
   const [started, setStarted] = useState(false);
   const [completed, setCompleted] = useState(false);
+  const [placementParts, setPlacementParts] = useState(
+    normalizePlacementParts(PLACEMENT_TEST_PARTS),
+  );
   const [currentPartIndex, setCurrentPartIndex] = useState(0);
   const [currentWordIndex, setCurrentWordIndex] = useState(0);
   const [inputWord, setInputWord] = useState("");
   const [enableInput, setEnableInput] = useState(false);
+  const [awaitingPlayClick, setAwaitingPlayClick] = useState(false);
   const [runKey, setRunKey] = useState(0);
   const [partResults, setPartResults] = useState([]);
   const [report, setReport] = useState(null);
@@ -184,10 +420,33 @@ export default function PlacementTest() {
   const [studentAssignmentLoading, setStudentAssignmentLoading] =
     useState(false);
   const [studentHasAssignment, setStudentHasAssignment] = useState(false);
+  const [audioTestRunning, setAudioTestRunning] = useState(false);
+  const [loadingPlacementWords, setLoadingPlacementWords] = useState(false);
+  const [placementWordLoadError, setPlacementWordLoadError] = useState("");
+  const [placementWordsReady, setPlacementWordsReady] = useState(false);
+  const [audioTestPresetId, setAudioTestPresetId] = useState(
+    AUDIO_TEST_PRESETS[0].id,
+  );
+  const [cueSpeedPreset, setCueSpeedPreset] = useState(() => {
+    try {
+      if (typeof window !== "undefined") {
+        const storedPreset = String(
+          window.localStorage.getItem(CUE_SPEED_PRESET_STORAGE_KEY) || "",
+        ).toLowerCase();
+        if (CUE_SPEED_PRESET_OPTIONS.includes(storedPreset)) {
+          return storedPreset;
+        }
+      }
+    } catch (_error) {
+      // Ignore storage failures and fall back to normal.
+    }
+    return "normal";
+  });
 
   const answerInputRef = useRef(null);
+  const partResultsRef = useRef([]);
 
-  const currentPart = PLACEMENT_TEST_PARTS[currentPartIndex] || null;
+  const currentPart = placementParts[currentPartIndex] || null;
   const isPublicMode = !auth.user;
   const hasValidPublicIntake =
     String(publicIntake.studentFirstName || "").trim().length > 0 &&
@@ -198,6 +457,116 @@ export default function PlacementTest() {
     currentPart && Array.isArray(currentPart.words)
       ? currentPart.words[currentWordIndex] || null
       : null;
+  const showRetakeWarning = hasCompletedPlacementBefore;
+  const selectedAudioPreset = useMemo(
+    () =>
+      AUDIO_TEST_PRESETS.find((preset) => preset.id === audioTestPresetId) ||
+      AUDIO_TEST_PRESETS[0],
+    [audioTestPresetId],
+  );
+
+  useEffect(() => {
+    applyLessonFlowTimingPreset(cueSpeedPreset);
+  }, [cueSpeedPreset]);
+
+  const loadPlacementWordOverrides = useCallback(async () => {
+    setLoadingPlacementWords(true);
+    setPlacementWordLoadError("");
+    setPlacementWordsReady(false);
+
+    const applyOrReset = (overrides) => {
+      if (!overrides.size) {
+        setPlacementParts(normalizePlacementParts(PLACEMENT_TEST_PARTS));
+        setPlacementWordLoadError(
+          "No placement phoneme overrides were returned from Firebase.",
+        );
+        return;
+      }
+
+      setPlacementParts(
+        applyPlacementWordOverrides(PLACEMENT_TEST_PARTS, overrides),
+      );
+      setPlacementWordsReady(true);
+    };
+
+    try {
+      // For signed-in flows, Firestore word docs are the source of truth.
+      if (auth?.user) {
+        const docs = await Promise.all(
+          PLACEMENT_WORD_KEYS.map((wordKey) =>
+            db.collection("words").doc(wordKey).get(),
+          ),
+        );
+
+        const rawOverrides = {};
+        docs.forEach((doc) => {
+          if (!doc.exists) {
+            return;
+          }
+          const data = doc.data() || {};
+          if (!Array.isArray(data.graphemes) && !Array.isArray(data.phonemes)) {
+            return;
+          }
+          rawOverrides[
+            String(doc.id || "")
+              .trim()
+              .toUpperCase()
+          ] = {
+            graphemes: Array.isArray(data.graphemes) ? data.graphemes : null,
+            phonemes: Array.isArray(data.phonemes) ? data.phonemes : null,
+          };
+        });
+
+        applyOrReset(buildPlacementOverridesMap(rawOverrides));
+        return;
+      }
+
+      // Public flow fallback: use callable because Firestore rules can block.
+      const result = await getPlacementWordOverrides({
+        words: PLACEMENT_WORD_KEYS,
+      });
+      const payload = result?.data || {};
+      const overrides = buildPlacementOverridesMap(payload?.overrides);
+      applyOrReset(overrides);
+    } catch (error) {
+      if (auth?.user) {
+        try {
+          const result = await getPlacementWordOverrides({
+            words: PLACEMENT_WORD_KEYS,
+          });
+          const payload = result?.data || {};
+          applyOrReset(buildPlacementOverridesMap(payload?.overrides));
+          return;
+        } catch (_fallbackError) {
+          // Fall through to placement defaults when both fetch paths fail.
+        }
+      }
+
+      setPlacementParts(normalizePlacementParts(PLACEMENT_TEST_PARTS));
+      setPlacementWordLoadError(
+        error?.message || "Unable to load placement word overrides.",
+      );
+    } finally {
+      setLoadingPlacementWords(false);
+    }
+  }, [auth?.user]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const run = async () => {
+      await loadPlacementWordOverrides();
+      if (cancelled) {
+        return;
+      }
+    };
+
+    run();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [loadPlacementWordOverrides]);
 
   useEffect(() => {
     let isMounted = true;
@@ -296,16 +665,40 @@ export default function PlacementTest() {
   }, [auth.user, isManagerRole]);
 
   const wordPrompt = useMemo(() => {
-    if (!currentWordDef) {
+    const fallbackPart =
+      currentPart ||
+      placementParts[Math.max(0, Number(currentPartIndex) || 0)] ||
+      placementParts[0] ||
+      null;
+    const fallbackWordDef =
+      currentWordDef ||
+      (Array.isArray(fallbackPart?.words)
+        ? fallbackPart.words[Math.max(0, Number(currentWordIndex) || 0)] ||
+          fallbackPart.words[0] ||
+          null
+        : null);
+
+    if (!fallbackWordDef || !String(fallbackWordDef.word || "").trim()) {
       return null;
     }
+
     return {
-      word: currentWordDef.word,
-      phonemes: Array.isArray(currentWordDef.phonemes)
-        ? currentWordDef.phonemes
+      word: String(fallbackWordDef.word || "").trim(),
+      phonemes: Array.isArray(fallbackWordDef.phonemes)
+        ? fallbackWordDef.phonemes
         : [],
     };
-  }, [currentWordDef]);
+  }, [
+    currentPart,
+    currentPartIndex,
+    currentWordDef,
+    currentWordIndex,
+    placementParts,
+  ]);
+
+  useEffect(() => {
+    partResultsRef.current = Array.isArray(partResults) ? partResults : [];
+  }, [partResults]);
 
   const persistPendingReport = useCallback(
     (nextReport, reason = "", targetStudentId = "") => {
@@ -360,84 +753,48 @@ export default function PlacementTest() {
     [enqueueSnackbar, publicIntake],
   );
 
-  const pushWordResult = useCallback((wordResult) => {
-    setPartResults((prev) => {
-      const next = [...prev];
-      const last = next[next.length - 1];
-      if (!last || last.partNumber !== wordResult.partNumber) {
-        next.push({
-          partNumber: wordResult.partNumber,
-          partTitle: wordResult.partTitle,
-          words: [wordResult],
-          wrongCount: wordResult.isCorrect ? 0 : 1,
-          outcome: null,
-        });
-        return next;
-      }
-
-      const updatedWords = [...last.words, wordResult];
-      const wrongCount = updatedWords.filter((w) => !w.isCorrect).length;
-      next[next.length - 1] = {
-        ...last,
-        words: updatedWords,
-        wrongCount,
-      };
-      return next;
-    });
-  }, []);
-
-  const finalizeCurrentPart = useCallback(({ targetPartNumber }) => {
-    let finalPart = null;
-    setPartResults((prev) => {
-      const next = [...prev];
-      const index = next.findIndex(
-        (part) => part.partNumber === targetPartNumber,
-      );
-      if (index < 0) {
-        return prev;
-      }
-      const part = next[index];
-      const outcome = getPartOutcome(part.wrongCount);
-      finalPart = {
-        ...part,
-        outcome,
-      };
-      next[index] = finalPart;
-      return next;
-    });
-    return finalPart;
-  }, []);
-
   const finishAssessment = useCallback(
-    ({ stoppedAtPartNumber = null }) => {
+    ({ stoppedAtPartNumber = null, finalizedPartResults = null }) => {
       setEnableInput(false);
+      setAwaitingPlayClick(false);
       setStarted(false);
       setCompleted(true);
-
-      setPartResults((prev) => {
-        const finalized = prev.map((part) =>
-          part.outcome
-            ? part
-            : {
-                ...part,
-                outcome: getPartOutcome(part.wrongCount),
-              },
-        );
-        const nextReport = buildPlacementReport({
-          partResults: finalized,
-          stoppedAtPartNumber,
-        });
-        setReport(nextReport);
-        if (auth.user) {
-          const targetStudentId = isManagerRole
-            ? String(selectedStudentId || "").trim()
-            : "";
-          persistPendingReport(nextReport, "authenticated", targetStudentId);
-        } else {
-          submitPublicReport(nextReport);
+      setHasCompletedPlacementBefore(true);
+      try {
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem(PLACEMENT_COMPLETED_STORAGE_KEY, "1");
         }
-        return finalized;
+      } catch (_error) {
+        // Ignore storage failures; warning will be session-only.
+      }
+
+      const baseResults = Array.isArray(finalizedPartResults)
+        ? finalizedPartResults
+        : partResultsRef.current;
+      const finalized = baseResults.map((part) =>
+        part.outcome
+          ? part
+          : {
+              ...part,
+              outcome: getPartOutcome(part.wrongCount),
+            },
+      );
+      partResultsRef.current = finalized;
+      setPartResults(finalized);
+
+      const nextReport = buildPlacementReport({
+        partResults: finalized,
+        stoppedAtPartNumber,
       });
+      setReport(nextReport);
+      if (auth.user) {
+        const targetStudentId = isManagerRole
+          ? String(selectedStudentId || "").trim()
+          : "";
+        persistPendingReport(nextReport, "authenticated", targetStudentId);
+      } else {
+        submitPublicReport(nextReport);
+      }
     },
     [
       auth.user,
@@ -457,13 +814,39 @@ export default function PlacementTest() {
     }, 0);
   }, []);
 
-  const handleRepeatWord = useCallback(() => {
+  const handleRepeatWord = useCallback(async () => {
     if (!started || !wordPrompt) {
       return;
     }
+    try {
+      await Promise.race([
+        primeAudioPlayback(),
+        new Promise((resolve) => setTimeout(resolve, PRIME_AUDIO_TIMEOUT_MS)),
+      ]);
+    } catch (_error) {
+      // Continue with replay even if priming fails.
+    }
+    setAwaitingPlayClick(false);
     setEnableInput(false);
     setRunKey((prev) => prev + 1);
   }, [started, wordPrompt]);
+
+  const handlePlayWord = useCallback(async () => {
+    if (!started || !wordPrompt || !awaitingPlayClick) {
+      return;
+    }
+    try {
+      await Promise.race([
+        primeAudioPlayback(),
+        new Promise((resolve) => setTimeout(resolve, PRIME_AUDIO_TIMEOUT_MS)),
+      ]);
+    } catch (_error) {
+      // Continue with playback even if priming fails.
+    }
+    setEnableInput(false);
+    setAwaitingPlayClick(false);
+    setRunKey((prev) => prev + 1);
+  }, [awaitingPlayClick, started, wordPrompt]);
 
   const handleSubmitAnswer = useCallback(() => {
     if (!started || !currentPart || !currentWordDef || !enableInput) {
@@ -488,36 +871,53 @@ export default function PlacementTest() {
         : [],
     };
 
-    pushWordResult(wordResult);
+    let nextPartResults = upsertPartWordResult(
+      partResultsRef.current,
+      wordResult,
+    );
     setInputWord("");
     setEnableInput(false);
+    setAwaitingPlayClick(false);
 
     const isLastWordInPart =
       currentWordIndex >=
       (Array.isArray(currentPart.words) ? currentPart.words.length - 1 : 0);
 
     if (!isLastWordInPart) {
+      partResultsRef.current = nextPartResults;
+      setPartResults(nextPartResults);
       setCurrentWordIndex((prev) => prev + 1);
       setRunKey((prev) => prev + 1);
       return;
     }
 
-    const finalPart = finalizeCurrentPart({
-      targetPartNumber: currentPart.number,
-    });
+    const finalized = finalizePartOutcome(nextPartResults, currentPart.number);
+    nextPartResults = finalized.partResults;
+    const finalPart = finalized.finalPart;
+    partResultsRef.current = nextPartResults;
+    setPartResults(nextPartResults);
 
     if (!finalPart) {
-      finishAssessment({ stoppedAtPartNumber: currentPart.number });
+      finishAssessment({
+        stoppedAtPartNumber: currentPart.number,
+        finalizedPartResults: nextPartResults,
+      });
       return;
     }
 
     if (!finalPart.outcome?.shouldContinue) {
-      finishAssessment({ stoppedAtPartNumber: currentPart.number });
+      finishAssessment({
+        stoppedAtPartNumber: currentPart.number,
+        finalizedPartResults: nextPartResults,
+      });
       return;
     }
 
-    if (currentPartIndex >= PLACEMENT_TEST_PARTS.length - 1) {
-      finishAssessment({ stoppedAtPartNumber: null });
+    if (currentPartIndex >= placementParts.length - 1) {
+      finishAssessment({
+        stoppedAtPartNumber: null,
+        finalizedPartResults: nextPartResults,
+      });
       return;
     }
 
@@ -530,14 +930,30 @@ export default function PlacementTest() {
     currentWordDef,
     currentWordIndex,
     enableInput,
-    finalizeCurrentPart,
     finishAssessment,
     inputWord,
-    pushWordResult,
+    placementParts.length,
     started,
   ]);
 
-  const handleStart = useCallback(() => {
+  const handleStart = useCallback(async () => {
+    if (loadingPlacementWords) {
+      enqueueSnackbar("Placement words are still loading. Please wait.", {
+        variant: "info",
+      });
+      return;
+    }
+
+    if (!placementWordsReady || placementWordLoadError) {
+      enqueueSnackbar(
+        "Could not load placement phonemes from Firebase. Please refresh and retry.",
+        {
+          variant: "warning",
+        },
+      );
+      return;
+    }
+
     if (isPublicMode && !hasValidPublicIntake) {
       enqueueSnackbar(
         "Enter student/proctor names and a valid proctor email before starting.",
@@ -565,15 +981,28 @@ export default function PlacementTest() {
       return;
     }
 
+    try {
+      await Promise.race([
+        primeAudioPlayback(),
+        new Promise((resolve) => setTimeout(resolve, PRIME_AUDIO_TIMEOUT_MS)),
+      ]);
+    } catch (_error) {
+      // Continue starting even if priming fails.
+    }
+
+    await loadPlacementWordOverrides();
+
     setCompleted(false);
     setStarted(true);
     setCurrentPartIndex(0);
     setCurrentWordIndex(0);
+    setAwaitingPlayClick(true);
     setPartResults([]);
+    partResultsRef.current = [];
     setReport(null);
     setInputWord("");
     setEnableInput(false);
-    setRunKey((prev) => prev + 1);
+    setRunKey(0);
     setPublicSubmissionMessage("");
     setManagedReport(null);
     setManagedReportError("");
@@ -584,9 +1013,28 @@ export default function PlacementTest() {
     isManagerRole,
     isPublicMode,
     hasValidPublicIntake,
+    loadingPlacementWords,
+    loadPlacementWordOverrides,
+    placementWordLoadError,
+    placementWordsReady,
     selectedStudentId,
     studentHasAssignment,
   ]);
+
+  const handleReadInstructions = useCallback(async () => {
+    try {
+      const startedSpeaking = await readPlacementInstructions(DIRECTIONS_TEXT);
+      if (!startedSpeaking) {
+        enqueueSnackbar("Could not read instructions on this device.", {
+          variant: "warning",
+        });
+      }
+    } catch (_error) {
+      enqueueSnackbar("Could not read instructions on this device.", {
+        variant: "warning",
+      });
+    }
+  }, [enqueueSnackbar]);
 
   const handleSaveAndEmailIfPossible = useCallback(
     async (pending) => {
@@ -715,6 +1163,63 @@ export default function PlacementTest() {
     }
   }, [enqueueSnackbar, selectedStudentId]);
 
+  const handleAudioTest = useCallback(async () => {
+    if (audioTestRunning) {
+      return;
+    }
+
+    setAudioTestRunning(true);
+    try {
+      await primeAudioPlayback();
+      await playPlacementWordSequence(
+        selectedAudioPreset.word,
+        selectedAudioPreset.phonemes,
+        {
+          speakWordStages: true,
+          replayWordAfterPhonemes: true,
+        },
+      );
+      enqueueSnackbar(`Audio test played: ${selectedAudioPreset.word}.`, {
+        variant: "info",
+      });
+    } catch (_error) {
+      enqueueSnackbar("Audio test could not play on this device/browser.", {
+        variant: "warning",
+      });
+    } finally {
+      setAudioTestRunning(false);
+    }
+  }, [audioTestRunning, enqueueSnackbar, selectedAudioPreset]);
+
+  const handleSetCueSpeedPreset = useCallback(
+    (nextPreset) => {
+      const normalizedPreset = String(nextPreset || "").toLowerCase();
+      if (
+        normalizedPreset === cueSpeedPreset ||
+        !CUE_SPEED_PRESET_OPTIONS.includes(normalizedPreset)
+      ) {
+        return;
+      }
+
+      const appliedPreset = applyLessonFlowTimingPreset(normalizedPreset);
+      setCueSpeedPreset(appliedPreset);
+      try {
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem(
+            CUE_SPEED_PRESET_STORAGE_KEY,
+            appliedPreset,
+          );
+        }
+      } catch (_error) {
+        // Ignore storage failures.
+      }
+      enqueueSnackbar(`Cue speed set to ${CUE_SPEED_LABELS[appliedPreset]}.`, {
+        variant: "info",
+      });
+    },
+    [cueSpeedPreset, enqueueSnackbar],
+  );
+
   return (
     <Container maxWidth="md">
       <Grid container spacing={2} direction="column">
@@ -722,14 +1227,56 @@ export default function PlacementTest() {
           <Typography variant="h4" style={{ textAlign: "center" }}>
             Placement Test
           </Typography>
-          <Typography
-            variant="body2"
-            style={{ textAlign: "center", marginTop: 8 }}
+          {started && (
+            <div
+              style={{
+                marginTop: 10,
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                gap: 10,
+                flexWrap: "wrap",
+              }}
+            >
+              <ButtonGroup color="primary" size="small">
+                {CUE_SPEED_PRESET_OPTIONS.map((preset) => (
+                  <Button
+                    key={preset}
+                    variant={
+                      cueSpeedPreset === preset ? "contained" : "outlined"
+                    }
+                    color="primary"
+                    onClick={() => handleSetCueSpeedPreset(preset)}
+                    style={{ fontSize: 11, minWidth: 52, padding: "2px 8px" }}
+                  >
+                    {CUE_SPEED_LABELS[preset]}
+                  </Button>
+                ))}
+              </ButtonGroup>
+            </div>
+          )}
+          <div
+            style={{ marginTop: 12, display: "flex", justifyContent: "center" }}
           >
-            Retake warning: results from retaking this test are less valid
-            because nonsense words can be memorized rather than spelling
-            patterns learned.
-          </Typography>
+            {started && !completed && (
+              <Button
+                variant="outlined"
+                color="primary"
+                onClick={handleReadInstructions}
+                style={{ fontWeight: 700, minHeight: 44 }}
+              >
+                Read Instructions
+              </Button>
+            )}
+          </div>
+          {started && !completed && (
+            <Typography
+              variant="body2"
+              style={{ textAlign: "center", marginTop: 8 }}
+            >
+              {DIRECTIONS_TEXT}
+            </Typography>
+          )}
         </Grid>
 
         {isManagerRole && (
@@ -749,7 +1296,8 @@ export default function PlacementTest() {
                     label="Managed Student"
                     value={selectedStudentId}
                     onChange={(event) => {
-                      setSelectedStudentId(String(event.target.value || ""));
+                      const nextValue = getEventValue(event);
+                      setSelectedStudentId(nextValue);
                       setManagedReport(null);
                       setManagedReportError("");
                     }}
@@ -819,12 +1367,13 @@ export default function PlacementTest() {
                     variant="outlined"
                     label="Student First Name"
                     value={publicIntake.studentFirstName}
-                    onChange={(event) =>
+                    onChange={(event) => {
+                      const nextValue = getEventValue(event);
                       setPublicIntake((prev) => ({
                         ...prev,
-                        studentFirstName: event.target.value,
-                      }))
-                    }
+                        studentFirstName: nextValue,
+                      }));
+                    }}
                   />
                 </Grid>
                 <Grid item xs={12} sm={6}>
@@ -833,12 +1382,13 @@ export default function PlacementTest() {
                     variant="outlined"
                     label="Proctor First Name"
                     value={publicIntake.proctorFirstName}
-                    onChange={(event) =>
+                    onChange={(event) => {
+                      const nextValue = getEventValue(event);
                       setPublicIntake((prev) => ({
                         ...prev,
-                        proctorFirstName: event.target.value,
-                      }))
-                    }
+                        proctorFirstName: nextValue,
+                      }));
+                    }}
                   />
                 </Grid>
                 <Grid item xs={12} sm={6}>
@@ -847,12 +1397,13 @@ export default function PlacementTest() {
                     variant="outlined"
                     label="Proctor Last Name"
                     value={publicIntake.proctorLastName}
-                    onChange={(event) =>
+                    onChange={(event) => {
+                      const nextValue = getEventValue(event);
                       setPublicIntake((prev) => ({
                         ...prev,
-                        proctorLastName: event.target.value,
-                      }))
-                    }
+                        proctorLastName: nextValue,
+                      }));
+                    }}
                   />
                 </Grid>
                 <Grid item xs={12} sm={6}>
@@ -861,12 +1412,13 @@ export default function PlacementTest() {
                     variant="outlined"
                     label="Proctor Email"
                     value={publicIntake.proctorEmail}
-                    onChange={(event) =>
+                    onChange={(event) => {
+                      const nextValue = getEventValue(event);
                       setPublicIntake((prev) => ({
                         ...prev,
-                        proctorEmail: event.target.value,
-                      }))
-                    }
+                        proctorEmail: nextValue,
+                      }));
+                    }}
                     error={
                       publicIntake.proctorEmail.length > 0 &&
                       !isValidEmail(publicIntake.proctorEmail)
@@ -891,6 +1443,8 @@ export default function PlacementTest() {
               color="primary"
               onClick={handleStart}
               disabled={
+                loadingPlacementWords ||
+                !placementWordsReady ||
                 (isManagerRole &&
                   (!selectedStudentId || managedStudents.length === 0)) ||
                 (Boolean(auth.user) &&
@@ -899,9 +1453,27 @@ export default function PlacementTest() {
               }
               style={{ fontWeight: 700, minHeight: 48, width: "100%" }}
             >
-              Start
+              {loadingPlacementWords ? "Loading Words..." : "Start"}
             </Button>
           )}
+          {!started && !completed && loadingPlacementWords && (
+            <Typography style={{ marginTop: 8, textAlign: "center" }}>
+              Loading placement phonemes from Firebase...
+            </Typography>
+          )}
+          {!started && !completed && auth.user && placementWordLoadError && (
+            <Typography style={{ marginTop: 8, textAlign: "center" }}>
+              Could not load latest word phonemes. Refresh to retry.
+            </Typography>
+          )}
+          {!started &&
+            !completed &&
+            !loadingPlacementWords &&
+            !placementWordsReady && (
+              <Typography style={{ marginTop: 8, textAlign: "center" }}>
+                Placement cannot start until Firebase phonemes are loaded.
+              </Typography>
+            )}
           {!started &&
             !completed &&
             auth.user &&
@@ -938,7 +1510,7 @@ export default function PlacementTest() {
                 gap: 12,
               }}
             >
-              {started && wordPrompt && !enableInput && (
+              {started && wordPrompt && !enableInput && !awaitingPlayClick && (
                 <PlacementOutputWord
                   word={wordPrompt.word}
                   phonemes={wordPrompt.phonemes}
@@ -947,64 +1519,89 @@ export default function PlacementTest() {
                 />
               )}
 
-              <textarea
-                id="placement-answer-input"
-                name="placementAnswer"
-                ref={answerInputRef}
-                value={inputWord}
-                rows={1}
-                onChange={(event) => {
-                  if (!enableInput) {
-                    return;
-                  }
-                  setInputWord(String(event.target.value || ""));
-                }}
-                onKeyDown={(event) => {
-                  if (!enableInput) {
-                    event.preventDefault();
-                    return;
-                  }
-                  if (event.key === "Enter") {
-                    event.preventDefault();
-                    handleSubmitAnswer();
-                  }
-                }}
-                readOnly={!enableInput}
-                autoCapitalize="none"
-                autoCorrect="off"
-                spellCheck={false}
-                style={{
-                  display: started && !enableInput ? "none" : undefined,
-                  width: "100%",
-                  maxWidth: 640,
-                  fontSize: 30,
-                  fontFamily: "inherit",
-                  textAlign: "center",
-                  border: "2px solid #90caf9",
-                  borderRadius: 8,
-                  padding: "10px 12px",
-                  outline: "none",
-                  background: enableInput ? "#fff" : "#f5f5f5",
-                  color: "#111",
-                  caretColor: "#111",
-                  boxSizing: "border-box",
-                  resize: "none",
-                  overflow: "hidden",
-                }}
-                placeholder=""
-              />
-
               {started && (
-                <ButtonGroup color="primary" variant="contained">
-                  <Button
-                    variant="contained"
-                    color="primary"
-                    onClick={handleRepeatWord}
-                    disabled={!started}
-                  >
-                    Repeat
-                  </Button>
-                </ButtonGroup>
+                <>
+                  <textarea
+                    id="placement-answer-input"
+                    name="placementAnswer"
+                    ref={answerInputRef}
+                    value={inputWord}
+                    rows={1}
+                    onChange={(event) => {
+                      if (!enableInput) {
+                        return;
+                      }
+                      setInputWord(String(event.target.value || ""));
+                    }}
+                    onKeyDown={(event) => {
+                      if (!enableInput) {
+                        event.preventDefault();
+                        return;
+                      }
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        handleSubmitAnswer();
+                      }
+                    }}
+                    readOnly={!enableInput}
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    style={{
+                      width: "100%",
+                      maxWidth: 640,
+                      fontSize: 30,
+                      fontFamily: "inherit",
+                      textAlign: "center",
+                      border: "2px solid #90caf9",
+                      borderRadius: 8,
+                      padding: "10px 12px",
+                      outline: "none",
+                      background: enableInput ? "#fff" : "#f5f5f5",
+                      color: "#111",
+                      caretColor: "#111",
+                      boxSizing: "border-box",
+                      resize: "none",
+                      overflow: "hidden",
+                      opacity: enableInput ? 1 : 0.8,
+                    }}
+                    placeholder={
+                      enableInput
+                        ? "Type your spelling"
+                        : "Listen to the word..."
+                    }
+                  />
+
+                  {!enableInput && (
+                    <Typography
+                      variant="body2"
+                      style={{ color: "#0d47a1", textAlign: "center" }}
+                    >
+                      {awaitingPlayClick
+                        ? "Click Play Word to hear the prompt."
+                        : "Input will unlock after the audio finishes."}
+                    </Typography>
+                  )}
+
+                  <ButtonGroup color="primary" variant="contained">
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      onClick={handlePlayWord}
+                      disabled={!started || !awaitingPlayClick}
+                    >
+                      Play Word
+                    </Button>
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      onClick={handleRepeatWord}
+                      disabled={!started || awaitingPlayClick}
+                    >
+                      Repeat
+                    </Button>
+                  </ButtonGroup>
+                </>
               )}
             </div>
           </Paper>
@@ -1092,6 +1689,19 @@ export default function PlacementTest() {
           </Grid>
         )}
 
+        {showRetakeWarning && (
+          <Grid item>
+            <Typography
+              variant="body2"
+              style={{ textAlign: "center", marginTop: 8 }}
+            >
+              Retake warning: results from retaking this test are less valid
+              because nonsense words can be memorized rather than spelling
+              patterns learned.
+            </Typography>
+          </Grid>
+        )}
+
         {isManagerRole && (managedReport || managedReportError) && (
           <Grid item>
             <Paper style={{ padding: 16 }}>
@@ -1163,34 +1773,6 @@ export default function PlacementTest() {
           </Grid>
         )}
       </Grid>
-
-      <Dialog
-        open={directionsOpen}
-        onClose={() => setDirectionsOpen(false)}
-        fullWidth
-        maxWidth="sm"
-      >
-        <DialogTitle>Placement Test Directions</DialogTitle>
-        <DialogContent dividers>
-          <Typography>
-            You are about to hear a list of nonsense (not real) words, one at a
-            time, and you will then type (or have someone type it for you) the
-            word the way you think it should be spelled. Pretend that they are
-            real words and you want to spell them properly following your
-            knowledge of spelling rules (patterns). Spell them the way you think
-            they should be spelled if they were real.
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button
-            onClick={() => setDirectionsOpen(false)}
-            color="primary"
-            variant="contained"
-          >
-            I Understand
-          </Button>
-        </DialogActions>
-      </Dialog>
     </Container>
   );
 }

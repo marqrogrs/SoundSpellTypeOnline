@@ -32,6 +32,8 @@ import {
   mgmtAssignSchoolAdmin,
   mgmtAssignEducatorToSchool,
   mgmtAssignStudentClasses,
+  mgmtListAccountabilityQueue,
+  mgmtRecordAccountabilityReminder,
   mgmtBootstrapParentHomeScope,
   mgmtParentCreateStudent,
   adminCreateUser,
@@ -137,6 +139,73 @@ const normalizeClassIds = (ids) =>
     .map((id) => id.trim())
     .filter(Boolean)
     .sort();
+
+const parseDayKey = (value) => {
+  const raw = String(value || "").trim();
+  if (!raw) return null;
+  const parts = raw.split("-").map((part) => Number(part));
+  if (parts.length !== 3 || parts.some((part) => !Number.isFinite(part))) {
+    return null;
+  }
+  const [year, month, day] = parts;
+  return { year, month, day };
+};
+
+const diffDaysFromToday = (dayKey) => {
+  const parsed = parseDayKey(dayKey);
+  if (!parsed) return null;
+  const today = new Date();
+  const todayUtc = Date.UTC(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate(),
+  );
+  const keyUtc = Date.UTC(parsed.year, parsed.month - 1, parsed.day);
+  return Math.max(0, Math.round((todayUtc - keyUtc) / (24 * 60 * 60 * 1000)));
+};
+
+const getStudentAccountabilityStatus = (student) => {
+  const hasFirstLessonAttempted = Boolean(
+    student?.firstLessonAttemptedAt || student?.first_lesson_attempted_at,
+  );
+  const lastPracticeDay = String(
+    student?.lastPracticeDay || student?.last_practice_day || "",
+  ).trim();
+  const daysSincePractice = diffDaysFromToday(lastPracticeDay);
+
+  if (!hasFirstLessonAttempted) {
+    return {
+      label: "Needs First Win",
+      color: "default",
+    };
+  }
+
+  if (daysSincePractice === null) {
+    return {
+      label: "Needs Check-In",
+      color: "default",
+    };
+  }
+
+  if (daysSincePractice <= 1) {
+    return {
+      label: "On Track",
+      color: "primary",
+    };
+  }
+
+  if (daysSincePractice <= 3) {
+    return {
+      label: "Needs Nudge",
+      color: "secondary",
+    };
+  }
+
+  return {
+    label: "Returning",
+    color: "default",
+  };
+};
 
 const formatManagedByLabel = (value) => {
   const raw = String(value || "").trim();
@@ -941,6 +1010,8 @@ function ParentStudentDialog({
     password: "",
     firstName: "",
     lastName: "",
+    accountabilityNote: "",
+    nextCheckInDay: "",
   });
 
   useEffect(() => {
@@ -948,6 +1019,10 @@ function ParentStudentDialog({
       password: "",
       firstName: initial?.firstName || "",
       lastName: initial?.lastName || "",
+      accountabilityNote:
+        initial?.accountabilityNote || initial?.accountability_note || "",
+      nextCheckInDay:
+        initial?.nextCheckInDay || initial?.next_check_in_day || "",
     });
   }, [initial, open]);
 
@@ -984,6 +1059,8 @@ function ParentStudentDialog({
       password: String(form.password || ""),
       firstName: normalizedFirstName,
       lastName: normalizedLastName,
+      accountabilityNote: String(form.accountabilityNote || "").trim(),
+      nextCheckInDay: String(form.nextCheckInDay || "").trim(),
     };
 
     onSubmit(payload);
@@ -1031,6 +1108,30 @@ function ParentStudentDialog({
               fullWidth
             />
           </Box>
+          {mode === "edit" && (
+            <>
+              <TextField
+                label="Coach Note"
+                value={form.accountabilityNote}
+                onChange={set("accountabilityNote")}
+                variant="outlined"
+                fullWidth
+                multiline
+                rows={2}
+                helperText="Shown to student on their accountability panel."
+              />
+              <TextField
+                label="Next Check-In Day"
+                value={form.nextCheckInDay}
+                onChange={set("nextCheckInDay")}
+                variant="outlined"
+                fullWidth
+                type="date"
+                InputLabelProps={{ shrink: true }}
+                helperText="Optional target date for next manager check-in."
+              />
+            </>
+          )}
         </Box>
       </DialogContent>
       <DialogActions>
@@ -1138,6 +1239,14 @@ function ManagementInner() {
   const [users, setUsers] = useState([]);
   const [roleRequests, setRoleRequests] = useState([]);
   const [roleRequestsLoading, setRoleRequestsLoading] = useState(false);
+  const [accountabilityQueue, setAccountabilityQueue] = useState([]);
+  const [accountabilityLoading, setAccountabilityLoading] = useState(false);
+  const [accountabilityFilters, setAccountabilityFilters] = useState({
+    minInactiveDays: 2,
+    includeNeedsFirstWin: true,
+    includeOnTrack: false,
+  });
+  const [nudgingStudentId, setNudgingStudentId] = useState("");
 
   // ── Dialog state ──
   const [userDialog, setUserDialog] = useState({
@@ -1306,6 +1415,7 @@ function ManagementInner() {
       }
       setUserDialog((p) => ({ ...p, open: false }));
       await loadData({ force: true });
+      await loadAccountabilityQueue();
     } catch (err) {
       if (isUnauthenticatedError(err)) return;
       triggerErrorAlert(err?.message || "Could not save user.");
@@ -1459,12 +1569,17 @@ function ManagementInner() {
           updates: {
             firstName: form.firstName,
             lastName: form.lastName,
+            accountabilityNote: form.accountabilityNote,
+            accountability_note: form.accountabilityNote,
+            nextCheckInDay: form.nextCheckInDay,
+            next_check_in_day: form.nextCheckInDay,
             ...(form.password ? { password: form.password } : {}),
           },
         });
       }
       setParentStudentDialog((p) => ({ ...p, open: false }));
       await loadData({ force: true });
+      await loadAccountabilityQueue();
     } catch (err) {
       if (isUnauthenticatedError(err)) return;
       triggerErrorAlert(err?.message || "Could not save student.");
@@ -1566,6 +1681,261 @@ function ManagementInner() {
     if (directName) return formatManagedByLabel(directName);
     return schoolName(u.schoolId || u.school || u.homeSchoolId);
   };
+  const canUseAccountabilityQueue =
+    callerRole === "admin" ||
+    callerRole === "schoolAdmin" ||
+    callerRole === "educator" ||
+    callerRole === "parent" ||
+    callerRole === "tutor";
+  const queueVisibleTab = activeTab === "users" || activeTab === "students";
+
+  const userById = useMemo(() => {
+    const map = new Map();
+    users.forEach((u) => {
+      const id = String(u?.id || "").trim();
+      if (id) map.set(id, u);
+    });
+    return map;
+  }, [users]);
+
+  const loadAccountabilityQueue = useCallback(async () => {
+    if (!canUseAccountabilityQueue || !auth.user) {
+      setAccountabilityQueue([]);
+      return;
+    }
+
+    setAccountabilityLoading(true);
+    try {
+      const result = await mgmtListAccountabilityQueue({
+        minInactiveDays: accountabilityFilters.minInactiveDays,
+        includeNeedsFirstWin: accountabilityFilters.includeNeedsFirstWin,
+        includeOnTrack: accountabilityFilters.includeOnTrack,
+        limit: 25,
+      });
+      const queue = Array.isArray(result?.data?.queue) ? result.data.queue : [];
+      setAccountabilityQueue(queue);
+    } catch (err) {
+      if (isUnauthenticatedError(err)) return;
+      triggerErrorAlert(err?.message || "Could not load accountability queue.");
+    } finally {
+      setAccountabilityLoading(false);
+    }
+  }, [
+    canUseAccountabilityQueue,
+    auth.user,
+    accountabilityFilters.minInactiveDays,
+    accountabilityFilters.includeNeedsFirstWin,
+    accountabilityFilters.includeOnTrack,
+  ]);
+
+  useEffect(() => {
+    if (!queueVisibleTab) return;
+    loadAccountabilityQueue();
+  }, [queueVisibleTab, loadAccountabilityQueue, users.length]);
+
+  const handleMarkNudgeSent = async (row) => {
+    const studentId = String(row?.id || "").trim();
+    if (!studentId) return;
+
+    setNudgingStudentId(studentId);
+    try {
+      await mgmtRecordAccountabilityReminder({
+        studentId,
+        channel: "in_app",
+        note: String(row?.accountabilityNote || "").trim(),
+      });
+      await loadAccountabilityQueue();
+    } catch (err) {
+      if (isUnauthenticatedError(err)) return;
+      triggerErrorAlert(err?.message || "Could not mark nudge as sent.");
+    } finally {
+      setNudgingStudentId("");
+    }
+  };
+
+  const renderAccountabilityQueue = () => (
+    <Paper style={{ marginBottom: 16, padding: 12 }}>
+      <Box
+        display="flex"
+        justifyContent="space-between"
+        alignItems="center"
+        mb={1}
+      >
+        <Typography variant="h6">Accountability Queue</Typography>
+        <Button
+          size="small"
+          startIcon={<RefreshIcon />}
+          onClick={loadAccountabilityQueue}
+          disabled={accountabilityLoading}
+        >
+          Refresh Queue
+        </Button>
+      </Box>
+      <Box display="flex" alignItems="center" style={{ gap: 8 }} mb={1}>
+        <FormControl variant="outlined" size="small" style={{ minWidth: 180 }}>
+          <InputLabel id="min-inactive-days-label">
+            Inactive Threshold
+          </InputLabel>
+          <Select
+            labelId="min-inactive-days-label"
+            value={String(accountabilityFilters.minInactiveDays)}
+            onChange={(e) =>
+              setAccountabilityFilters((prev) => ({
+                ...prev,
+                minInactiveDays: Number(e.target.value),
+              }))
+            }
+            label="Inactive Threshold"
+          >
+            <MenuItem value="0">0+ days</MenuItem>
+            <MenuItem value="2">2+ days</MenuItem>
+            <MenuItem value="3">3+ days</MenuItem>
+            <MenuItem value="5">5+ days</MenuItem>
+          </Select>
+        </FormControl>
+        <Button
+          size="small"
+          variant={
+            accountabilityFilters.includeNeedsFirstWin
+              ? "contained"
+              : "outlined"
+          }
+          color="default"
+          onClick={() =>
+            setAccountabilityFilters((prev) => ({
+              ...prev,
+              includeNeedsFirstWin: !prev.includeNeedsFirstWin,
+            }))
+          }
+        >
+          Needs First Win
+        </Button>
+        <Button
+          size="small"
+          variant={
+            accountabilityFilters.includeOnTrack ? "contained" : "outlined"
+          }
+          color="default"
+          onClick={() =>
+            setAccountabilityFilters((prev) => ({
+              ...prev,
+              includeOnTrack: !prev.includeOnTrack,
+            }))
+          }
+        >
+          Include On Track
+        </Button>
+      </Box>
+
+      <TableContainer>
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell>Student</TableCell>
+              <TableCell>Status</TableCell>
+              <TableCell align="right">Inactive Days</TableCell>
+              <TableCell>Next Check-In</TableCell>
+              <TableCell>Last Reminder</TableCell>
+              <TableCell>Coach Note</TableCell>
+              <TableCell align="right">Actions</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {accountabilityLoading ? (
+              <TableRow>
+                <TableCell colSpan={7} align="center">
+                  <CircularProgress size={20} />
+                </TableCell>
+              </TableRow>
+            ) : accountabilityQueue.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={7} align="center">
+                  No students match these filters.
+                </TableCell>
+              </TableRow>
+            ) : (
+              accountabilityQueue.map((row) => {
+                const mappedUser = userById.get(String(row.id || "").trim());
+                const displayName =
+                  [row.firstName, row.lastName].filter(Boolean).join(" ") ||
+                  row.username ||
+                  row.id ||
+                  "—";
+
+                return (
+                  <TableRow key={row.id}>
+                    <TableCell>{displayName}</TableCell>
+                    <TableCell>
+                      <Chip size="small" label={row?.status?.label || "—"} />
+                    </TableCell>
+                    <TableCell align="right">
+                      {Number.isFinite(row.daysSincePractice)
+                        ? row.daysSincePractice
+                        : "—"}
+                    </TableCell>
+                    <TableCell>{row.nextCheckInDay || "—"}</TableCell>
+                    <TableCell>
+                      {row.lastReminder?.at ? (
+                        <>
+                          {formatDate(row.lastReminder.at)}
+                          {row.lastReminder?.channel
+                            ? ` (${String(row.lastReminder.channel)
+                                .replace(/_/g, " ")
+                                .toUpperCase()})`
+                            : ""}
+                        </>
+                      ) : (
+                        "—"
+                      )}
+                    </TableCell>
+                    <TableCell>{row.accountabilityNote || "—"}</TableCell>
+                    <TableCell align="right">
+                      <Button
+                        size="small"
+                        color="primary"
+                        onClick={() =>
+                          history.push(
+                            `/student-progress?student=${encodeURIComponent(String(row.username || row.id || ""))}`,
+                          )
+                        }
+                      >
+                        View
+                      </Button>
+                      <Button
+                        size="small"
+                        color="primary"
+                        disabled={!mappedUser}
+                        onClick={() =>
+                          mappedUser &&
+                          setParentStudentDialog({
+                            open: true,
+                            mode: "edit",
+                            initial: mappedUser,
+                          })
+                        }
+                      >
+                        Set Check-In
+                      </Button>
+                      <Button
+                        size="small"
+                        color="secondary"
+                        disabled={nudgingStudentId === row.id}
+                        onClick={() => handleMarkNudgeSent(row)}
+                      >
+                        {nudgingStudentId === row.id
+                          ? "Saving..."
+                          : "Nudge Sent"}
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
+            )}
+          </TableBody>
+        </Table>
+      </TableContainer>
+    </Paper>
+  );
   const getUserDisplayName = (u) => {
     const fullName = [u?.firstName, u?.lastName]
       .filter(Boolean)
@@ -2053,6 +2423,7 @@ function ManagementInner() {
               <TableCell>Email / Username</TableCell>
               <TableCell>Password</TableCell>
               <TableCell>Role</TableCell>
+              <TableCell>Accountability</TableCell>
               <TableCell>School</TableCell>
               <TableCell>Classes</TableCell>
               <TableCell align="right">Students</TableCell>
@@ -2062,100 +2433,131 @@ function ManagementInner() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={8} align="center">
+                <TableCell colSpan={9} align="center">
                   <CircularProgress size={24} />
                 </TableCell>
               </TableRow>
             ) : sortedVisibleUsers.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} align="center">
+                <TableCell colSpan={9} align="center">
                   No users found.
                 </TableCell>
               </TableRow>
             ) : (
-              sortedVisibleUsers.map((u) => (
-                <TableRow key={u.id}>
-                  <TableCell>{getUserLastFirstDisplay(u)}</TableCell>
-                  <TableCell>{u.email || u.username || "—"}</TableCell>
-                  <TableCell>
-                    {u.hasPassword === false ? "—" : "********"}
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      size="small"
-                      label={prettyRole(effectiveRoleForUser(u))}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    {isSelfManagedAdult(u)
-                      ? "Self"
-                      : (schoolNameByUserId.get(u.id) ?? "—")}
-                  </TableCell>
-                  <TableCell>
-                    {isSelfManagedAdult(u) ? (
-                      <Chip size="small" label="Self" />
-                    ) : (
-                      <>
-                        {(u.classIds || []).slice(0, 3).map((id) => (
-                          <Chip
-                            key={id}
-                            size="small"
-                            label={className(id)}
-                            style={{ marginRight: 4 }}
-                          />
-                        ))}
-                        {(u.classIds || []).length > 3 && (
-                          <Chip
-                            size="small"
-                            label={`+${u.classIds.length - 3}`}
-                          />
-                        )}
-                        {(u.classIds || []).length === 0 && "—"}
-                      </>
-                    )}
-                  </TableCell>
-                  <TableCell align="right">{userStudentCount(u)}</TableCell>
-                  <TableCell align="right">
-                    <IconButton
-                      size="small"
-                      onClick={() =>
-                        setUserDialog({
-                          open: true,
-                          mode: "edit",
-                          initial: {
-                            id: u.id,
-                            role: effectiveRoleForUser(u),
-                            email: u.email,
-                            username: u.username,
-                            password: "",
-                            firstName: u.firstName,
-                            lastName: u.lastName,
-                            schoolId: u.schoolId || "",
-                            educatorId: u.educator || "",
-                            classIds: u.classIds || [],
-                          },
-                        })
-                      }
-                    >
-                      <EditIcon fontSize="small" />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      onClick={() => handleDeleteUser(u)}
-                      disabled={callerRole !== "admin" && u.role === "admin"}
-                    >
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      onClick={() => handleSendReset(u)}
-                      disabled={!u.email}
-                    >
-                      <LockIcon fontSize="small" />
-                    </IconButton>
-                  </TableCell>
-                </TableRow>
-              ))
+              sortedVisibleUsers.map((u) => {
+                const effectiveRole = effectiveRoleForUser(u);
+                const isStudent = effectiveRole === "student";
+                const accountabilityStatus = isStudent
+                  ? getStudentAccountabilityStatus(u)
+                  : null;
+
+                return (
+                  <TableRow key={u.id}>
+                    <TableCell>{getUserLastFirstDisplay(u)}</TableCell>
+                    <TableCell>{u.email || u.username || "—"}</TableCell>
+                    <TableCell>
+                      {u.hasPassword === false ? "—" : "********"}
+                    </TableCell>
+                    <TableCell>
+                      <Chip size="small" label={prettyRole(effectiveRole)} />
+                    </TableCell>
+                    <TableCell>
+                      {isStudent ? (
+                        <Chip
+                          size="small"
+                          label={accountabilityStatus.label}
+                          color={accountabilityStatus.color}
+                        />
+                      ) : (
+                        "—"
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {isSelfManagedAdult(u)
+                        ? "Self"
+                        : (schoolNameByUserId.get(u.id) ?? "—")}
+                    </TableCell>
+                    <TableCell>
+                      {isSelfManagedAdult(u) ? (
+                        <Chip size="small" label="Self" />
+                      ) : (
+                        <>
+                          {(u.classIds || []).slice(0, 3).map((id) => (
+                            <Chip
+                              key={id}
+                              size="small"
+                              label={className(id)}
+                              style={{ marginRight: 4 }}
+                            />
+                          ))}
+                          {(u.classIds || []).length > 3 && (
+                            <Chip
+                              size="small"
+                              label={`+${u.classIds.length - 3}`}
+                            />
+                          )}
+                          {(u.classIds || []).length === 0 && "—"}
+                        </>
+                      )}
+                    </TableCell>
+                    <TableCell align="right">{userStudentCount(u)}</TableCell>
+                    <TableCell align="right">
+                      <IconButton
+                        size="small"
+                        onClick={() =>
+                          setUserDialog({
+                            open: true,
+                            mode: "edit",
+                            initial: {
+                              id: u.id,
+                              role: effectiveRole,
+                              email: u.email,
+                              username: u.username,
+                              password: "",
+                              firstName: u.firstName,
+                              lastName: u.lastName,
+                              schoolId: u.schoolId || "",
+                              educatorId: u.educator || "",
+                              classIds: u.classIds || [],
+                            },
+                          })
+                        }
+                      >
+                        <EditIcon fontSize="small" />
+                      </IconButton>
+                      {isStudent && (
+                        <Button
+                          size="small"
+                          color="primary"
+                          onClick={() =>
+                            setParentStudentDialog({
+                              open: true,
+                              mode: "edit",
+                              initial: u,
+                            })
+                          }
+                        >
+                          Set Check-In
+                        </Button>
+                      )}
+                      <IconButton
+                        size="small"
+                        onClick={() => handleDeleteUser(u)}
+                        disabled={callerRole !== "admin" && u.role === "admin"}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                      <IconButton
+                        size="small"
+                        onClick={() => handleSendReset(u)}
+                        disabled={!u.email}
+                      >
+                        <LockIcon fontSize="small" />
+                      </IconButton>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>
@@ -2373,6 +2775,7 @@ function ManagementInner() {
               <TableCell>Username</TableCell>
               <TableCell>First Name</TableCell>
               <TableCell>Last Name</TableCell>
+              <TableCell>Status</TableCell>
               <TableCell align="right">Progress</TableCell>
               <TableCell align="right">Edit</TableCell>
             </TableRow>
@@ -2380,13 +2783,13 @@ function ManagementInner() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={5} align="center">
+                <TableCell colSpan={6} align="center">
                   <CircularProgress size={24} />
                 </TableCell>
               </TableRow>
             ) : sortedParentStudents.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} align="center">
+                <TableCell colSpan={6} align="center">
                   No students yet. Add your first student!
                 </TableCell>
               </TableRow>
@@ -2396,6 +2799,13 @@ function ManagementInner() {
                   <TableCell>{u.username}</TableCell>
                   <TableCell>{u.firstName || "—"}</TableCell>
                   <TableCell>{u.lastName || "—"}</TableCell>
+                  <TableCell>
+                    <Chip
+                      size="small"
+                      label={getStudentAccountabilityStatus(u).label}
+                      color={getStudentAccountabilityStatus(u).color}
+                    />
+                  </TableCell>
                   <TableCell align="right">
                     <Button
                       size="small"
@@ -2529,6 +2939,10 @@ function ManagementInner() {
           </Tabs>
         </Paper>
       )}
+
+      {queueVisibleTab &&
+        canUseAccountabilityQueue &&
+        renderAccountabilityQueue()}
 
       {activeTab === "users" && renderUsers()}
       {activeTab === "schools" && renderSchools()}

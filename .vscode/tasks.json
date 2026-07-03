@@ -22,6 +22,16 @@
 				"hosting"
 			],
 			"isBackground": false
+		},
+		{
+			"label": "build-only",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"run",
+				"build"
+			],
+			"isBackground": false
 		}
 	]
 }

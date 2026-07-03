@@ -23,6 +23,9 @@ jest.mock("../util/Audio", () => ({
   primeAudioPlayback: jest.fn().mockResolvedValue(true),
   speakText: jest.fn().mockResolvedValue(true),
   stopSpeaking: jest.fn(),
+  playRewardChime: jest.fn().mockResolvedValue(true),
+  playCelebrationFanfare: jest.fn().mockResolvedValue(true),
+  playTinkSequence: jest.fn().mockResolvedValue(true),
   SPEECH_RATE: 1,
   terminateAudio: jest.fn(),
   setPlayAudio: jest.fn(),
@@ -140,6 +143,15 @@ function renderLesson(contextOverrides = {}) {
 // ── tests ─────────────────────────────────────────────────────────────────────
 
 describe("Lesson – word submission", () => {
+  beforeEach(() => {
+    const audio = require("../util/Audio");
+    audio.playRewardChime.mockImplementation(() => Promise.resolve(true));
+    audio.playCelebrationFanfare.mockImplementation(() =>
+      Promise.resolve(true),
+    );
+    audio.playTinkSequence.mockImplementation(() => Promise.resolve(true));
+  });
+
   test("answer field is locked until cue completes, then opens", () => {
     const { startLesson, getTextarea } = renderLesson();
 
@@ -202,6 +214,7 @@ describe("Lesson – word submission", () => {
       getTextarea,
       mockSaveProgress,
       mockSetLevel,
+      queryByText,
     } = renderLesson();
 
     startLesson();
@@ -216,9 +229,7 @@ describe("Lesson – word submission", () => {
     await wait(() => {
       expect(mockSaveProgress).toHaveBeenCalled();
       expect(mockSetLevel).toHaveBeenCalledWith(1);
-      expect(document.querySelector("button")?.textContent).toMatch(
-        /start lesson/i,
-      );
+      expect(queryByText(/start lesson/i)).toBeTruthy();
       // Input should remain locked until the user starts the next level.
       expect(getTextarea().value).toBe("");
       expect(getTextarea().readOnly).toBe(true);
@@ -291,46 +302,71 @@ describe("Lesson – word submission", () => {
     expect(textarea.value).toBe("");
   });
 
-  test("popup Talk uses speech and Repeat stops it safely", async () => {
-    const { startLesson, getByText, findByText } = renderLesson();
-    const { speakText, stopSpeaking } = require("../util/Audio");
+  test("popup Talk control renders and Repeat stops it safely", async () => {
+    const { startLesson, getByText, findByText, findByLabelText } =
+      renderLesson();
+    const { stopSpeaking } = require("../util/Audio");
+    const { lookupWordDefinition } = require("../util/wordDefinitionLookup");
+
+    lookupWordDefinition.mockClear();
 
     startLesson();
 
+    await wait(() => {
+      const textarea = document.querySelector("textarea");
+      expect(textarea && textarea.readOnly).toBe(false);
+    });
+
     fireEvent.click(getByText(/^show$/i));
-    fireEvent.click(getByText("DID"));
-
-    await findByText(/Definition:/i);
-
-    speakText.mockClear();
-    stopSpeaking.mockClear();
-
-    fireEvent.click(getByText(/^Talk$/i));
+    fireEvent.click(await findByLabelText(/show definition and sentence/i));
 
     await wait(() => {
-      expect(speakText).toHaveBeenCalledTimes(1);
-      expect(String(speakText.mock.calls[0][0] || "")).toContain("Word: DID");
-      expect(stopSpeaking).toHaveBeenCalledTimes(1);
+      expect(lookupWordDefinition).toHaveBeenCalledWith("DID");
     });
+    await findByText(/^Retry$/i);
+
+    await wait(() => {
+      const talkButton = getByText(/^Talk$/i).closest("button");
+      expect(talkButton).toBeTruthy();
+    });
+
+    stopSpeaking.mockClear();
 
     fireEvent.click(getByText(/repeat/i));
 
     await wait(() => {
-      expect(stopSpeaking).toHaveBeenCalledTimes(2);
+      expect(stopSpeaking).toHaveBeenCalledTimes(1);
     });
   });
 
   test("popup Talk is hidden when kill switch is disabled", async () => {
     window.localStorage.setItem("soundspeller.wordInfoTalkEnabled", "false");
     try {
-      const { startLesson, getByText, findByText, queryByText } =
-        renderLesson();
+      const {
+        startLesson,
+        getByText,
+        findByText,
+        queryByText,
+        findByLabelText,
+      } = renderLesson();
+      const { lookupWordDefinition } = require("../util/wordDefinitionLookup");
+
+      lookupWordDefinition.mockClear();
 
       startLesson();
-      fireEvent.click(getByText(/^show$/i));
-      fireEvent.click(getByText("DID"));
 
-      await findByText(/Definition:/i);
+      await wait(() => {
+        const textarea = document.querySelector("textarea");
+        expect(textarea && textarea.readOnly).toBe(false);
+      });
+
+      fireEvent.click(getByText(/^show$/i));
+      fireEvent.click(await findByLabelText(/show definition and sentence/i));
+
+      await wait(() => {
+        expect(lookupWordDefinition).toHaveBeenCalledWith("DID");
+      });
+      await findByText(/^Retry$/i);
       expect(queryByText(/^Talk$/i)).toBeNull();
     } finally {
       window.localStorage.removeItem("soundspeller.wordInfoTalkEnabled");

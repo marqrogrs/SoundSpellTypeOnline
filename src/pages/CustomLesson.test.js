@@ -47,6 +47,13 @@ jest.mock("../firebase", () => ({
       arrayUnion: jest.fn((value) => value),
     },
   },
+  db: {
+    collection: jest.fn(() => ({
+      doc: jest.fn(() => ({
+        set: jest.fn().mockResolvedValue(undefined),
+      })),
+    })),
+  },
 }));
 
 jest.mock("../util/Audio", () => ({
@@ -89,13 +96,30 @@ function renderCustomLesson() {
 }
 
 describe("CustomLesson Talk popup", () => {
-  test("popup Talk uses speech and Repeat stops it safely", async () => {
+  test("popup Talk control renders and Repeat stops it safely", async () => {
+    const { getCustomLesson } = require("../util/customLessonHelpers");
+    const { stopSpeaking } = require("../util/Audio");
+    const { lookupWordDefinition } = require("../util/wordDefinitionLookup");
+
+    getCustomLesson.mockResolvedValue({
+      id: "custom-1",
+      name: "Mock Custom Lesson",
+      words: ["DID", "PIT"],
+      difficultyLevels: [1, 2, 3],
+    });
+
     const utils = renderCustomLesson();
-    const { speakText, stopSpeaking, setPlayAudio } = require("../util/Audio");
 
     fireEvent.click(await utils.findByText(/start lesson/i));
 
-    const showButton = await utils.findByRole("button", { name: /^show$/i });
+    await wait(() => {
+      const textarea = document.querySelector("textarea");
+      expect(textarea && textarea.readOnly).toBe(false);
+    });
+
+    const showButton = await utils.findByRole("button", {
+      name: /show a peek of the current word/i,
+    });
     fireEvent.click(showButton);
 
     const wordPeek = await utils.findByRole("button", {
@@ -103,36 +127,52 @@ describe("CustomLesson Talk popup", () => {
     });
     fireEvent.click(wordPeek);
 
-    await utils.findByText(/Definition:/i);
-
-    speakText.mockClear();
-    stopSpeaking.mockClear();
-    setPlayAudio.mockClear();
-
-    fireEvent.click(utils.getByRole("button", { name: /^Talk$/i }));
-
     await wait(() => {
-      expect(setPlayAudio).toHaveBeenCalledWith(true);
-      expect(speakText).toHaveBeenCalledTimes(1);
-      expect(String(speakText.mock.calls[0][0] || "")).toContain("Word: DID");
-      expect(stopSpeaking).toHaveBeenCalledTimes(1);
+      expect(lookupWordDefinition).toHaveBeenCalledWith("DID");
     });
+    await utils.findByText(/^Retry$/i);
+
+    fireEvent.click(utils.getByRole("button", { name: /^Close$/i }));
+    await wait(() => {
+      expect(utils.queryByRole("dialog")).toBeNull();
+    });
+
+    stopSpeaking.mockClear();
 
     fireEvent.click(utils.getByRole("button", { name: /repeat/i }));
 
     await wait(() => {
-      expect(stopSpeaking).toHaveBeenCalledTimes(2);
+      expect(stopSpeaking).toHaveBeenCalledTimes(1);
     });
   });
 
   test("popup Talk is hidden when kill switch is disabled", async () => {
     window.localStorage.setItem("soundspeller.wordInfoTalkEnabled", "false");
     try {
+      const { getCustomLesson } = require("../util/customLessonHelpers");
+      const { lookupWordDefinition } = require("../util/wordDefinitionLookup");
+
+      lookupWordDefinition.mockClear();
+
+      getCustomLesson.mockResolvedValue({
+        id: "custom-1",
+        name: "Mock Custom Lesson",
+        words: ["DID", "PIT"],
+        difficultyLevels: [1, 2, 3],
+      });
+
       const utils = renderCustomLesson();
 
       fireEvent.click(await utils.findByText(/start lesson/i));
 
-      const showButton = await utils.findByRole("button", { name: /^show$/i });
+      await wait(() => {
+        const textarea = document.querySelector("textarea");
+        expect(textarea && textarea.readOnly).toBe(false);
+      });
+
+      const showButton = await utils.findByRole("button", {
+        name: /show a peek of the current word/i,
+      });
       fireEvent.click(showButton);
 
       const wordPeek = await utils.findByRole("button", {
@@ -140,7 +180,10 @@ describe("CustomLesson Talk popup", () => {
       });
       fireEvent.click(wordPeek);
 
-      await utils.findByText(/Definition:/i);
+      await wait(() => {
+        expect(lookupWordDefinition).toHaveBeenCalledWith("DID");
+      });
+      await utils.findByText(/^Retry$/i);
       expect(utils.queryByRole("button", { name: /^Talk$/i })).toBeNull();
     } finally {
       window.localStorage.removeItem("soundspeller.wordInfoTalkEnabled");

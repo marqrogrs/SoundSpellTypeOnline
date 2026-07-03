@@ -48,8 +48,8 @@ test("shows Sound Spell Type Online branding on the landing page", async () => {
 test("shows login options on the landing page", async () => {
   const { getByText } = render(<App />);
   await wait(() => {
-    expect(getByText(/Sign In/i)).toBeInTheDocument();
-    expect(getByText(/Sign Up/i)).toBeInTheDocument();
+    expect(getByText(/Student Sign In/i)).toBeInTheDocument();
+    expect(getByText(/Adult Sign In/i)).toBeInTheDocument();
   });
 });
 

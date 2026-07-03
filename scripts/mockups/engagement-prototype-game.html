@@ -1,0 +1,540 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sound Spell Type - Game Mode Prototype</title>
+    <style>
+      :root {
+        --bg: #130d2a;
+        --bg-2: #1f1240;
+        --card: #23164a;
+        --ink: #f7f3ff;
+        --muted: #c6bee6;
+        --line: #43326e;
+        --brand: #6f5cff;
+        --brand-2: #00c7b6;
+        --gold: #ffcb4a;
+        --danger: #ff5c79;
+        --ok: #38e88f;
+        --shadow: 0 20px 40px rgba(8, 2, 24, 0.5);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: "Avenir Next", "Segoe UI", sans-serif;
+        color: var(--ink);
+        background:
+          radial-gradient(
+            circle at 20% 10%,
+            rgba(111, 92, 255, 0.32),
+            transparent 40%
+          ),
+          radial-gradient(
+            circle at 80% 0%,
+            rgba(0, 199, 182, 0.25),
+            transparent 35%
+          ),
+          linear-gradient(150deg, var(--bg), var(--bg-2));
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 22px;
+      }
+
+      .layout {
+        width: min(1080px, 100%);
+        display: grid;
+        grid-template-columns: 320px 1fr;
+        gap: 16px;
+      }
+
+      .card {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        box-shadow: var(--shadow);
+        padding: 15px;
+      }
+
+      .stack {
+        display: grid;
+        gap: 12px;
+      }
+      .row {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+
+      h1 {
+        margin: 0 0 6px;
+        font-size: 1.35rem;
+      }
+      h2 {
+        margin: 0 0 7px;
+        font-size: 1rem;
+      }
+      p {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.35;
+      }
+
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        border: 1px solid #5a4a89;
+        border-radius: 999px;
+        padding: 6px 10px;
+        background: #2e1d5d;
+        color: #efe9ff;
+        font-size: 0.86rem;
+        font-weight: 700;
+      }
+
+      .toggle {
+        border: 1px solid #615096;
+        border-radius: 10px;
+        padding: 8px 10px;
+        background: #2f2062;
+        color: #f6f1ff;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      .toggle.active {
+        border-color: #7bc9b6;
+        background: #1e5c56;
+      }
+
+      .main {
+        display: grid;
+        gap: 14px;
+      }
+
+      .banner {
+        border-radius: 18px;
+        padding: 16px;
+        background: linear-gradient(130deg, #6f5cff, #00aeb8 55%, #ffcb4a);
+        color: #130d2a;
+        font-weight: 700;
+      }
+
+      .panel {
+        display: grid;
+        grid-template-columns: 1.35fr 1fr;
+        gap: 14px;
+      }
+
+      .prompt {
+        font-size: 2rem;
+        margin: 10px 0;
+        letter-spacing: 2px;
+        font-weight: 900;
+        color: #fff;
+        text-shadow: 0 0 20px rgba(0, 199, 182, 0.5);
+      }
+
+      .field {
+        width: 100%;
+        border: 2px solid #5c4996;
+        border-radius: 12px;
+        padding: 11px 12px;
+        background: #1b1038;
+        color: #fff;
+        font-size: 1.05rem;
+      }
+
+      .field:focus {
+        outline: none;
+        border-color: #00c7b6;
+        box-shadow: 0 0 0 3px rgba(0, 199, 182, 0.2);
+      }
+
+      .btn {
+        border: 0;
+        border-radius: 10px;
+        padding: 9px 12px;
+        font-weight: 900;
+        cursor: pointer;
+        color: #130d2a;
+        background: linear-gradient(90deg, #ffcb4a, #ffc05a);
+      }
+
+      .btn.alt {
+        background: #3a2a72;
+        color: #f2ebff;
+        border: 1px solid #63529b;
+      }
+
+      .status {
+        min-height: 24px;
+        margin-top: 8px;
+        font-weight: 800;
+      }
+
+      .status.ok {
+        color: var(--ok);
+      }
+      .status.no {
+        color: var(--danger);
+      }
+
+      .xp {
+        height: 12px;
+        border-radius: 999px;
+        background: #3b2e68;
+        overflow: hidden;
+        margin-top: 8px;
+      }
+
+      .xp > div {
+        height: 100%;
+        width: 0%;
+        background: linear-gradient(90deg, #00c7b6, #6f5cff);
+        transition: width 180ms ease;
+      }
+
+      .score {
+        display: grid;
+        gap: 8px;
+      }
+
+      .score > div {
+        display: flex;
+        justify-content: space-between;
+        background: #1d1240;
+        border: 1px solid #44326f;
+        border-radius: 10px;
+        padding: 8px 10px;
+        font-size: 0.9rem;
+      }
+
+      .burst {
+        position: fixed;
+        top: 14%;
+        left: 50%;
+        transform: translateX(-50%);
+        background: #10c982;
+        color: #0f2132;
+        border-radius: 999px;
+        padding: 9px 14px;
+        font-weight: 900;
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .burst.show {
+        animation: flash 1.1s ease;
+      }
+
+      @keyframes flash {
+        0% {
+          opacity: 0;
+          transform: translateX(-50%) translateY(10px) scale(0.9);
+        }
+        14% {
+          opacity: 1;
+          transform: translateX(-50%) translateY(0) scale(1);
+        }
+        85% {
+          opacity: 1;
+        }
+        100% {
+          opacity: 0;
+          transform: translateX(-50%) translateY(-10px) scale(1.05);
+        }
+      }
+
+      @media (max-width: 940px) {
+        .layout {
+          grid-template-columns: 1fr;
+        }
+        .panel {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          animation: none !important;
+          transition: none !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="burst" id="burst">Combo bonus +20 XP</div>
+
+    <main class="layout">
+      <aside class="card stack">
+        <div>
+          <h1>Game Mode Prototype</h1>
+          <p>
+            Higher-energy reward loop for users who like visible progression and
+            game feel.
+          </p>
+        </div>
+
+        <div class="stack">
+          <h2>Session Stats</h2>
+          <div class="row">
+            <span class="pill">Level <strong id="level">1</strong></span>
+            <span class="pill">Streak <strong id="streak">3</strong>d</span>
+            <span class="pill">Lives <strong id="lives">3</strong></span>
+          </div>
+        </div>
+
+        <div class="stack">
+          <h2>Audio</h2>
+          <div class="row">
+            <button id="sfx" class="toggle active">SFX On</button>
+            <button id="music" class="toggle">Music Off</button>
+          </div>
+        </div>
+
+        <div class="stack">
+          <h2>XP Progress</h2>
+          <p><strong id="xpText">0 / 120 XP</strong></p>
+          <div class="xp"><div id="xpBar"></div></div>
+        </div>
+      </aside>
+
+      <section class="main">
+        <header class="banner">
+          Quick win chain: correct answers build combo, combo boosts XP, XP
+          levels up your session.
+        </header>
+
+        <section class="panel">
+          <article class="card">
+            <h2>Challenge Word</h2>
+            <p>Word <span id="idx">1</span> of 12</p>
+            <div class="prompt" id="prompt">splash</div>
+            <div class="row">
+              <input
+                id="input"
+                class="field"
+                type="text"
+                placeholder="Type word"
+                autocomplete="off"
+              />
+              <button id="check" class="btn">Hit</button>
+              <button id="skip" class="btn alt">Skip</button>
+            </div>
+            <div id="status" class="status"></div>
+          </article>
+
+          <article class="card score">
+            <div><span>Score</span><strong id="score">0</strong></div>
+            <div><span>Combo</span><strong id="combo">x1</strong></div>
+            <div><span>Correct</span><strong id="correct">0</strong></div>
+            <div><span>Attempts</span><strong id="attempts">0</strong></div>
+            <div><span>Coins</span><strong id="coins">0</strong></div>
+          </article>
+        </section>
+      </section>
+    </main>
+
+    <script>
+      const words = [
+        "splash",
+        "thrive",
+        "bloom",
+        "grain",
+        "storm",
+        "cheer",
+        "flight",
+        "crunch",
+        "stripe",
+        "flame",
+        "shiver",
+        "glow",
+      ];
+
+      let idx = 0;
+      let score = 0;
+      let combo = 1;
+      let correct = 0;
+      let attempts = 0;
+      let coins = 0;
+      let lives = 3;
+      let streak = 3;
+      let level = 1;
+      let xp = 0;
+      const xpGoal = 120;
+      let sfxOn = true;
+      let musicOn = false;
+
+      let audioCtx;
+      let musicOsc;
+      let musicGain;
+
+      const el = (id) => document.getElementById(id);
+
+      function ensureAudio() {
+        if (!audioCtx) {
+          const Ctx = window.AudioContext || window.webkitAudioContext;
+          audioCtx = new Ctx();
+        }
+        return audioCtx;
+      }
+
+      function tone(freq, dur, type, gainVal) {
+        if (!sfxOn) return;
+        const ctx = ensureAudio();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = type;
+        osc.frequency.value = freq;
+        gain.gain.value = gainVal;
+        osc.connect(gain).connect(ctx.destination);
+        const now = ctx.currentTime;
+        gain.gain.setValueAtTime(gainVal, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
+        osc.start(now);
+        osc.stop(now + dur);
+      }
+
+      function sfxHit() {
+        tone(620, 0.09, "square", 0.05);
+        setTimeout(() => tone(930, 0.14, "triangle", 0.05), 80);
+      }
+
+      function sfxMiss() {
+        tone(160, 0.18, "sawtooth", 0.045);
+      }
+
+      function toggleMusic() {
+        const ctx = ensureAudio();
+        if (!musicOn) {
+          musicOsc = ctx.createOscillator();
+          musicGain = ctx.createGain();
+          musicOsc.type = "triangle";
+          musicOsc.frequency.value = 130;
+          musicGain.gain.value = 0.02;
+          musicOsc.connect(musicGain).connect(ctx.destination);
+          musicOsc.start();
+          musicOn = true;
+          el("music").classList.add("active");
+          el("music").textContent = "Music On";
+        } else {
+          if (musicOsc) musicOsc.stop();
+          musicOn = false;
+          el("music").classList.remove("active");
+          el("music").textContent = "Music Off";
+        }
+      }
+
+      function burst(text) {
+        const b = el("burst");
+        b.textContent = text;
+        b.classList.remove("show");
+        void b.offsetWidth;
+        b.classList.add("show");
+      }
+
+      function sync() {
+        el("idx").textContent = String(idx + 1);
+        el("prompt").textContent = words[idx];
+        el("score").textContent = String(score);
+        el("combo").textContent = `x${combo}`;
+        el("correct").textContent = String(correct);
+        el("attempts").textContent = String(attempts);
+        el("coins").textContent = String(coins);
+        el("lives").textContent = String(lives);
+        el("streak").textContent = String(streak);
+        el("level").textContent = String(level);
+        el("xpText").textContent = `${xp} / ${xpGoal} XP`;
+        el("xpBar").style.width =
+          `${Math.min(100, Math.round((xp / xpGoal) * 100))}%`;
+      }
+
+      function next() {
+        idx = (idx + 1) % words.length;
+        el("input").value = "";
+        sync();
+        el("input").focus();
+      }
+
+      function addXp(amount) {
+        xp += amount;
+        if (xp >= xpGoal) {
+          xp -= xpGoal;
+          level += 1;
+          lives = Math.min(5, lives + 1);
+          burst("Level up! +1 life");
+          tone(740, 0.12, "triangle", 0.06);
+          setTimeout(() => tone(980, 0.2, "triangle", 0.06), 90);
+        }
+      }
+
+      function check() {
+        const guess = el("input").value.trim().toLowerCase();
+        if (!guess) return;
+        const target = words[idx];
+        attempts += 1;
+
+        if (guess === target) {
+          correct += 1;
+          score += 10 * combo;
+          coins += 2 * combo;
+          addXp(12 + combo * 2);
+          if (combo >= 3) burst(`Combo bonus +${combo * 5} score`);
+          combo += 1;
+          el("status").textContent = "Nice hit!";
+          el("status").className = "status ok";
+          sfxHit();
+          sync();
+          setTimeout(next, 170);
+        } else {
+          lives -= 1;
+          combo = 1;
+          addXp(3);
+          el("status").textContent = `Miss. Correct word: ${target}`;
+          el("status").className = "status no";
+          sfxMiss();
+          if (lives <= 0) {
+            streak = Math.max(0, streak - 1);
+            lives = 3;
+            burst("Run ended. Streak shield used.");
+          }
+          sync();
+        }
+      }
+
+      el("check").addEventListener("click", check);
+      el("skip").addEventListener("click", () => {
+        attempts += 1;
+        combo = 1;
+        addXp(2);
+        el("status").textContent = `Skipped ${words[idx]}.`;
+        el("status").className = "status no";
+        sync();
+        next();
+      });
+
+      el("input").addEventListener("keydown", (e) => {
+        if (e.key === "Enter") check();
+      });
+
+      el("sfx").addEventListener("click", () => {
+        sfxOn = !sfxOn;
+        el("sfx").classList.toggle("active", sfxOn);
+        el("sfx").textContent = sfxOn ? "SFX On" : "SFX Off";
+      });
+
+      el("music").addEventListener("click", toggleMusic);
+
+      sync();
+      el("input").focus();
+    </script>
+  </body>
+</html>

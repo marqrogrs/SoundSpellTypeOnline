@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Calm Mode Prototype</title>
+    <style>
+      :root {
+        --bg: #f4f7f8;
+        --panel: #ffffff;
+        --ink: #1f3137;
+        --muted: #607a82;
+        --line: #d7e3e8;
+        --accent: #2f7a88;
+        --ok: #2f8a5b;
+        --soft: #edf4f6;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: Georgia, "Times New Roman", serif;
+        color: var(--ink);
+        background: linear-gradient(160deg, #f8fbfc, var(--bg));
+        min-height: 100vh;
+        padding: 24px;
+        display: grid;
+        place-items: center;
+      }
+
+      .wrap {
+        width: min(980px, 100%);
+        display: grid;
+        grid-template-columns: 320px 1fr;
+        gap: 16px;
+      }
+
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 16px;
+      }
+
+      .stack {
+        display: grid;
+        gap: 12px;
+      }
+      h1 {
+        margin: 0;
+        font-size: 1.2rem;
+      }
+      h2 {
+        margin: 0;
+        font-size: 1rem;
+      }
+      p {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.45;
+        font-size: 0.92rem;
+      }
+
+      .badge {
+        display: inline-block;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: var(--soft);
+        color: #285763;
+        font-size: 0.8rem;
+        font-weight: 700;
+      }
+
+      .meter {
+        height: 10px;
+        border-radius: 999px;
+        background: #e6eef1;
+        overflow: hidden;
+      }
+
+      .meter > div {
+        height: 100%;
+        width: 0%;
+        background: linear-gradient(90deg, #6ea7b2, var(--accent));
+        transition: width 180ms ease;
+      }
+
+      .word {
+        font-size: 1.9rem;
+        letter-spacing: 2px;
+        color: #214a56;
+        margin-top: 4px;
+        font-weight: 700;
+      }
+
+      .row {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+
+      input {
+        flex: 1;
+        min-width: 220px;
+        border: 1px solid #bfd1d8;
+        border-radius: 10px;
+        padding: 10px 12px;
+        font-size: 1rem;
+        font-family: inherit;
+      }
+
+      input:focus {
+        outline: none;
+        border-color: #6a97a5;
+        box-shadow: 0 0 0 3px rgba(106, 151, 165, 0.14);
+      }
+
+      button {
+        border: 1px solid #b9ced6;
+        background: #f4fbfd;
+        color: #214e5a;
+        border-radius: 10px;
+        padding: 9px 12px;
+        font-weight: 700;
+        cursor: pointer;
+        font-family: inherit;
+      }
+
+      button.primary {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #fff;
+      }
+
+      .status {
+        min-height: 22px;
+        font-weight: 700;
+        color: var(--muted);
+      }
+
+      .status.ok {
+        color: var(--ok);
+      }
+
+      .timer {
+        display: grid;
+        gap: 8px;
+        padding: 10px;
+        border-radius: 12px;
+        border: 1px solid var(--line);
+        background: #f8fbfc;
+      }
+
+      .pulse {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        background: rgba(47, 122, 136, 0.18);
+        box-shadow: 0 0 0 0 rgba(47, 122, 136, 0.18);
+        animation: breathe 4s ease-in-out infinite;
+      }
+
+      @keyframes breathe {
+        0%,
+        100% {
+          transform: scale(0.9);
+          box-shadow: 0 0 0 0 rgba(47, 122, 136, 0.12);
+        }
+        50% {
+          transform: scale(1.06);
+          box-shadow: 0 0 0 14px rgba(47, 122, 136, 0);
+        }
+      }
+
+      @media (max-width: 900px) {
+        .wrap {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          animation: none !important;
+          transition: none !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <aside class="card stack">
+        <div class="stack">
+          <h1>Calm Practice Mode</h1>
+          <p>
+            Designed for low pressure, steady rhythm, and confidence-building
+            momentum.
+          </p>
+        </div>
+
+        <div class="stack">
+          <h2>Gentle Goal</h2>
+          <span class="badge" id="goalBadge">Today: 5 calm correct words</span>
+          <div class="meter" aria-label="Goal progress">
+            <div id="goalMeter"></div>
+          </div>
+          <p id="goalText">0 of 5 complete</p>
+        </div>
+
+        <div class="timer">
+          <div class="row">
+            <div class="pulse" aria-hidden="true"></div>
+            <div>
+              <strong id="paceLabel">Pace: Slow and steady</strong>
+              <p>Pause and breathe between attempts.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="stack">
+          <h2>Optional Audio</h2>
+          <button id="chimeToggle">Soft Chime: Off</button>
+        </div>
+
+        <div class="stack">
+          <h2>Reflection</h2>
+          <p id="reflection">Tip: focus on one accurate response at a time.</p>
+        </div>
+      </aside>
+
+      <main class="card stack">
+        <div class="stack">
+          <h2>Quiet Lesson</h2>
+          <p>Word <span id="idx">1</span> of 10</p>
+          <div class="word" id="word">ship</div>
+        </div>
+
+        <div class="row">
+          <input
+            id="answer"
+            type="text"
+            placeholder="Type the word"
+            autocomplete="off"
+          />
+          <button class="primary" id="check">Check</button>
+          <button id="skip">Skip</button>
+        </div>
+
+        <div class="status" id="status"></div>
+
+        <div class="stack">
+          <h2>Session Summary</h2>
+          <div class="row">
+            <span class="badge" id="correctBadge">Correct: 0</span>
+            <span class="badge" id="attemptBadge">Attempts: 0</span>
+            <span class="badge" id="accuracyBadge">Accuracy: 0%</span>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <script>
+      const words = [
+        "ship",
+        "chop",
+        "green",
+        "flash",
+        "night",
+        "train",
+        "storm",
+        "light",
+        "grain",
+        "flute",
+      ];
+      let i = 0;
+      let attempts = 0;
+      let correct = 0;
+      let goal = 5;
+      let chime = false;
+      let audioCtx;
+
+      const el = {
+        word: document.getElementById("word"),
+        idx: document.getElementById("idx"),
+        answer: document.getElementById("answer"),
+        status: document.getElementById("status"),
+        goalMeter: document.getElementById("goalMeter"),
+        goalText: document.getElementById("goalText"),
+        correctBadge: document.getElementById("correctBadge"),
+        attemptBadge: document.getElementById("attemptBadge"),
+        accuracyBadge: document.getElementById("accuracyBadge"),
+        reflection: document.getElementById("reflection"),
+        chimeToggle: document.getElementById("chimeToggle"),
+      };
+
+      function ensureAudio() {
+        if (!audioCtx) {
+          const Ctx = window.AudioContext || window.webkitAudioContext;
+          audioCtx = new Ctx();
+        }
+        return audioCtx;
+      }
+
+      function softChime() {
+        if (!chime) return;
+        const ctx = ensureAudio();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.value = 523.25;
+        gain.gain.value = 0.03;
+        osc.connect(gain).connect(ctx.destination);
+        const now = ctx.currentTime;
+        gain.gain.setValueAtTime(0.03, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+        osc.start(now);
+        osc.stop(now + 0.35);
+      }
+
+      function updateStats() {
+        const acc = attempts ? Math.round((correct / attempts) * 100) : 0;
+        const p = Math.min(100, Math.round((correct / goal) * 100));
+        el.goalMeter.style.width = `${p}%`;
+        el.goalText.textContent = `${Math.min(correct, goal)} of ${goal} complete`;
+        el.correctBadge.textContent = `Correct: ${correct}`;
+        el.attemptBadge.textContent = `Attempts: ${attempts}`;
+        el.accuracyBadge.textContent = `Accuracy: ${acc}%`;
+
+        if (correct >= goal) {
+          el.reflection.textContent =
+            "Goal reached. Stop here or do one extra for confidence.";
+        } else if (acc >= 80 && attempts > 0) {
+          el.reflection.textContent =
+            "Great pacing. Keep this same rhythm for the next word.";
+        } else if (attempts > 0) {
+          el.reflection.textContent = "No rush. Accuracy first, speed later.";
+        }
+      }
+
+      function nextWord() {
+        i = (i + 1) % words.length;
+        el.word.textContent = words[i];
+        el.idx.textContent = String(i + 1);
+        el.answer.value = "";
+        el.answer.focus();
+      }
+
+      function check() {
+        const guess = el.answer.value.trim().toLowerCase();
+        if (!guess) return;
+        attempts += 1;
+
+        if (guess === words[i]) {
+          correct += 1;
+          el.status.textContent = "Correct. Nice and steady.";
+          el.status.className = "status ok";
+          softChime();
+          updateStats();
+          setTimeout(nextWord, 260);
+        } else {
+          el.status.textContent = `Try once more. Hint: ${words[i]}`;
+          el.status.className = "status";
+          updateStats();
+        }
+      }
+
+      function skip() {
+        attempts += 1;
+        el.status.textContent = `Skipped. The word was '${words[i]}'.`;
+        el.status.className = "status";
+        updateStats();
+        nextWord();
+      }
+
+      document.getElementById("check").addEventListener("click", check);
+      document.getElementById("skip").addEventListener("click", skip);
+      el.answer.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") check();
+      });
+
+      el.chimeToggle.addEventListener("click", () => {
+        chime = !chime;
+        el.chimeToggle.textContent = `Soft Chime: ${chime ? "On" : "Off"}`;
+      });
+
+      updateStats();
+      el.answer.focus();
+    </script>
+  </body>
+</html>

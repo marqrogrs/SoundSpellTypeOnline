@@ -386,6 +386,144 @@ function normalizeText(s) {
     .toLowerCase();
 }
 
+function parseDayKey(rawValue) {
+  const raw = String(rawValue || "").trim();
+  if (!raw) return null;
+  const parts = raw.split("-").map((part) => Number(part));
+  if (parts.length !== 3 || parts.some((part) => !Number.isFinite(part))) {
+    return null;
+  }
+  const [year, month, day] = parts;
+  return { year, month, day };
+}
+
+function diffDaysFromToday(dayKey) {
+  const parsed = parseDayKey(dayKey);
+  if (!parsed) return null;
+  const now = new Date();
+  const todayUtc = Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate(),
+  );
+  const keyUtc = Date.UTC(parsed.year, parsed.month - 1, parsed.day);
+  return Math.round((todayUtc - keyUtc) / (24 * 60 * 60 * 1000));
+}
+
+function getAccountabilityStatus(studentDoc) {
+  const hasFirstLessonAttempted = Boolean(
+    studentDoc?.firstLessonAttemptedAt || studentDoc?.first_lesson_attempted_at,
+  );
+  const lastPracticeDay = String(
+    studentDoc?.lastPracticeDay || studentDoc?.last_practice_day || "",
+  ).trim();
+  const daysSincePractice = diffDaysFromToday(lastPracticeDay);
+  const normalizedDaysSincePractice =
+    daysSincePractice === null ? null : Math.max(0, daysSincePractice);
+
+  if (!hasFirstLessonAttempted) {
+    return {
+      key: "needs_first_win",
+      label: "Needs First Win",
+      urgencyRank: 0,
+      daysSincePractice: normalizedDaysSincePractice,
+    };
+  }
+
+  if (normalizedDaysSincePractice === null) {
+    return {
+      key: "needs_check_in",
+      label: "Needs Check-In",
+      urgencyRank: 1,
+      daysSincePractice: normalizedDaysSincePractice,
+    };
+  }
+
+  if (normalizedDaysSincePractice <= 1) {
+    return {
+      key: "on_track",
+      label: "On Track",
+      urgencyRank: 4,
+      daysSincePractice: normalizedDaysSincePractice,
+    };
+  }
+
+  if (normalizedDaysSincePractice <= 3) {
+    return {
+      key: "needs_nudge",
+      label: "Needs Nudge",
+      urgencyRank: 2,
+      daysSincePractice: normalizedDaysSincePractice,
+    };
+  }
+
+  return {
+    key: "returning",
+    label: "Returning",
+    urgencyRank: 3,
+    daysSincePractice: normalizedDaysSincePractice,
+  };
+}
+
+function isManagedByCaller(caller, studentDoc) {
+  const callerUid = String(caller?.uid || "").trim();
+  const callerRole = String(caller?.role || "student").trim();
+  const ownerId = String(
+    studentDoc?.ownerId || studentDoc?.parentOwnerId || "",
+  ).trim();
+  const educatorId = String(studentDoc?.educator || "").trim();
+  const studentSchoolId = String(studentDoc?.schoolId || "").trim();
+  const callerSchoolId = String(caller?.doc?.schoolId || "").trim();
+
+  if (!callerUid) return false;
+  if (callerRole === "admin") return true;
+  if (callerRole === "parent" || callerRole === "tutor") {
+    return ownerId === callerUid;
+  }
+  if (callerRole === "educator") {
+    return educatorId === callerUid || ownerId === callerUid;
+  }
+  if (callerRole === "schoolAdmin") {
+    if (
+      callerSchoolId &&
+      studentSchoolId &&
+      callerSchoolId === studentSchoolId
+    ) {
+      return true;
+    }
+    return educatorId === callerUid || ownerId === callerUid;
+  }
+
+  return false;
+}
+
+function normalizeReminderChannel(rawValue) {
+  const raw = String(rawValue || "")
+    .trim()
+    .toLowerCase();
+  if (!raw) return "in_app";
+  if (raw === "in_app" || raw === "in-app" || raw === "app") {
+    return "in_app";
+  }
+  if (raw === "email") return "email";
+  if (raw === "sms" || raw === "text") return "sms";
+  if (raw === "phone" || raw === "call") return "phone";
+  return "in_app";
+}
+
+function normalizeTimestampForResponse(value) {
+  if (!value) return "";
+  if (typeof value?.toDate === "function") {
+    const d = value.toDate();
+    return Number.isNaN(d.getTime()) ? "" : d.toISOString();
+  }
+  const asDate = new Date(value);
+  if (!Number.isNaN(asDate.getTime())) {
+    return asDate.toISOString();
+  }
+  return String(value || "").trim();
+}
+
 // ─── Schools ─────────────────────────────────────────────────────────────────
 
 /**
@@ -1615,6 +1753,353 @@ exports.mgmtListData = functions.https.onCall(async (data, context) => {
     },
   };
 });
+
+/**
+ * Builds a role-scoped accountability queue for manager reminder workflows.
+ */
+exports.mgmtListAccountabilityQueue = functions.https.onCall(
+  async (data, context) => {
+    const caller = await resolveCaller(context);
+    requireRank(caller, "parent");
+
+    const minInactiveDays = Math.max(
+      0,
+      Number.parseInt(String(data?.minInactiveDays ?? "2"), 10) || 0,
+    );
+    const includeOnTrack = Boolean(data?.includeOnTrack);
+    const includeNeedsFirstWin =
+      data?.includeNeedsFirstWin === undefined
+        ? true
+        : Boolean(data?.includeNeedsFirstWin);
+    const limit = Math.min(
+      200,
+      Math.max(1, Number.parseInt(String(data?.limit ?? "100"), 10) || 100),
+    );
+
+    const db = getDb();
+    const byId = new Map();
+    const addSnapRows = (snap) => {
+      (snap?.docs || []).forEach((doc) => {
+        byId.set(doc.id, { id: doc.id, ...(doc.data() || {}) });
+      });
+    };
+
+    if (caller.role === "admin") {
+      const snap = await db
+        .collection("users")
+        .where("role", "==", "student")
+        .get();
+      addSnapRows(snap);
+    } else if (caller.role === "schoolAdmin") {
+      const schoolId = String(caller.doc.schoolId || "").trim();
+      if (!schoolId) {
+        return {
+          queue: [],
+          meta: {
+            callerRole: caller.role,
+            totalScopedStudents: 0,
+            totalReturned: 0,
+          },
+        };
+      }
+      const snap = await db
+        .collection("users")
+        .where("schoolId", "==", schoolId)
+        .get();
+      addSnapRows(snap);
+    } else if (caller.role === "educator") {
+      const [ownedSnap, taughtSnap] = await Promise.all([
+        db.collection("users").where("ownerId", "==", caller.uid).get(),
+        db.collection("users").where("educator", "==", caller.uid).get(),
+      ]);
+      addSnapRows(ownedSnap);
+      addSnapRows(taughtSnap);
+    } else {
+      const [ownerSnap, legacyOwnerSnap] = await Promise.all([
+        db.collection("users").where("ownerId", "==", caller.uid).get(),
+        db.collection("users").where("parentOwnerId", "==", caller.uid).get(),
+      ]);
+      addSnapRows(ownerSnap);
+      addSnapRows(legacyOwnerSnap);
+    }
+
+    const allScopedStudents = [...byId.values()].filter((row) => {
+      return normalizeRole(row?.role || "student") === "student";
+    });
+
+    const reminderStateByStudentId = new Map();
+    if (allScopedStudents.length > 0) {
+      const reminderRefs = allScopedStudents
+        .map((row) => String(row?.id || "").trim())
+        .filter(Boolean)
+        .map((id) => db.collection("accountabilityReminderState").doc(id));
+
+      if (reminderRefs.length > 0) {
+        const reminderSnaps = await db.getAll(...reminderRefs);
+        reminderSnaps.forEach((snap, index) => {
+          const id = reminderRefs[index]?.id;
+          if (!id || !snap.exists) return;
+          reminderStateByStudentId.set(id, snap.data() || {});
+        });
+      }
+    }
+
+    const queue = allScopedStudents
+      .filter((student) => isManagedByCaller(caller, student))
+      .map((student) => {
+        const status = getAccountabilityStatus(student);
+        const reminderState = reminderStateByStudentId.get(
+          String(student?.id || "").trim(),
+        );
+        const lastReminderAt = normalizeTimestampForResponse(
+          reminderState?.lastReminderAt || reminderState?.last_reminder_at,
+        );
+        const lastReminderChannel = String(
+          reminderState?.lastReminderChannel ||
+            reminderState?.last_reminder_channel ||
+            "",
+        ).trim();
+        const lastReminderNote = String(
+          reminderState?.lastReminderNote ||
+            reminderState?.last_reminder_note ||
+            "",
+        ).trim();
+        const lastReminderSentBy = String(
+          reminderState?.lastReminderSentBy ||
+            reminderState?.last_reminder_sent_by ||
+            "",
+        ).trim();
+        const nextCheckInDay = String(
+          student?.nextCheckInDay || student?.next_check_in_day || "",
+        ).trim();
+        const daysUntilCheckIn = (() => {
+          const delta = diffDaysFromToday(nextCheckInDay);
+          return delta === null ? null : -delta;
+        })();
+
+        return {
+          id: String(student.id || "").trim(),
+          username: String(student.username || student.id || "").trim(),
+          firstName: String(student.firstName || "").trim(),
+          lastName: String(student.lastName || "").trim(),
+          ownerId: String(
+            student.ownerId || student.parentOwnerId || "",
+          ).trim(),
+          schoolId: String(student.schoolId || "").trim(),
+          lastPracticeDay: String(
+            student.lastPracticeDay || student.last_practice_day || "",
+          ).trim(),
+          nextCheckInDay,
+          accountabilityNote: String(
+            student.accountabilityNote || student.accountability_note || "",
+          ).trim(),
+          daysSincePractice: status.daysSincePractice,
+          dueForCheckIn: daysUntilCheckIn !== null && daysUntilCheckIn <= 0,
+          daysUntilCheckIn,
+          status: {
+            key: status.key,
+            label: status.label,
+          },
+          lastReminder:
+            lastReminderAt ||
+            lastReminderChannel ||
+            lastReminderNote ||
+            lastReminderSentBy
+              ? {
+                  at: lastReminderAt,
+                  channel: lastReminderChannel,
+                  note: lastReminderNote,
+                  sentBy: lastReminderSentBy,
+                }
+              : null,
+          reminderCount:
+            Number.parseInt(String(reminderState?.reminderCount || 0), 10) || 0,
+          _sortUrgency: status.urgencyRank,
+        };
+      })
+      .filter((row) => {
+        if (row.status.key === "on_track" && !includeOnTrack) return false;
+        if (row.status.key === "needs_first_win" && !includeNeedsFirstWin) {
+          return false;
+        }
+        if (
+          row.daysSincePractice !== null &&
+          row.daysSincePractice < minInactiveDays
+        ) {
+          return false;
+        }
+        return true;
+      })
+      .sort((a, b) => {
+        const urgencyDelta = a._sortUrgency - b._sortUrgency;
+        if (urgencyDelta !== 0) return urgencyDelta;
+        const aDays = Number.isFinite(a.daysSincePractice)
+          ? a.daysSincePractice
+          : -1;
+        const bDays = Number.isFinite(b.daysSincePractice)
+          ? b.daysSincePractice
+          : -1;
+        if (aDays !== bDays) return bDays - aDays;
+        return a.username.localeCompare(b.username);
+      })
+      .slice(0, limit)
+      .map((row) => {
+        const { _sortUrgency, ...safeRow } = row;
+        return safeRow;
+      });
+
+    return {
+      queue,
+      meta: {
+        callerRole: caller.role,
+        minInactiveDays,
+        includeOnTrack,
+        includeNeedsFirstWin,
+        totalScopedStudents: allScopedStudents.length,
+        totalReturned: queue.length,
+      },
+    };
+  },
+);
+
+/**
+ * Persists a manager reminder event for a student and updates summary state.
+ */
+exports.mgmtRecordAccountabilityReminder = functions.https.onCall(
+  async (data, context) => {
+    const caller = await resolveCaller(context);
+    requireRank(caller, "parent");
+
+    const studentId = String(data?.studentId || "").trim();
+    if (!studentId) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "studentId is required.",
+      );
+    }
+
+    const channel = normalizeReminderChannel(data?.channel);
+    const note = String(data?.note || "")
+      .trim()
+      .slice(0, 500);
+    const db = getDb();
+
+    const studentRef = db.collection("users").doc(studentId);
+    const studentSnap = await studentRef.get();
+    if (!studentSnap.exists) {
+      throw new functions.https.HttpsError("not-found", "Student not found.");
+    }
+
+    const student = studentSnap.data() || {};
+    if (normalizeRole(student?.role || "student") !== "student") {
+      throw new functions.https.HttpsError(
+        "failed-precondition",
+        "Target user is not a student.",
+      );
+    }
+
+    if (!isManagedByCaller(caller, student)) {
+      throw new functions.https.HttpsError(
+        "permission-denied",
+        "You cannot record reminders for this student.",
+      );
+    }
+
+    const stateRef = db
+      .collection("accountabilityReminderState")
+      .doc(studentId);
+    const previousStateSnap = await stateRef.get();
+    const previousState = previousStateSnap.exists
+      ? previousStateSnap.data() || {}
+      : {};
+
+    const sentAtIso = new Date().toISOString();
+    const eventRef = await db.collection("accountabilityReminderEvents").add({
+      studentId,
+      channel,
+      note,
+      managerUid: caller.uid,
+      managerRole: caller.role,
+      sentAt: serverTimestamp(),
+      createdAt: serverTimestamp(),
+    });
+
+    const previousRecent = Array.isArray(previousState?.recentReminders)
+      ? previousState.recentReminders
+      : [];
+    const recentReminders = [
+      {
+        id: eventRef.id,
+        channel,
+        note,
+        sentBy: caller.uid,
+        managerRole: caller.role,
+        sentAt: sentAtIso,
+      },
+      ...previousRecent,
+    ].slice(0, 5);
+
+    const nextReminderCount =
+      (Number.parseInt(String(previousState?.reminderCount || 0), 10) || 0) + 1;
+
+    await Promise.all([
+      stateRef.set(
+        {
+          studentId,
+          lastReminderAt: serverTimestamp(),
+          last_reminder_at: serverTimestamp(),
+          lastReminderChannel: channel,
+          last_reminder_channel: channel,
+          lastReminderNote: note,
+          last_reminder_note: note,
+          lastReminderSentBy: caller.uid,
+          last_reminder_sent_by: caller.uid,
+          lastReminderManagerRole: caller.role,
+          last_reminder_manager_role: caller.role,
+          reminderCount: nextReminderCount,
+          recentReminders,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true },
+      ),
+      studentRef.set(
+        {
+          accountabilityLastReminderAt: serverTimestamp(),
+          accountability_last_reminder_at: serverTimestamp(),
+          accountabilityLastReminderChannel: channel,
+          accountability_last_reminder_channel: channel,
+          accountabilityLastReminderNote: note,
+          accountability_last_reminder_note: note,
+          accountabilityLastReminderBy: caller.uid,
+          accountability_last_reminder_by: caller.uid,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true },
+      ),
+    ]);
+
+    await writeAuditLog({
+      actorUid: caller.uid,
+      actorRole: caller.role,
+      action: "mgmtRecordAccountabilityReminder",
+      targetId: studentId,
+      status: "success",
+      after: {
+        channel,
+        note,
+      },
+    });
+
+    return {
+      status: "success",
+      reminderId: eventRef.id,
+      studentId,
+      channel,
+      sentAt: sentAtIso,
+      reminderCount: nextReminderCount,
+    };
+  },
+);
 
 // ─── Assign schoolAdmin to school ────────────────────────────────────────────
 

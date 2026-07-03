@@ -104,4 +104,37 @@ describe("ProgressListItem", () => {
 
     expect(screen.getAllByText("In Progress")).toHaveLength(3);
   });
+
+  test("shows a competence milestone badge when a lesson is mastered", () => {
+    const progress = {
+      0: {
+        completed: true,
+        completed_words: 0,
+        correct_words: ["CAT", "DOG", "HAT"],
+        score: 0,
+        high_score: 100,
+      },
+      1: {
+        completed: true,
+        completed_words: 0,
+        correct_words: ["CAT", "DOG", "HAT"],
+        score: 0,
+        high_score: 100,
+      },
+      2: {
+        completed: true,
+        completed_words: 0,
+        correct_words: ["CAT", "DOG", "HAT"],
+        score: 0,
+        high_score: 100,
+      },
+    };
+
+    renderProgressListItem(progress);
+
+    expect(screen.getByText("Part complete")).toBeInTheDocument();
+    expect(screen.queryByText("Continue")).toBeNull();
+    expect(screen.queryByText("In progress")).toBeNull();
+    expect(screen.queryByText("Start")).toBeNull();
+  });
 });

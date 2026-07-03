@@ -47,6 +47,18 @@ export default function UserProvider({ children }) {
     [normalizeWord],
   );
 
+  const updateUserData = useCallback(
+    async (updates = {}) => {
+      const uid = String(user?.uid || "").trim();
+      if (!uid || !updates || typeof updates !== "object") {
+        return;
+      }
+
+      await db.collection("users").doc(uid).set(updates, { merge: true });
+    },
+    [user?.uid],
+  );
+
   useEffect(() => {
     if (!authLoaded) {
       return undefined;
@@ -213,6 +225,7 @@ export default function UserProvider({ children }) {
         userData,
         userDataLoaded,
         addNewStudent,
+        updateUserData,
         classrooms,
         wordsMasteredTotal,
         registerMasteredWord,

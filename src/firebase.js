@@ -102,9 +102,14 @@ const timedCallable = (name, options = {}) => {
   };
 };
 
-// Keep analytics out of the main bundle. It is not used directly by the app,
-// so load it only in production and only after the browser bootstraps.
-if (typeof window !== "undefined" && process.env.NODE_ENV === "production") {
+// Keep analytics out of the main bundle. It is optional, so load it only
+// when explicitly enabled to avoid noisy config-fetch warnings.
+const shouldEnableAnalytics =
+  typeof window !== "undefined" &&
+  process.env.NODE_ENV === "production" &&
+  process.env.REACT_APP_ENABLE_FIREBASE_ANALYTICS === "true";
+
+if (shouldEnableAnalytics) {
   import("firebase/compat/analytics")
     .then(() => {
       try {
@@ -159,6 +164,12 @@ export const getPlacementReport = timedCallable("getPlacementReport");
 export const getPlacementAssignmentStatus = timedCallable(
   "getPlacementAssignmentStatus",
 );
+export const getPlacementWordOverrides = timedCallable(
+  "getPlacementWordOverrides",
+  {
+    dedupeInFlight: true,
+  },
+);
 export const submitPublicPlacementReport = timedCallable(
   "submitPublicPlacementReport",
 );
@@ -198,6 +209,12 @@ export const mgmtParentCreateStudent = timedCallable("mgmtParentCreateStudent");
 export const mgmtAssignSchoolAdmin = timedCallable("mgmtAssignSchoolAdmin");
 export const mgmtAssignEducatorToSchool = timedCallable(
   "mgmtAssignEducatorToSchool",
+);
+export const mgmtListAccountabilityQueue = timedCallable(
+  "mgmtListAccountabilityQueue",
+);
+export const mgmtRecordAccountabilityReminder = timedCallable(
+  "mgmtRecordAccountabilityReminder",
 );
 export const mgmtDebugUser = timedCallable("mgmtDebugUser", {
   dedupeInFlight: true,

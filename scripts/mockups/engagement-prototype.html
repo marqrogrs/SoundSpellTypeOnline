@@ -1,0 +1,678 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sound Spell Type - Engagement Prototype</title>
+    <style>
+      :root {
+        --bg-1: #f5f8ff;
+        --bg-2: #e6f5ff;
+        --card: #ffffff;
+        --ink: #19313a;
+        --muted: #5b7782;
+        --brand: #007c91;
+        --brand-2: #0ea88d;
+        --accent: #f2a341;
+        --success: #1f9c5a;
+        --danger: #cc3d3d;
+        --ring: #d6e6ec;
+        --shadow: 0 20px 40px rgba(10, 52, 61, 0.14);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        color: var(--ink);
+        font-family: "Avenir Next", "Segoe UI", sans-serif;
+        background:
+          radial-gradient(circle at 20% 10%, #c8f1f8 0%, transparent 35%),
+          radial-gradient(circle at 80% 25%, #ffe6c7 0%, transparent 30%),
+          linear-gradient(140deg, var(--bg-1), var(--bg-2));
+        display: grid;
+        place-items: center;
+        padding: 24px;
+      }
+
+      .app {
+        width: min(1100px, 100%);
+        display: grid;
+        grid-template-columns: 360px 1fr;
+        gap: 20px;
+      }
+
+      .card {
+        background: var(--card);
+        border-radius: 20px;
+        box-shadow: var(--shadow);
+        padding: 18px;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .card::after {
+        content: "";
+        position: absolute;
+        inset: -50% auto auto -40%;
+        width: 240px;
+        height: 240px;
+        border-radius: 50%;
+        background: radial-gradient(
+          circle,
+          rgba(14, 168, 141, 0.14),
+          transparent 70%
+        );
+        pointer-events: none;
+      }
+
+      h1 {
+        margin: 0 0 8px;
+        font-size: 1.35rem;
+        letter-spacing: 0.2px;
+      }
+
+      h2 {
+        margin: 0 0 10px;
+        font-size: 1.05rem;
+      }
+
+      p {
+        margin: 0 0 10px;
+        color: var(--muted);
+        line-height: 1.4;
+        font-size: 0.94rem;
+      }
+
+      .stack {
+        display: grid;
+        gap: 12px;
+      }
+
+      .goal-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+      }
+
+      .goal-btn {
+        border: 1px solid #cae0e8;
+        background: #f8fcff;
+        border-radius: 12px;
+        padding: 10px;
+        text-align: center;
+        cursor: pointer;
+        transition:
+          transform 140ms ease,
+          border-color 140ms ease,
+          background 140ms ease;
+      }
+
+      .goal-btn:hover {
+        transform: translateY(-2px);
+      }
+
+      .goal-btn.active {
+        border-color: var(--brand);
+        background: #eaf9fc;
+        font-weight: 700;
+      }
+
+      .row {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+
+      .badge {
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: #eef7fa;
+        color: #1d6171;
+        font-size: 0.8rem;
+        font-weight: 700;
+      }
+
+      .meter {
+        width: 100%;
+        height: 12px;
+        border-radius: 999px;
+        background: var(--ring);
+        overflow: hidden;
+      }
+
+      .meter > div {
+        height: 100%;
+        width: 0%;
+        background: linear-gradient(90deg, var(--brand), var(--brand-2));
+        transition: width 220ms ease;
+      }
+
+      .toggle {
+        border: 1px solid #bdd6df;
+        background: #f5fcff;
+        border-radius: 10px;
+        padding: 8px 10px;
+        cursor: pointer;
+        font-weight: 700;
+        color: #205465;
+      }
+
+      .toggle.active {
+        background: #d8f8ef;
+        border-color: #71bf9e;
+        color: #155a3f;
+      }
+
+      .main {
+        display: grid;
+        grid-template-rows: auto 1fr;
+        gap: 16px;
+      }
+
+      .hero {
+        background: linear-gradient(130deg, #056f84, #099f84 60%, #f2a341);
+        color: #f5ffff;
+        border-radius: 20px;
+        padding: 20px;
+        box-shadow: var(--shadow);
+        position: relative;
+        overflow: hidden;
+      }
+
+      .hero::before {
+        content: "";
+        position: absolute;
+        right: -30px;
+        top: -10px;
+        width: 180px;
+        height: 180px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.15);
+      }
+
+      .hero h2 {
+        margin: 0;
+        font-size: 1.2rem;
+      }
+
+      .hero p {
+        color: #ecfeff;
+        margin-top: 6px;
+      }
+
+      .practice {
+        display: grid;
+        grid-template-columns: 1.5fr 1fr;
+        gap: 16px;
+      }
+
+      .prompt {
+        font-size: 2rem;
+        letter-spacing: 3px;
+        font-weight: 800;
+        margin: 10px 0 12px;
+        color: #114754;
+      }
+
+      .input {
+        width: 100%;
+        border: 2px solid #c3dde6;
+        border-radius: 12px;
+        padding: 12px 14px;
+        font-size: 1.1rem;
+      }
+
+      .input:focus {
+        outline: none;
+        border-color: var(--brand);
+        box-shadow: 0 0 0 4px rgba(0, 124, 145, 0.14);
+      }
+
+      .btn {
+        border: none;
+        background: linear-gradient(90deg, var(--brand), #0a8fa2);
+        color: white;
+        border-radius: 12px;
+        padding: 10px 14px;
+        font-weight: 800;
+        cursor: pointer;
+      }
+
+      .btn.secondary {
+        background: #eaf4f8;
+        color: #1d5d6d;
+        border: 1px solid #b9d4de;
+      }
+
+      .status {
+        min-height: 24px;
+        font-weight: 700;
+        margin-top: 8px;
+      }
+
+      .status.ok {
+        color: var(--success);
+      }
+      .status.no {
+        color: var(--danger);
+      }
+
+      .ring-wrap {
+        display: grid;
+        place-items: center;
+        gap: 12px;
+        text-align: center;
+        padding-top: 8px;
+      }
+
+      .ring {
+        width: 170px;
+        height: 170px;
+        border-radius: 50%;
+        background: conic-gradient(var(--brand) 0deg, var(--ring) 0deg);
+        display: grid;
+        place-items: center;
+        position: relative;
+        transition: background 200ms linear;
+      }
+
+      .ring::before {
+        content: "";
+        width: 130px;
+        height: 130px;
+        border-radius: 50%;
+        background: #fff;
+        position: absolute;
+      }
+
+      .ring-value {
+        position: relative;
+        z-index: 1;
+        font-size: 1.5rem;
+        font-weight: 900;
+        color: #145969;
+      }
+
+      .mini {
+        display: grid;
+        gap: 8px;
+        width: 100%;
+        max-width: 250px;
+        margin-inline: auto;
+      }
+
+      .mini > div {
+        display: flex;
+        justify-content: space-between;
+        background: #f6fcff;
+        border: 1px solid #d2e8ef;
+        border-radius: 10px;
+        padding: 8px 10px;
+        font-size: 0.88rem;
+      }
+
+      .celebrate {
+        position: fixed;
+        left: 50%;
+        top: 18%;
+        transform: translateX(-50%);
+        background: #0d8f53;
+        color: #fff;
+        border-radius: 999px;
+        padding: 10px 16px;
+        font-weight: 800;
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .celebrate.show {
+        animation: pop 1.2s ease;
+      }
+
+      @keyframes pop {
+        0% {
+          opacity: 0;
+          transform: translateX(-50%) translateY(8px) scale(0.92);
+        }
+        15% {
+          opacity: 1;
+          transform: translateX(-50%) translateY(0) scale(1);
+        }
+        85% {
+          opacity: 1;
+        }
+        100% {
+          opacity: 0;
+          transform: translateX(-50%) translateY(-8px) scale(1.03);
+        }
+      }
+
+      @media (max-width: 960px) {
+        .app {
+          grid-template-columns: 1fr;
+        }
+        .practice {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          animation: none !important;
+          transition: none !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="celebrate" id="celebrate">Milestone unlocked!</div>
+
+    <div class="app">
+      <section class="card stack">
+        <div>
+          <h1>Motivation Prototype</h1>
+          <p>
+            Standalone concept demo. This does not change production behavior.
+          </p>
+        </div>
+
+        <div class="stack">
+          <h2>Pick Today's Goal</h2>
+          <div class="goal-grid" id="goalGrid">
+            <button class="goal-btn active" data-goal="6">6 words</button>
+            <button class="goal-btn" data-goal="10">10 words</button>
+            <button class="goal-btn" data-goal="14">14 words</button>
+          </div>
+        </div>
+
+        <div class="stack">
+          <div class="row">
+            <span class="badge" id="goalBadge">Goal: 6 words</span>
+            <span class="badge" id="streakBadge">Streak: 3 days</span>
+          </div>
+          <div class="meter" aria-label="Daily goal progress">
+            <div id="goalMeter"></div>
+          </div>
+        </div>
+
+        <div class="stack">
+          <h2>Sound and Focus</h2>
+          <div class="row">
+            <button id="sfxToggle" class="toggle active">SFX On</button>
+            <button id="musicToggle" class="toggle">Focus Music Off</button>
+          </div>
+          <p>
+            Try with and without sensory layers to find what helps consistency.
+          </p>
+        </div>
+
+        <div class="stack">
+          <h2>Session Reflection</h2>
+          <p id="reflection">
+            Start practicing and this card will suggest your next step.
+          </p>
+        </div>
+      </section>
+
+      <section class="main">
+        <header class="hero">
+          <h2>Fast First Win Flow</h2>
+          <p>
+            Type the prompted word. Quick success feedback, optional sounds, and
+            visible progress toward a daily goal.
+          </p>
+        </header>
+
+        <section class="practice">
+          <article class="card">
+            <h2>Practice</h2>
+            <p>
+              Word <span id="wordIndex">1</span> of
+              <span id="wordTotal">6</span>
+            </p>
+            <div class="prompt" id="promptWord">ship</div>
+
+            <div class="row">
+              <input
+                id="answerInput"
+                class="input"
+                type="text"
+                placeholder="Type word here"
+                autocomplete="off"
+              />
+              <button id="checkBtn" class="btn">Check</button>
+              <button id="skipBtn" class="btn secondary">Skip</button>
+            </div>
+
+            <div id="status" class="status"></div>
+          </article>
+
+          <aside class="card ring-wrap">
+            <div class="ring" id="ring">
+              <div class="ring-value" id="ringValue">0%</div>
+            </div>
+
+            <div class="mini">
+              <div>
+                <span>Correct</span><strong id="correctCount">0</strong>
+              </div>
+              <div>
+                <span>Attempts</span><strong id="attemptCount">0</strong>
+              </div>
+              <div>
+                <span>Daily Goal</span><strong id="goalCount">0/6</strong>
+              </div>
+            </div>
+          </aside>
+        </section>
+      </section>
+    </div>
+
+    <script>
+      const words = [
+        "ship",
+        "chop",
+        "green",
+        "flash",
+        "night",
+        "stamp",
+        "float",
+        "cheer",
+        "light",
+        "crash",
+        "grain",
+        "storm",
+        "flute",
+        "train",
+      ];
+
+      let index = 0;
+      let attempts = 0;
+      let correct = 0;
+      let goal = 6;
+      let streak = 3;
+      let sfxOn = true;
+      let musicOn = false;
+
+      const promptWord = document.getElementById("promptWord");
+      const status = document.getElementById("status");
+      const answerInput = document.getElementById("answerInput");
+      const wordIndex = document.getElementById("wordIndex");
+      const wordTotal = document.getElementById("wordTotal");
+      const correctCount = document.getElementById("correctCount");
+      const attemptCount = document.getElementById("attemptCount");
+      const goalCount = document.getElementById("goalCount");
+      const ring = document.getElementById("ring");
+      const ringValue = document.getElementById("ringValue");
+      const goalMeter = document.getElementById("goalMeter");
+      const goalBadge = document.getElementById("goalBadge");
+      const streakBadge = document.getElementById("streakBadge");
+      const reflection = document.getElementById("reflection");
+      const celebrate = document.getElementById("celebrate");
+
+      let audioCtx;
+      let musicOsc;
+      let musicGain;
+
+      function ensureAudioContext() {
+        if (!audioCtx) {
+          const Ctx = window.AudioContext || window.webkitAudioContext;
+          audioCtx = new Ctx();
+        }
+        return audioCtx;
+      }
+
+      function tone(freq, duration, type, gainValue) {
+        if (!sfxOn) return;
+        const ctx = ensureAudioContext();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = type;
+        osc.frequency.value = freq;
+        gain.gain.value = gainValue;
+        osc.connect(gain).connect(ctx.destination);
+        const now = ctx.currentTime;
+        gain.gain.setValueAtTime(gainValue, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+        osc.start(now);
+        osc.stop(now + duration);
+      }
+
+      function playSuccess() {
+        tone(660, 0.12, "triangle", 0.08);
+        setTimeout(() => tone(880, 0.18, "triangle", 0.08), 70);
+      }
+
+      function playError() {
+        tone(180, 0.16, "sawtooth", 0.05);
+      }
+
+      function toggleMusic() {
+        const ctx = ensureAudioContext();
+        if (!musicOn) {
+          musicOsc = ctx.createOscillator();
+          musicGain = ctx.createGain();
+          musicOsc.type = "sine";
+          musicOsc.frequency.value = 196;
+          musicGain.gain.value = 0.015;
+          musicOsc.connect(musicGain).connect(ctx.destination);
+          musicOsc.start();
+          musicOn = true;
+          document.getElementById("musicToggle").textContent = "Focus Music On";
+          document.getElementById("musicToggle").classList.add("active");
+        } else {
+          if (musicOsc) musicOsc.stop();
+          musicOn = false;
+          document.getElementById("musicToggle").textContent =
+            "Focus Music Off";
+          document.getElementById("musicToggle").classList.remove("active");
+        }
+      }
+
+      function updateProgress() {
+        const progress = Math.min(100, Math.round((correct / goal) * 100));
+        const deg = (progress / 100) * 360;
+        ring.style.background = `conic-gradient(#007c91 ${deg}deg, #d6e6ec ${deg}deg)`;
+        ringValue.textContent = `${progress}%`;
+        correctCount.textContent = correct;
+        attemptCount.textContent = attempts;
+        goalCount.textContent = `${Math.min(correct, goal)}/${goal}`;
+        goalMeter.style.width = `${progress}%`;
+
+        if (correct >= goal) {
+          celebrate.classList.remove("show");
+          void celebrate.offsetWidth;
+          celebrate.classList.add("show");
+          streak += 1;
+          streakBadge.textContent = `Streak: ${streak} days`;
+          reflection.textContent =
+            "Great momentum. Tomorrow, keep the same goal to strengthen habit consistency.";
+        } else if (attempts > 0 && progress < 50) {
+          reflection.textContent =
+            "Try a smaller goal for consistency. Small wins today beat perfect plans.";
+        } else if (progress >= 50) {
+          reflection.textContent =
+            "You are over halfway. One short session later today would finish this goal.";
+        }
+      }
+
+      function advanceWord() {
+        index = (index + 1) % words.length;
+        promptWord.textContent = words[index];
+        wordIndex.textContent = String(index + 1);
+        answerInput.value = "";
+        answerInput.focus();
+      }
+
+      function checkWord() {
+        const guess = answerInput.value.trim().toLowerCase();
+        const target = words[index].toLowerCase();
+        if (!guess) return;
+        attempts += 1;
+
+        if (guess === target) {
+          correct += 1;
+          status.textContent = "Correct! Nice accuracy boost.";
+          status.className = "status ok";
+          playSuccess();
+          updateProgress();
+          setTimeout(advanceWord, 220);
+        } else {
+          status.textContent = `Not quite. Try again: ${target}`;
+          status.className = "status no";
+          playError();
+          updateProgress();
+        }
+      }
+
+      function skipWord() {
+        attempts += 1;
+        status.textContent = `Skipped. The word was '${words[index]}'.`;
+        status.className = "status no";
+        updateProgress();
+        advanceWord();
+      }
+
+      document.getElementById("checkBtn").addEventListener("click", checkWord);
+      document.getElementById("skipBtn").addEventListener("click", skipWord);
+
+      answerInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") checkWord();
+      });
+
+      document.getElementById("sfxToggle").addEventListener("click", () => {
+        sfxOn = !sfxOn;
+        const btn = document.getElementById("sfxToggle");
+        btn.textContent = sfxOn ? "SFX On" : "SFX Off";
+        btn.classList.toggle("active", sfxOn);
+      });
+
+      document
+        .getElementById("musicToggle")
+        .addEventListener("click", toggleMusic);
+
+      document.getElementById("goalGrid").addEventListener("click", (event) => {
+        const target = event.target.closest("button[data-goal]");
+        if (!target) return;
+
+        document
+          .querySelectorAll(".goal-btn")
+          .forEach((button) => button.classList.remove("active"));
+        target.classList.add("active");
+
+        goal = Number(target.dataset.goal);
+        goalBadge.textContent = `Goal: ${goal} words`;
+        wordTotal.textContent = String(goal);
+        updateProgress();
+      });
+
+      updateProgress();
+      answerInput.focus();
+    </script>
+  </body>
+</html>

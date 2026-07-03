@@ -30,6 +30,8 @@ import { useParams, useHistory } from "react-router-dom";
 import { LessonContext } from "../providers/LessonProvider";
 import {
   primeAudioPlayback,
+  playCelebrationFanfare,
+  playRewardChime,
   setPlayAudio,
   speakText,
   stopSpeaking,
@@ -47,7 +49,11 @@ import sample from "lodash/sample";
 
 const CUE_SPEED_PRESET_STORAGE_KEY = "soundspeller.lessonCueSpeedPreset";
 const WORD_INFO_TALK_ENABLED_STORAGE_KEY = "soundspeller.wordInfoTalkEnabled";
+const REWARD_AUDIO_ENABLED_STORAGE_KEY = "soundspeller.rewardAudioEnabled";
+const CELEBRATION_MOTION_ENABLED_STORAGE_KEY =
+  "soundspeller.celebrationMotionEnabled";
 const CUE_SPEED_PRESET_OPTIONS = ["slower", "normal", "faster"];
+const FIRST_SESSION_QUICK_WIN_TARGET = 3;
 const CUE_SPEED_LABELS = {
   slower: "Slower",
   normal: "Normal",
@@ -88,6 +94,14 @@ export default function Lesson() {
   const [wordInfoLoading, setWordInfoLoading] = useState(false);
   const [wordInfoError, setWordInfoError] = useState("");
   const [wordInfoSpeaking, setWordInfoSpeaking] = useState(false);
+  const [sessionCorrectCount, setSessionCorrectCount] = useState(0);
+  const [quickWinEnabledForRun, setQuickWinEnabledForRun] = useState(false);
+  const [rewardAudioEnabled, setRewardAudioEnabled] = useState(true);
+  const [celebrationMotionEnabled, setCelebrationMotionEnabled] =
+    useState(true);
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+  const [celebrationMessage, setCelebrationMessage] = useState("");
+  const [celebrationActive, setCelebrationActive] = useState(false);
 
   const params = useParams();
   const history = useHistory();
@@ -111,6 +125,8 @@ export default function Lesson() {
   const flowGuardTimeoutRef = useRef(null);
   const wordInfoRequestIdRef = useRef(0);
   const wordInfoTalkRequestIdRef = useRef(0);
+  const firstCorrectCelebratedRef = useRef(false);
+  const quickWinCompletedRef = useRef(false);
 
   const wordInfoTalkEnabled = useMemo(() => {
     try {
@@ -123,6 +139,47 @@ export default function Lesson() {
     } catch (error) {
       return true;
     }
+  }, []);
+
+  useEffect(() => {
+    try {
+      setRewardAudioEnabled(
+        String(
+          window.localStorage.getItem(REWARD_AUDIO_ENABLED_STORAGE_KEY) ||
+            "true",
+        ).toLowerCase() !== "false",
+      );
+      setCelebrationMotionEnabled(
+        String(
+          window.localStorage.getItem(CELEBRATION_MOTION_ENABLED_STORAGE_KEY) ||
+            "true",
+        ).toLowerCase() !== "false",
+      );
+    } catch (_error) {
+      setRewardAudioEnabled(true);
+      setCelebrationMotionEnabled(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) {
+      return undefined;
+    }
+
+    const query = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const update = () => {
+      setPrefersReducedMotion(Boolean(query.matches));
+    };
+
+    update();
+
+    if (typeof query.addEventListener === "function") {
+      query.addEventListener("change", update);
+      return () => query.removeEventListener("change", update);
+    }
+
+    query.addListener(update);
+    return () => query.removeListener(update);
   }, []);
 
   const resolvedWords = useMemo(() => {
@@ -467,8 +524,46 @@ export default function Lesson() {
       setInputWord("");
       setEnableInput(false);
       setStartStatusMessage("");
+      setSessionCorrectCount(0);
+      setQuickWinEnabledForRun(false);
+      setCelebrationMessage("");
+      setCelebrationActive(false);
+      firstCorrectCelebratedRef.current = false;
+      quickWinCompletedRef.current = false;
     },
     [setLevel],
+  );
+
+  const triggerCelebration = useCallback(
+    (message) => {
+      const safeMessage = String(message || "").trim();
+      if (!safeMessage) {
+        return;
+      }
+
+      setCelebrationMessage(safeMessage);
+
+      if (!celebrationMotionEnabled || prefersReducedMotion) {
+        setCelebrationActive(false);
+        window.setTimeout(() => {
+          setCelebrationMessage("");
+        }, 2200);
+        return;
+      }
+
+      setCelebrationActive(false);
+      window.requestAnimationFrame(() => {
+        setCelebrationActive(true);
+      });
+
+      window.setTimeout(() => {
+        setCelebrationActive(false);
+        window.setTimeout(() => {
+          setCelebrationMessage("");
+        }, 240);
+      }, 2200);
+    },
+    [celebrationMotionEnabled, prefersReducedMotion],
   );
 
   useEffect(() => {
@@ -517,6 +612,45 @@ export default function Lesson() {
             .trim()
             .toUpperCase(),
         );
+
+        setSessionCorrectCount((prev) => {
+          const next = prev + 1;
+
+          if (quickWinEnabledForRun && !firstCorrectCelebratedRef.current) {
+            firstCorrectCelebratedRef.current = true;
+            if (rewardAudioEnabled) {
+              playRewardChime().catch(() => {});
+            }
+            enqueueSnackbar(
+              "Great start. You got your first word right. Keep going for 3 correct words.",
+              {
+                variant: "success",
+              },
+            );
+          }
+
+          if (
+            quickWinEnabledForRun &&
+            next >= FIRST_SESSION_QUICK_WIN_TARGET &&
+            !quickWinCompletedRef.current
+          ) {
+            quickWinCompletedRef.current = true;
+            if (rewardAudioEnabled) {
+              playCelebrationFanfare().catch(() => {});
+            }
+            triggerCelebration(
+              "Quick win unlocked. You reached your first 3 correct words.",
+            );
+            enqueueSnackbar(
+              "Quick win complete. Next action: keep this lesson going while momentum is high.",
+              {
+                variant: "success",
+              },
+            );
+          }
+
+          return next;
+        });
       }
 
       const nextProgress =
@@ -574,6 +708,15 @@ export default function Lesson() {
           masteredWordsByLevelRef.current[levelKey] = new Set();
           setIsSaved(true);
           const maxLevel = Object.keys(currentLesson.progress || {}).length - 1;
+          const completionMessage =
+            currentLessonLevel + 1 <= maxLevel
+              ? `Level complete. You mastered ${levelMasteredWords.length} words and unlocked the next level.`
+              : `Part complete. You mastered ${levelMasteredWords.length} words in this part.`;
+          if (rewardAudioEnabled) {
+            playCelebrationFanfare().catch(() => {});
+          }
+          triggerCelebration(completionMessage);
+          enqueueSnackbar(completionMessage, { variant: "success" });
           if (currentLessonLevel + 1 <= maxLevel) {
             setLevel(currentLessonLevel + 1);
             // Advance to the next difficulty, but require an explicit manual start.
@@ -599,7 +742,9 @@ export default function Lesson() {
       currentWordIndex,
       history,
       inputWord,
+      triggerCelebration,
       renderScoreSnackbar,
+      rewardAudioEnabled,
       resolvedWords.length,
       saveProgress,
       setLevel,
@@ -654,6 +799,14 @@ export default function Lesson() {
 
       const levelKey = String((Number(currentLessonLevel) || 0) + 1);
       masteredWordsByLevelRef.current[levelKey] = new Set();
+      setSessionCorrectCount(0);
+      firstCorrectCelebratedRef.current = false;
+      quickWinCompletedRef.current = false;
+      setQuickWinEnabledForRun(
+        !hasSavedProgressToResume &&
+          resumeWordIndex === 0 &&
+          isDifficultyLevelOne,
+      );
 
       setStartQueued(false);
       setStartStatusMessage("Starting lesson...");
@@ -676,6 +829,8 @@ export default function Lesson() {
       currentWordIndex,
       currentLessonLevel,
       enqueueSnackbar,
+      hasSavedProgressToResume,
+      isDifficultyLevelOne,
       lessonReady,
       markFirstLessonAttempted,
       resumeWordIndex,
@@ -961,6 +1116,45 @@ export default function Lesson() {
     [cueSpeedPreset, enqueueSnackbar],
   );
 
+  const handleSetRewardAudioEnabled = useCallback(
+    (nextValue) => {
+      const enabled = Boolean(nextValue);
+      setRewardAudioEnabled(enabled);
+      try {
+        window.localStorage.setItem(
+          REWARD_AUDIO_ENABLED_STORAGE_KEY,
+          enabled ? "true" : "false",
+        );
+      } catch (_error) {
+        // Ignore storage failures.
+      }
+      enqueueSnackbar(enabled ? "Reward sounds on." : "Reward sounds off.", {
+        variant: "info",
+      });
+    },
+    [enqueueSnackbar],
+  );
+
+  const handleSetCelebrationMotionEnabled = useCallback(
+    (nextValue) => {
+      const enabled = Boolean(nextValue);
+      setCelebrationMotionEnabled(enabled);
+      try {
+        window.localStorage.setItem(
+          CELEBRATION_MOTION_ENABLED_STORAGE_KEY,
+          enabled ? "true" : "false",
+        );
+      } catch (_error) {
+        // Ignore storage failures.
+      }
+      enqueueSnackbar(
+        enabled ? "Celebration motion on." : "Celebration motion off.",
+        { variant: "info" },
+      );
+    },
+    [enqueueSnackbar],
+  );
+
   return (
     <>
       <Prompt
@@ -969,6 +1163,139 @@ export default function Lesson() {
       />
       <Container maxWidth="md">
         <Grid container spacing={2} direction="column">
+          <Grid item>
+            <Paper
+              style={{
+                padding: 12,
+                borderRadius: 12,
+                backgroundColor: "#f9fbfd",
+              }}
+            >
+              <div style={{ fontWeight: 700, marginBottom: 8 }}>
+                Reward Settings
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  gap: 12,
+                  flexWrap: "wrap",
+                  alignItems: "center",
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: 12, marginBottom: 4 }}>
+                    Reward sounds
+                  </div>
+                  <ButtonGroup color="primary" size="small">
+                    <Button
+                      variant={rewardAudioEnabled ? "contained" : "outlined"}
+                      onClick={() => handleSetRewardAudioEnabled(true)}
+                    >
+                      On
+                    </Button>
+                    <Button
+                      variant={!rewardAudioEnabled ? "contained" : "outlined"}
+                      onClick={() => handleSetRewardAudioEnabled(false)}
+                    >
+                      Off
+                    </Button>
+                  </ButtonGroup>
+                </div>
+                <div>
+                  <div style={{ fontSize: 12, marginBottom: 4 }}>
+                    Celebration motion
+                  </div>
+                  <ButtonGroup color="primary" size="small">
+                    <Button
+                      variant={
+                        celebrationMotionEnabled ? "contained" : "outlined"
+                      }
+                      onClick={() => handleSetCelebrationMotionEnabled(true)}
+                      disabled={prefersReducedMotion}
+                    >
+                      On
+                    </Button>
+                    <Button
+                      variant={
+                        !celebrationMotionEnabled ? "contained" : "outlined"
+                      }
+                      onClick={() => handleSetCelebrationMotionEnabled(false)}
+                    >
+                      Off
+                    </Button>
+                  </ButtonGroup>
+                </div>
+                <div style={{ fontSize: 12, color: "#5f6b76" }}>
+                  Background music stays off by default to protect focus.
+                  {prefersReducedMotion
+                    ? " Reduced-motion preference detected."
+                    : ""}
+                </div>
+              </div>
+            </Paper>
+          </Grid>
+
+          {celebrationMessage && (
+            <Grid item>
+              <Paper
+                style={{
+                  padding: 12,
+                  borderRadius: 12,
+                  background:
+                    "linear-gradient(180deg, #eef9f1 0%, #e5f5ea 100%)",
+                  border: "1px solid #cce8d6",
+                  opacity: celebrationActive || prefersReducedMotion ? 1 : 0.8,
+                  transform:
+                    celebrationActive && !prefersReducedMotion
+                      ? "translateY(0) scale(1.01)"
+                      : "translateY(0) scale(1)",
+                  boxShadow:
+                    celebrationActive && !prefersReducedMotion
+                      ? "0 10px 24px rgba(56, 117, 78, 0.16)"
+                      : "none",
+                  transition: prefersReducedMotion
+                    ? "none"
+                    : "transform 180ms ease-out, opacity 180ms ease-out, box-shadow 220ms ease-out",
+                }}
+              >
+                <div style={{ fontWeight: 700, marginBottom: 4 }}>
+                  Milestone Reached
+                </div>
+                <div style={{ fontSize: 14 }}>{celebrationMessage}</div>
+              </Paper>
+            </Grid>
+          )}
+
+          {lessonStarted && quickWinEnabledForRun && (
+            <Grid item>
+              <Paper
+                style={{
+                  padding: 12,
+                  borderRadius: 12,
+                  background:
+                    "linear-gradient(180deg, #fffdf4 0%, #fff7ea 100%)",
+                  border: "1px solid #f1e3cc",
+                }}
+              >
+                <div style={{ fontWeight: 700, marginBottom: 4 }}>
+                  Quick Win
+                </div>
+                <div style={{ fontSize: 14 }}>
+                  {Math.min(
+                    sessionCorrectCount,
+                    FIRST_SESSION_QUICK_WIN_TARGET,
+                  )}
+                  /{FIRST_SESSION_QUICK_WIN_TARGET} correct words this session.
+                </div>
+                <div style={{ fontSize: 13, marginTop: 2, color: "#4d4d4d" }}>
+                  {sessionCorrectCount >= FIRST_SESSION_QUICK_WIN_TARGET
+                    ? "Next action: keep this lesson going while momentum is high."
+                    : "Next action: type the next word to reach your first quick win."}
+                </div>
+              </Paper>
+            </Grid>
+          )}
+
           <Grid item>
             <div
               style={{

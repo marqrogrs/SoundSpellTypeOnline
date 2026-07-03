@@ -20,10 +20,53 @@ const CUSTOM_LESSON_PREFIX = "custom:";
 const CUSTOM_LESSON_PROGRESS_COLLECTION = "customLessonProgress";
 const LESSON_STATIC_CACHE_KEY = "lesson-provider:static-data";
 const LESSON_STATIC_CACHE_TTL_MS = 10 * 60 * 1000;
+const STREAK_SAVE_REFILL_DAYS = 7;
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const nowMs = () =>
   typeof performance !== "undefined" && typeof performance.now === "function"
     ? performance.now()
     : Date.now();
+
+const toLocalDayKey = (date = new Date()) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const parseDayKey = (value) => {
+  const raw = String(value || "").trim();
+  if (!raw) {
+    return null;
+  }
+
+  const parts = raw.split("-").map((part) => Number(part));
+  if (parts.length !== 3 || parts.some((part) => !Number.isFinite(part))) {
+    return null;
+  }
+
+  const [year, month, day] = parts;
+  return { year, month, day };
+};
+
+const diffDayKeys = (laterDayKey, earlierDayKey) => {
+  const later = parseDayKey(laterDayKey);
+  const earlier = parseDayKey(earlierDayKey);
+  if (!later || !earlier) {
+    return null;
+  }
+
+  const laterTime = Date.UTC(later.year, later.month - 1, later.day);
+  const earlierTime = Date.UTC(earlier.year, earlier.month - 1, earlier.day);
+  return Math.round((laterTime - earlierTime) / MS_PER_DAY);
+};
+
+const normalizeDayKey = (value) => {
+  const parsed = parseDayKey(value);
+  return parsed
+    ? toLocalDayKey(new Date(parsed.year, parsed.month - 1, parsed.day))
+    : "";
+};
 
 const readLessonStaticCache = () => {
   try {
@@ -652,10 +695,120 @@ const LessonProvider = ({ children }) => {
       .doc(user.uid)
       .set(updatePayload, { merge: true });
 
+    const updatePracticeStreak = async () => {
+      const userRef = db.collection("users").doc(user.uid);
+      const todayDayKey = toLocalDayKey();
+
+      await db.runTransaction(async (tx) => {
+        const snap = await tx.get(userRef);
+        const data = snap.exists ? snap.data() || {} : {};
+
+        const lastPracticeDay = normalizeDayKey(
+          data.lastPracticeDay || data.last_practice_day,
+        );
+        if (lastPracticeDay === todayDayKey) {
+          const lastRefillDay = normalizeDayKey(
+            data.streakSaveRefilledAtDay ||
+              data.streak_save_refilled_at_day ||
+              lastPracticeDay,
+          );
+          const streakSaveTokensRaw = Number(
+            data.streakSaveTokens ?? data.streak_save_tokens ?? 0,
+          );
+          const streakSaveTokens = Number.isFinite(streakSaveTokensRaw)
+            ? streakSaveTokensRaw
+            : 0;
+          const shouldRefillTokens =
+            !lastRefillDay ||
+            diffDayKeys(todayDayKey, lastRefillDay) >= STREAK_SAVE_REFILL_DAYS;
+          if (shouldRefillTokens && streakSaveTokens < 1) {
+            tx.set(
+              userRef,
+              {
+                streakSaveTokens: 1,
+                streak_save_tokens: 1,
+                streakSaveRefilledAtDay: todayDayKey,
+                streak_save_refilled_at_day: todayDayKey,
+              },
+              { merge: true },
+            );
+          }
+          return;
+        }
+
+        const currentStreakRaw = Number(
+          data.current_streak ?? data.practice_streak ?? data.streak ?? 0,
+        );
+        const bestStreakRaw = Number(data.best_streak ?? data.bestStreak ?? 0);
+        const streakSaveTokensRaw = Number(
+          data.streakSaveTokens ?? data.streak_save_tokens ?? 0,
+        );
+        let streakSaveTokens = Number.isFinite(streakSaveTokensRaw)
+          ? streakSaveTokensRaw
+          : 0;
+        const currentStreak = Number.isFinite(currentStreakRaw)
+          ? currentStreakRaw
+          : 0;
+        const bestStreak = Number.isFinite(bestStreakRaw) ? bestStreakRaw : 0;
+
+        const lastRefillDay = normalizeDayKey(
+          data.streakSaveRefilledAtDay || data.streak_save_refilled_at_day,
+        );
+        if (
+          !lastRefillDay ||
+          diffDayKeys(todayDayKey, lastRefillDay) >= STREAK_SAVE_REFILL_DAYS
+        ) {
+          streakSaveTokens = Math.max(streakSaveTokens, 1);
+        }
+
+        const gapDays = diffDayKeys(todayDayKey, lastPracticeDay);
+        let nextStreak = currentStreak;
+        let nextTokens = streakSaveTokens;
+
+        if (lastPracticeDay && gapDays === 1) {
+          nextStreak = currentStreak + 1;
+        } else if (lastPracticeDay && gapDays > 1) {
+          if (nextTokens > 0) {
+            nextStreak = currentStreak + 1;
+            nextTokens -= 1;
+          } else {
+            nextStreak = 1;
+          }
+        } else if (!lastPracticeDay) {
+          nextStreak = 1;
+        }
+
+        tx.set(
+          userRef,
+          {
+            current_streak: nextStreak,
+            practice_streak: nextStreak,
+            streak: nextStreak,
+            best_streak: Math.max(bestStreak, nextStreak),
+            bestStreak: Math.max(bestStreak, nextStreak),
+            lastPracticeDay: todayDayKey,
+            last_practice_day: todayDayKey,
+            lastPracticeAt: firebase.firestore.FieldValue.serverTimestamp(),
+            streakSaveTokens: nextTokens,
+            streak_save_tokens: nextTokens,
+            streakSaveRefilledAtDay: todayDayKey,
+            streak_save_refilled_at_day: todayDayKey,
+          },
+          { merge: true },
+        );
+      });
+    };
+
     const isCustomLesson = Boolean(lesson?.isCustomLesson);
     const customLessonId = String(lesson?.custom_lesson_id || "").trim();
+    const persistAndTrack = persistUserProgress.then(() =>
+      updatePracticeStreak().catch((error) => {
+        console.error("Failed to update practice streak:", error);
+      }),
+    );
+
     if (!isCustomLesson || !customLessonId || !user?.uid) {
-      return persistUserProgress;
+      return persistAndTrack;
     }
 
     const studentName =
@@ -685,7 +838,7 @@ const LessonProvider = ({ children }) => {
       : [];
     const progressDocId = `clp_${customLessonId}_${user.uid}`;
 
-    return persistUserProgress.then(() =>
+    return persistAndTrack.then(() =>
       db
         .collection(CUSTOM_LESSON_PROGRESS_COLLECTION)
         .doc(progressDocId)

@@ -21,6 +21,25 @@ import { useStyles } from "../styles/material";
 
 const REQUIRED_ACCURACY_FOR_CHECKMARK = 90;
 
+function getMilestoneLabel(percentComplete, isCompleted, isInProgress) {
+  if (isCompleted) {
+    return "Part complete";
+  }
+  if (percentComplete >= 75) {
+    return "Nearly there";
+  }
+  if (percentComplete >= 50) {
+    return "Halfway there";
+  }
+  if (percentComplete >= 25) {
+    return "Building mastery";
+  }
+  if (isInProgress) {
+    return "Getting started";
+  }
+  return "Ready to begin";
+}
+
 function splitExampleWords(description) {
   const raw = String(description || "").trim();
   if (!raw) {
@@ -53,6 +72,7 @@ export default function ProgressListItem({
   progress,
   showButtons,
   patternRules,
+  recommendedLessonId,
 }) {
   const [open, setOpen] = useState(false);
 
@@ -113,6 +133,14 @@ export default function ProgressListItem({
   });
 
   const isCompleted = isLevelMastered(progress[masteryLevelIndex] || {});
+  const masteryProgressPercent = getLevelWordsCorrectPercent(
+    progress[masteryLevelIndex] || {},
+  );
+  const milestoneLabel = getMilestoneLabel(
+    masteryProgressPercent,
+    isCompleted,
+    isInProgress,
+  );
 
   const status = isCompleted ? (
     <CheckCircleIcon color="primary" />
@@ -126,6 +154,9 @@ export default function ProgressListItem({
   const { mainText, exampleWords } = splitExampleWords(
     lesson.description || lesson.title,
   );
+  const isRecommendedLesson =
+    String(recommendedLessonId || "").trim() ===
+    String(lesson?.lesson_id || "").trim();
 
   const button = isCompleted ? null : isInProgress ? (
     <Link to={`/lessons/${lesson.lesson_id}`}>
@@ -165,6 +196,42 @@ export default function ProgressListItem({
         </TableCell>
         <TableCell component="th" scope="row">
           {lesson.lesson_id}
+          {isRecommendedLesson ? (
+            <span
+              style={{
+                display: "inline-block",
+                marginLeft: 8,
+                padding: "2px 8px",
+                borderRadius: 999,
+                fontSize: 10,
+                fontWeight: 700,
+                textTransform: "uppercase",
+                letterSpacing: 0.6,
+                color: "#1e5f99",
+                backgroundColor: "#e7f1fb",
+                verticalAlign: "middle",
+              }}
+            >
+              Next Recommended
+            </span>
+          ) : null}
+          <span
+            style={{
+              display: "inline-block",
+              marginLeft: 8,
+              padding: "2px 8px",
+              borderRadius: 999,
+              fontSize: 10,
+              fontWeight: 700,
+              textTransform: "uppercase",
+              letterSpacing: 0.6,
+              color: isCompleted ? "#205c3b" : "#6b4e16",
+              backgroundColor: isCompleted ? "#e7f5ee" : "#fff2d8",
+              verticalAlign: "middle",
+            }}
+          >
+            {milestoneLabel}
+          </span>
         </TableCell>
         <TableCell>
           {mainText ||

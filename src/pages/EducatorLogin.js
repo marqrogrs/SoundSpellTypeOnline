@@ -104,17 +104,22 @@ export default function EducatorLogin() {
 
   return (
     <div id="landing-container" className="landing-only">
-      <div className="right-panel">
+      <div className="right-panel auth-right-panel">
         <form>
           <Grid
             container
             direction="column"
             alignItems="center"
-            className={classes.signUpForm}
+            className={`${classes.signUpForm} auth-card-grid`}
             spacing={2}
           >
             <Grid item>
-              <Typography>Welcome to Sound Spell Type Online!</Typography>
+              <Typography variant="h5" align="center">
+                Adult Portal
+              </Typography>
+              <Typography variant="body2" color="textSecondary" align="center">
+                For teachers, school admins, tutors, and home school parents.
+              </Typography>
             </Grid>
             {isSignUp && (
               <>
@@ -165,12 +170,16 @@ export default function EducatorLogin() {
             <Grid item>
               <TextField
                 name="email"
-                label="Email / Username"
+                label="Email"
                 variant="outlined"
                 color="primary"
+                autoComplete="email"
                 value={formik.values.email}
                 error={Boolean(formik.errors.email)}
-                helperText={formik.errors.email}
+                helperText={
+                  formik.errors.email ||
+                  "Students should use Student Sign In from the home page."
+                }
                 onChange={formik.handleChange}
               ></TextField>
             </Grid>
@@ -181,6 +190,7 @@ export default function EducatorLogin() {
                 variant="outlined"
                 color="primary"
                 type="password"
+                autoComplete={isSignUp ? "new-password" : "current-password"}
                 value={formik.values.password}
                 error={Boolean(formik.errors.password)}
                 helperText={formik.errors.password}
@@ -226,7 +236,7 @@ export default function EducatorLogin() {
             </Grid>
             {!isSignUp && (
               <Button color="primary" onClick={auth.resetPassword}>
-                Reset Password
+                Reset Password by Email
               </Button>
             )}
 

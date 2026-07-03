@@ -13,6 +13,7 @@ import swal from "sweetalert";
 
 import { db, applyWordFix } from "../firebase";
 import { speakPhoneme } from "../util/Audio";
+import { PLACEMENT_TEST_PARTS } from "../data/placementTestParts";
 
 const toCsv = (values) =>
   (Array.isArray(values) ? values : [])
@@ -85,6 +86,59 @@ const extractCallableDebug = (error, contextLabel) => ({
   at: new Date().toISOString(),
 });
 
+const PLACEMENT_WORD_MAP = (() => {
+  const map = new Map();
+  (Array.isArray(PLACEMENT_TEST_PARTS) ? PLACEMENT_TEST_PARTS : []).forEach(
+    (part) => {
+      (Array.isArray(part?.words) ? part.words : []).forEach((wordDef) => {
+        const key = String(wordDef?.word || "")
+          .trim()
+          .toUpperCase();
+        if (!key || map.has(key)) {
+          return;
+        }
+        map.set(key, {
+          word: String(wordDef.word || "")
+            .trim()
+            .toUpperCase(),
+          graphemes: Array.isArray(wordDef.graphemes) ? wordDef.graphemes : [],
+          phonemes: Array.isArray(wordDef.phonemes) ? wordDef.phonemes : [],
+          syllables: [
+            String(wordDef.word || "")
+              .trim()
+              .toLowerCase(),
+          ].filter(Boolean),
+          source: `placement-part-${String(part?.number || "")}`,
+        });
+      });
+    },
+  );
+  return map;
+})();
+
+const getPlacementFallbackWord = (word) => {
+  const key = String(word || "")
+    .trim()
+    .toUpperCase();
+  return key ? PLACEMENT_WORD_MAP.get(key) || null : null;
+};
+
+const getSourceLabel = (sourceValue) => {
+  const source = String(sourceValue || "")
+    .trim()
+    .toLowerCase();
+  if (!source) {
+    return "Source: Unknown";
+  }
+  if (source === "firestore") {
+    return "Source: Firestore";
+  }
+  if (source.startsWith("placement")) {
+    return "Source: Placement Defaults";
+  }
+  return `Source: ${sourceValue}`;
+};
+
 export default function WordFixAdmin() {
   const [word, setWord] = useState("");
   const [graphemes, setGraphemes] = useState("");
@@ -93,6 +147,7 @@ export default function WordFixAdmin() {
   const [batchInput, setBatchInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [lastResult, setLastResult] = useState(null);
+  const [loadedWordSource, setLoadedWordSource] = useState("");
   const [lastBatchSummary, setLastBatchSummary] = useState(null);
   const [lastDryRunSummary, setLastDryRunSummary] = useState(null);
   const [lastCallableError, setLastCallableError] = useState(null);
@@ -117,10 +172,20 @@ export default function WordFixAdmin() {
     try {
       const doc = await db.collection("words").doc(normalizedCheckWord).get();
       if (!doc.exists) {
+        const placementFallback = getPlacementFallbackWord(normalizedCheckWord);
+        if (!placementFallback) {
+          swal(
+            "Not Found",
+            `No Firestore record found for ${normalizedCheckWord}.`,
+            "warning",
+          );
+          return;
+        }
+        setCheckedWordData(placementFallback);
         swal(
-          "Not Found",
-          `No Firestore record found for ${normalizedCheckWord}.`,
-          "warning",
+          "Loaded Placement Word",
+          `${normalizedCheckWord} is in the Placement Test list but not yet in Firestore. You can edit and save it here.`,
+          "info",
         );
         return;
       }
@@ -130,6 +195,7 @@ export default function WordFixAdmin() {
         graphemes: Array.isArray(data.graphemes) ? data.graphemes : [],
         phonemes: Array.isArray(data.phonemes) ? data.phonemes : [],
         syllables: Array.isArray(data.syllables) ? data.syllables : [],
+        source: "firestore",
       });
     } catch (error) {
       swal("Check Failed", error?.message || "Unable to fetch word.", "error");
@@ -165,10 +231,25 @@ export default function WordFixAdmin() {
     try {
       const doc = await db.collection("words").doc(normalizedWord).get();
       if (!doc.exists) {
+        const placementFallback = getPlacementFallbackWord(normalizedWord);
+        if (!placementFallback) {
+          swal(
+            "Not Found",
+            `No Firestore word doc found for ${normalizedWord}.`,
+            "warning",
+          );
+          return;
+        }
+
+        setGraphemes(toCsv(placementFallback.graphemes));
+        setPhonemes(toCsv(placementFallback.phonemes));
+        setSyllables(toCsv(placementFallback.syllables));
+        setLoadedWordSource(String(placementFallback.source || "placement"));
+        setLastResult(null);
         swal(
-          "Not Found",
-          `No Firestore word doc found for ${normalizedWord}.`,
-          "warning",
+          "Loaded Placement Defaults",
+          `${normalizedWord} came from placement data. Save to create/update Firestore and placement override values.`,
+          "info",
         );
         return;
       }
@@ -177,6 +258,7 @@ export default function WordFixAdmin() {
       setGraphemes(toCsv(data.graphemes));
       setPhonemes(toCsv(data.phonemes));
       setSyllables(toCsv(data.syllables));
+      setLoadedWordSource("firestore");
       setLastResult(null);
     } catch (error) {
       swal("Load Failed", error?.message || "Unable to load word.", "error");
@@ -536,6 +618,19 @@ export default function WordFixAdmin() {
         {checkedWordData && (
           <Grid container spacing={1} style={{ marginTop: 16 }}>
             <Grid item xs={12}>
+              <Chip
+                label={getSourceLabel(checkedWordData.source || "firestore")}
+                size="small"
+                color={
+                  String(checkedWordData.source || "").toLowerCase() ===
+                  "firestore"
+                    ? "primary"
+                    : "default"
+                }
+                variant="outlined"
+              />
+            </Grid>
+            <Grid item xs={12}>
               <Typography variant="subtitle2" color="textSecondary">
                 Graphemes
               </Typography>
@@ -631,7 +726,10 @@ export default function WordFixAdmin() {
               fullWidth
               variant="outlined"
               value={word}
-              onChange={(e) => setWord(e.target.value.toUpperCase())}
+              onChange={(e) => {
+                setWord(e.target.value.toUpperCase());
+                setLoadedWordSource("");
+              }}
               disabled={busy}
             />
           </Grid>
@@ -647,6 +745,21 @@ export default function WordFixAdmin() {
               Load Current Word
             </Button>
           </Grid>
+
+          {loadedWordSource && (
+            <Grid item xs={12}>
+              <Chip
+                label={getSourceLabel(loadedWordSource)}
+                size="small"
+                color={
+                  String(loadedWordSource).toLowerCase() === "firestore"
+                    ? "primary"
+                    : "default"
+                }
+                variant="outlined"
+              />
+            </Grid>
+          )}
 
           <Grid item xs={12}>
             <TextField

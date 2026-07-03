@@ -5,7 +5,7 @@
     "serve": "firebase emulators:start --only functions",
     "shell": "firebase functions:shell",
     "start": "npm run shell",
-    "test": "node tests/resetPasswordAccess.test.js && node tests/studentKeys.test.js && node tests/usernameUtils.test.js && node tests/roleUtils.test.js && node tests/schoolAdminRequestUtils.test.js && node tests/schoolAdminRequests.callables.test.js && node tests/mgmtListData.callables.test.js",
+    "test": "node tests/resetPasswordAccess.test.js && node tests/studentKeys.test.js && node tests/usernameUtils.test.js && node tests/roleUtils.test.js && node tests/schoolAdminRequestUtils.test.js && node tests/schoolAdminRequests.callables.test.js && node tests/mgmtListData.callables.test.js && node tests/mgmtAccountabilityQueue.callables.test.js && node tests/placementWordOverrides.callables.test.js",
     "migrate:aw-ao-grapheme:dry-run": "node scripts/fixAwAoGraphemeMigration.js --mode=dry-run",
     "migrate:aw-ao-grapheme:apply": "node scripts/fixAwAoGraphemeMigration.js --mode=apply --confirm",
     "migrate:aw-ao-grapheme:rollback-preview": "node scripts/fixAwAoGraphemeMigration.js --mode=rollback-preview",

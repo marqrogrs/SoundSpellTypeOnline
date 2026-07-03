@@ -238,7 +238,7 @@ export default function AppBar({ user }) {
   };
 
   const handleViewContactUs = () => {
-    window.location.assign("mailto:mark@birdhaven.us");
+    history.push("/contact-us");
     setLeftAnchorEl(null);
   };
 
