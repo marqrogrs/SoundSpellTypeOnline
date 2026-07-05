@@ -88,6 +88,20 @@ const getMasteredPercent = (lesson, levelProgress) => {
   return Math.round((masteredCount / totalWords) * 100);
 };
 
+const normalizeLessonIdForRoute = (value) => {
+  const rawValue = String(value ?? "").trim();
+  if (!rawValue) {
+    return "";
+  }
+
+  const decodedValue = decodeURIComponent(rawValue);
+  if (decodedValue.includes("/")) {
+    return decodedValue.split("/").filter(Boolean).pop() || "";
+  }
+
+  return decodedValue;
+};
+
 export default function Progress() {
   const { student } = useParams();
   const { lessons = [] } = useContext(LessonContext);
@@ -164,11 +178,23 @@ export default function Progress() {
     };
   }, [lessons, userData]);
 
-  const nextLessonId = String(
-    lessonSummary?.nextLesson?.lesson?.lesson_id || "",
-  ).trim();
+  const nextLesson = lessonSummary?.nextLesson?.lesson || {};
+  const normalizedNextLessonId = normalizeLessonIdForRoute(
+    nextLesson?.lesson_id ?? nextLesson?.id,
+  );
+  const customLessonId = String(nextLesson?.custom_lesson_id || "").trim();
+  const isCustomNextLesson =
+    String(normalizedNextLessonId).startsWith("custom:") ||
+    (Boolean(nextLesson?.isCustomLesson) && Boolean(customLessonId));
+  const nextLessonId = isCustomNextLesson
+    ? String(normalizedNextLessonId).startsWith("custom:")
+      ? normalizedNextLessonId.slice("custom:".length)
+      : customLessonId
+    : normalizedNextLessonId;
   const nextLessonLink = nextLessonId
-    ? `/lessons/${nextLessonId}`
+    ? isCustomNextLesson
+      ? `/lessons/custom/${encodeURIComponent(nextLessonId)}`
+      : `/lessons/${encodeURIComponent(nextLessonId)}`
     : "/progress";
   const hasFirstLessonAttempted = Boolean(
     userData?.firstLessonAttemptedAt || userData?.first_lesson_attempted_at,
