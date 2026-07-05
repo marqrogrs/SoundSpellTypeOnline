@@ -372,6 +372,83 @@ export default function Progress() {
               Plan, focus, and launch your next lesson.
             </Typography>
 
+            <Grid container spacing={1} style={{ marginTop: 8 }}>
+              <Grid item xs={12}>
+                <Typography variant="body2" color="textSecondary">
+                  Pick today&apos;s targets:
+                </Typography>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  select
+                  fullWidth
+                  label="Session Minutes"
+                  value={selectedSessionMinutesGoal}
+                  disabled={savingDailyGoal}
+                  onChange={(event) => {
+                    handleUpdateGoalTargets({
+                      dailySessionMinutesGoal: Number(event.target.value),
+                    });
+                  }}
+                >
+                  {SESSION_MINUTE_GOAL_OPTIONS.map((minutes) => (
+                    <MenuItem key={minutes} value={minutes}>
+                      {minutes} minutes
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  select
+                  fullWidth
+                  label="WCPM Goal"
+                  value={selectedWcpmGoal}
+                  disabled={savingDailyGoal}
+                  onChange={(event) => {
+                    handleUpdateGoalTargets({
+                      dailyWcpmGoal: Number(event.target.value),
+                    });
+                  }}
+                >
+                  {WCPM_GOAL_OPTIONS.map((wcpm) => (
+                    <MenuItem key={wcpm} value={wcpm}>
+                      {wcpm} WCPM
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </Grid>
+            </Grid>
+
+            <Grid
+              container
+              spacing={2}
+              alignItems="center"
+              style={{ marginTop: 6 }}
+            >
+              <Grid item xs={12} sm={8}>
+                <Typography variant="body2">
+                  {nextLessonId
+                    ? `${lessonSummary.resumeLesson ? "Continue" : "Start next"} lesson: ${nextLessonId}`
+                    : "No lesson recommendation available yet."}
+                </Typography>
+                <Typography variant="caption" color="textSecondary">
+                  Lessons completed: {lessonSummary.completedCount}
+                </Typography>
+              </Grid>
+              <Grid item xs={12} sm={4} style={{ textAlign: "right" }}>
+                <Button
+                  component={Link}
+                  to={nextLessonLink}
+                  color="primary"
+                  variant="contained"
+                  disabled={!nextLessonId}
+                >
+                  {primaryActionLabel}
+                </Button>
+              </Grid>
+            </Grid>
+
             <Grid container spacing={2} style={{ marginTop: 4 }}>
               <Grid item xs={12} sm={4}>
                 <Paper style={{ padding: 12, borderRadius: 12 }}>
@@ -475,83 +552,6 @@ export default function Progress() {
                 })}
               </Grid>
             </Paper>
-
-            <Grid container spacing={1} style={{ marginTop: 8 }}>
-              <Grid item xs={12}>
-                <Typography variant="body2" color="textSecondary">
-                  Pick today&apos;s targets:
-                </Typography>
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  select
-                  fullWidth
-                  label="Session Minutes"
-                  value={selectedSessionMinutesGoal}
-                  disabled={savingDailyGoal}
-                  onChange={(event) => {
-                    handleUpdateGoalTargets({
-                      dailySessionMinutesGoal: Number(event.target.value),
-                    });
-                  }}
-                >
-                  {SESSION_MINUTE_GOAL_OPTIONS.map((minutes) => (
-                    <MenuItem key={minutes} value={minutes}>
-                      {minutes} minutes
-                    </MenuItem>
-                  ))}
-                </TextField>
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  select
-                  fullWidth
-                  label="WCPM Goal"
-                  value={selectedWcpmGoal}
-                  disabled={savingDailyGoal}
-                  onChange={(event) => {
-                    handleUpdateGoalTargets({
-                      dailyWcpmGoal: Number(event.target.value),
-                    });
-                  }}
-                >
-                  {WCPM_GOAL_OPTIONS.map((wcpm) => (
-                    <MenuItem key={wcpm} value={wcpm}>
-                      {wcpm} WCPM
-                    </MenuItem>
-                  ))}
-                </TextField>
-              </Grid>
-            </Grid>
-
-            <Grid
-              container
-              spacing={2}
-              alignItems="center"
-              style={{ marginTop: 6 }}
-            >
-              <Grid item xs={12} sm={8}>
-                <Typography variant="body2">
-                  {nextLessonId
-                    ? `${lessonSummary.resumeLesson ? "Continue" : "Start next"} lesson: ${nextLessonId}`
-                    : "No lesson recommendation available yet."}
-                </Typography>
-                <Typography variant="caption" color="textSecondary">
-                  Lessons completed: {lessonSummary.completedCount}
-                </Typography>
-              </Grid>
-              <Grid item xs={12} sm={4} style={{ textAlign: "right" }}>
-                <Button
-                  component={Link}
-                  to={nextLessonLink}
-                  color="primary"
-                  variant="contained"
-                  disabled={!nextLessonId}
-                >
-                  {primaryActionLabel}
-                </Button>
-              </Grid>
-            </Grid>
           </Paper>
         )}
 
