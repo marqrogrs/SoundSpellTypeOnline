@@ -1006,7 +1006,10 @@ export default function OutputWord({
       }
 
       // 7) Speak the full word with TTS.
-      await speakWholeWordWithRetry(wordFromSource);
+      const finalWordSpoken = await speakWholeWordWithRetry(wordFromSource);
+      reportFlowEvent("flow-final-word-tts-finished", {
+        spoken: Boolean(finalWordSpoken),
+      });
 
       setDisplayedGraphemeUnits([]);
       signalReadyOnce();

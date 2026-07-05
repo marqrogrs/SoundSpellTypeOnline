@@ -469,6 +469,19 @@ export default function PlacementTest() {
     applyLessonFlowTimingPreset(cueSpeedPreset);
   }, [cueSpeedPreset]);
 
+  const logPlacementOverrideLoadFailure = useCallback(
+    (stage, error, metadata = {}) => {
+      console.error("[placement] override load failed", {
+        stage,
+        message: String(error?.message || ""),
+        code: String(error?.code || ""),
+        hasAuthUser: Boolean(auth?.user),
+        ...metadata,
+      });
+    },
+    [auth?.user],
+  );
+
   const loadPlacementWordOverrides = useCallback(async () => {
     setLoadingPlacementWords(true);
     setPlacementWordLoadError("");
@@ -530,6 +543,7 @@ export default function PlacementTest() {
       applyOrReset(overrides);
     } catch (error) {
       if (auth?.user) {
+        logPlacementOverrideLoadFailure("firestore-primary", error);
         try {
           const result = await getPlacementWordOverrides({
             words: PLACEMENT_WORD_KEYS,
@@ -537,9 +551,14 @@ export default function PlacementTest() {
           const payload = result?.data || {};
           applyOrReset(buildPlacementOverridesMap(payload?.overrides));
           return;
-        } catch (_fallbackError) {
+        } catch (fallbackError) {
+          logPlacementOverrideLoadFailure("callable-fallback", fallbackError, {
+            primaryCode: String(error?.code || ""),
+          });
           // Fall through to placement defaults when both fetch paths fail.
         }
+      } else {
+        logPlacementOverrideLoadFailure("callable-public", error);
       }
 
       setPlacementParts(normalizePlacementParts(PLACEMENT_TEST_PARTS));
@@ -549,7 +568,7 @@ export default function PlacementTest() {
     } finally {
       setLoadingPlacementWords(false);
     }
-  }, [auth?.user]);
+  }, [auth?.user, logPlacementOverrideLoadFailure]);
 
   useEffect(() => {
     let cancelled = false;

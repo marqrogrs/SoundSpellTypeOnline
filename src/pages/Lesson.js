@@ -23,11 +23,13 @@ import {
   DialogContent,
   DialogActions,
   CircularProgress,
+  LinearProgress,
 } from "@material-ui/core";
 import ButtonGroup from "@material-ui/core/ButtonGroup";
 
 import { useParams, useHistory } from "react-router-dom";
 import { LessonContext } from "../providers/LessonProvider";
+import { UserContext } from "../providers/UserProvider";
 import {
   primeAudioPlayback,
   playCelebrationFanfare,
@@ -63,6 +65,7 @@ const CUE_SPEED_LABELS = {
 export default function Lesson() {
   const { enqueueSnackbar } = useSnackbar();
   const classes = useStyles();
+  const { userData, updateUserData } = useContext(UserContext);
   const {
     saveProgress,
     markFirstLessonAttempted = async () => {},
@@ -95,6 +98,10 @@ export default function Lesson() {
   const [wordInfoError, setWordInfoError] = useState("");
   const [wordInfoSpeaking, setWordInfoSpeaking] = useState(false);
   const [sessionCorrectCount, setSessionCorrectCount] = useState(0);
+  const [sessionTimedSeconds, setSessionTimedSeconds] = useState(0);
+  const [sessionTimedCorrectCount, setSessionTimedCorrectCount] = useState(0);
+  const [sessionWcpm, setSessionWcpm] = useState(0);
+  const [sessionElapsedSeconds, setSessionElapsedSeconds] = useState(0);
   const [quickWinEnabledForRun, setQuickWinEnabledForRun] = useState(false);
   const [rewardAudioEnabled, setRewardAudioEnabled] = useState(true);
   const [celebrationMotionEnabled, setCelebrationMotionEnabled] =
@@ -123,6 +130,17 @@ export default function Lesson() {
   });
   const answerInputRef = useRef(null);
   const flowGuardTimeoutRef = useRef(null);
+  const currentWordTtsFinishedAtRef = useRef(null);
+  const timedSecondsRef = useRef(0);
+  const timedCorrectCountRef = useRef(0);
+  const sessionStartAtRef = useRef(null);
+  const sessionTimerIntervalRef = useRef(null);
+  const countdownGoalAutoSavedRef = useRef(false);
+  const sessionGoalReachedAtRef = useRef(null);
+  const sessionGoalAutoSaveCycleRef = useRef(0);
+  const sessionGoalAutoSaveInFlightRef = useRef(false);
+  const sessionTimeGoalSnackbarShownRef = useRef(false);
+  const sessionWcpmGoalSnackbarShownRef = useRef(false);
   const wordInfoRequestIdRef = useRef(0);
   const wordInfoTalkRequestIdRef = useRef(0);
   const firstCorrectCelebratedRef = useRef(false);
@@ -287,6 +305,47 @@ export default function Lesson() {
     currentLesson?.lesson?.lesson_section,
     rules,
   ]);
+
+  const sessionMinutesGoal = useMemo(() => {
+    const raw = Number(
+      userData?.dailySessionMinutesGoal ||
+        userData?.daily_session_minutes_goal ||
+        10,
+    );
+    if (Number.isFinite(raw) && raw >= 5 && raw <= 30) {
+      return raw;
+    }
+    return 10;
+  }, [userData?.dailySessionMinutesGoal, userData?.daily_session_minutes_goal]);
+
+  const sessionWcpmGoal = useMemo(() => {
+    const raw = Number(
+      userData?.dailyWcpmGoal || userData?.daily_wcpm_goal || 8,
+    );
+    if (Number.isFinite(raw) && raw >= 1) {
+      return raw;
+    }
+    return 8;
+  }, [userData?.dailyWcpmGoal, userData?.daily_wcpm_goal]);
+
+  const sessionGoalSeconds = sessionMinutesGoal * 60;
+  const sessionCountdownProgress = Math.max(
+    0,
+    Math.min(100, 100 - (sessionElapsedSeconds / sessionGoalSeconds) * 100),
+  );
+  const sessionSecondsRemaining = Math.max(
+    0,
+    sessionGoalSeconds - sessionElapsedSeconds,
+  );
+  const sessionTimeGoalReached = sessionElapsedSeconds >= sessionGoalSeconds;
+  const sessionWcpmGoalReached = sessionWcpm >= sessionWcpmGoal;
+  const sessionGoalStatusMessage = sessionTimeGoalReached
+    ? sessionWcpmGoalReached
+      ? `Both goals reached. Time goal: ${sessionMinutesGoal} minutes. WCPM goal: ${sessionWcpmGoal}.`
+      : `Time goal reached. Keep going to hit ${sessionWcpmGoal} WCPM.`
+    : sessionWcpmGoalReached
+      ? `WCPM goal reached. Keep going until ${sessionMinutesGoal} minutes are complete.`
+      : `Working toward ${sessionMinutesGoal} minutes and ${sessionWcpmGoal} WCPM.`;
 
   const clearWordPeek = useCallback(() => {
     setShowWordPeek(false);
@@ -487,6 +546,7 @@ export default function Lesson() {
         setInputWord("");
         setEnableInput(false);
         pendingManualLevelStartRef.current = false;
+        countdownGoalAutoSavedRef.current = false;
       }
 
       setCurrentWordIndex(resumeWordIndex);
@@ -525,6 +585,20 @@ export default function Lesson() {
       setEnableInput(false);
       setStartStatusMessage("");
       setSessionCorrectCount(0);
+      timedSecondsRef.current = 0;
+      timedCorrectCountRef.current = 0;
+      currentWordTtsFinishedAtRef.current = null;
+      sessionStartAtRef.current = null;
+      sessionGoalReachedAtRef.current = null;
+      sessionGoalAutoSaveCycleRef.current = 0;
+      sessionGoalAutoSaveInFlightRef.current = false;
+      sessionTimeGoalSnackbarShownRef.current = false;
+      sessionWcpmGoalSnackbarShownRef.current = false;
+      setSessionTimedSeconds(0);
+      setSessionTimedCorrectCount(0);
+      setSessionWcpm(0);
+      setSessionElapsedSeconds(0);
+      countdownGoalAutoSavedRef.current = false;
       setQuickWinEnabledForRun(false);
       setCelebrationMessage("");
       setCelebrationActive(false);
@@ -576,6 +650,131 @@ export default function Lesson() {
     }
   }, [currentWordIndex, lessonStarted, resolvedWords]);
 
+  useEffect(() => {
+    if (!lessonStarted) {
+      if (sessionTimerIntervalRef.current) {
+        clearInterval(sessionTimerIntervalRef.current);
+        sessionTimerIntervalRef.current = null;
+      }
+      return;
+    }
+
+    if (!sessionStartAtRef.current) {
+      sessionStartAtRef.current = Date.now();
+      setSessionElapsedSeconds(0);
+    }
+
+    const updateElapsed = () => {
+      const startedAt = Number(sessionStartAtRef.current || Date.now());
+      const elapsed = Math.max(0, Math.round((Date.now() - startedAt) / 1000));
+      setSessionElapsedSeconds(elapsed);
+    };
+
+    updateElapsed();
+    sessionTimerIntervalRef.current = setInterval(updateElapsed, 1000);
+
+    return () => {
+      if (sessionTimerIntervalRef.current) {
+        clearInterval(sessionTimerIntervalRef.current);
+        sessionTimerIntervalRef.current = null;
+      }
+    };
+  }, [lessonStarted]);
+
+  useEffect(() => {
+    if (!lessonStarted) {
+      return;
+    }
+
+    const timeGoalReached = sessionElapsedSeconds >= sessionGoalSeconds;
+    const wcpmGoalReached = sessionWcpm >= sessionWcpmGoal;
+
+    if (timeGoalReached && !sessionTimeGoalSnackbarShownRef.current) {
+      sessionTimeGoalSnackbarShownRef.current = true;
+      sessionGoalReachedAtRef.current =
+        sessionGoalReachedAtRef.current || Date.now();
+      enqueueSnackbar(
+        `Time goal reached: ${sessionMinutesGoal} minute session complete.`,
+        { variant: "success" },
+      );
+      triggerCelebration(
+        `Time goal reached. Auto-saving progress for this lesson.`,
+      );
+    }
+
+    if (wcpmGoalReached && !sessionWcpmGoalSnackbarShownRef.current) {
+      sessionWcpmGoalSnackbarShownRef.current = true;
+      enqueueSnackbar(
+        `WCPM goal reached: ${sessionWcpmGoal} words correct per minute.`,
+        { variant: "success" },
+      );
+      triggerCelebration(
+        `WCPM goal reached. Keep going if you want to build more fluency.`,
+      );
+    }
+
+    if (timeGoalReached) {
+      if (!countdownGoalAutoSavedRef.current) {
+        countdownGoalAutoSavedRef.current = true;
+        enqueueSnackbar("Session time goal reached. Auto-saving progress...", {
+          variant: "info",
+        });
+        save()
+          .then(() => {
+            enqueueSnackbar("Progress auto-saved for this lesson.", {
+              variant: "success",
+            });
+          })
+          .catch(() => {
+            countdownGoalAutoSavedRef.current = false;
+            enqueueSnackbar("Auto-save failed. Please use Save Progress.", {
+              variant: "error",
+            });
+          });
+      }
+
+      if (sessionGoalSeconds > 0 && sessionGoalReachedAtRef.current) {
+        const elapsedSinceGoal = Math.max(
+          0,
+          sessionElapsedSeconds - sessionGoalSeconds,
+        );
+        const completedAutoSaveCycles = Math.floor(
+          elapsedSinceGoal / sessionGoalSeconds,
+        );
+
+        if (
+          completedAutoSaveCycles > sessionGoalAutoSaveCycleRef.current &&
+          !sessionGoalAutoSaveInFlightRef.current
+        ) {
+          sessionGoalAutoSaveInFlightRef.current = true;
+          save()
+            .then(() => {
+              sessionGoalAutoSaveCycleRef.current = completedAutoSaveCycles;
+            })
+            .catch(() => {
+              enqueueSnackbar(
+                "Recurring auto-save failed. You can still save manually.",
+                { variant: "error" },
+              );
+            })
+            .finally(() => {
+              sessionGoalAutoSaveInFlightRef.current = false;
+            });
+        }
+      }
+    }
+  }, [
+    enqueueSnackbar,
+    lessonStarted,
+    save,
+    sessionElapsedSeconds,
+    sessionGoalSeconds,
+    sessionMinutesGoal,
+    sessionWcpm,
+    sessionWcpmGoal,
+    triggerCelebration,
+  ]);
+
   const renderScoreSnackbar = useCallback(
     (success) => {
       const message = success
@@ -587,8 +786,47 @@ export default function Lesson() {
     [enqueueSnackbar],
   );
 
+  const persistSessionWcpm = useCallback(async () => {
+    if (typeof updateUserData !== "function") {
+      return;
+    }
+
+    const timedSeconds = Number(timedSecondsRef.current || 0);
+    if (!Number.isFinite(timedSeconds) || timedSeconds <= 0) {
+      return;
+    }
+
+    const timedCorrect = Number(timedCorrectCountRef.current || 0);
+    const rawWcpm = timedCorrect / (timedSeconds / 60);
+    const latestSessionWcpm = Number(
+      Number.isFinite(rawWcpm) ? rawWcpm.toFixed(1) : "0",
+    );
+
+    const previousBest = Number(
+      userData?.bestSessionWcpm || userData?.best_session_wcpm || 0,
+    );
+    const bestSessionWcpm = Number(
+      Math.max(
+        Number.isFinite(previousBest) ? previousBest : 0,
+        latestSessionWcpm,
+      ).toFixed(1),
+    );
+
+    try {
+      await updateUserData({
+        latestSessionWcpm,
+        latest_session_wcpm: latestSessionWcpm,
+        bestSessionWcpm,
+        best_session_wcpm: bestSessionWcpm,
+        lastSessionWcpmAt: new Date().toISOString(),
+      });
+    } catch (_error) {
+      // Keep lesson flow resilient even if profile metrics fail to persist.
+    }
+  }, [updateUserData, userData?.bestSessionWcpm, userData?.best_session_wcpm]);
+
   const handleSubmit = useCallback(
-    (checkScore = true) => {
+    (checkScore = true, submitSource = "unknown") => {
       if (!currentLesson || !currentWord) {
         return;
       }
@@ -597,6 +835,36 @@ export default function Lesson() {
 
       const isCorrect =
         checkScore && inputWord.toLowerCase() === currentWord.toLowerCase();
+
+      if (checkScore && submitSource === "enter") {
+        const startedAt = Number(currentWordTtsFinishedAtRef.current || 0);
+        const now =
+          typeof performance !== "undefined" &&
+          typeof performance.now === "function"
+            ? performance.now()
+            : Date.now();
+
+        if (Number.isFinite(startedAt) && startedAt > 0 && now > startedAt) {
+          const elapsedSeconds = (now - startedAt) / 1000;
+          timedSecondsRef.current += elapsedSeconds;
+          if (isCorrect) {
+            timedCorrectCountRef.current += 1;
+          }
+
+          const nextTimedSeconds = Number(timedSecondsRef.current.toFixed(2));
+          const nextTimedCorrectCount = Number(timedCorrectCountRef.current);
+          const nextWcpm =
+            nextTimedSeconds > 0
+              ? (nextTimedCorrectCount / nextTimedSeconds) * 60
+              : 0;
+
+          setSessionTimedSeconds(nextTimedSeconds);
+          setSessionTimedCorrectCount(nextTimedCorrectCount);
+          setSessionWcpm(Number(nextWcpm.toFixed(1)));
+        }
+      }
+
+      currentWordTtsFinishedAtRef.current = null;
 
       if (checkScore) {
         renderScoreSnackbar(isCorrect);
@@ -704,9 +972,10 @@ export default function Lesson() {
           masteredWordsByLevel: {
             [levelKey]: levelMasteredWords,
           },
-        }).then(() => {
+        }).then(async () => {
           masteredWordsByLevelRef.current[levelKey] = new Set();
           setIsSaved(true);
+          await persistSessionWcpm();
           const maxLevel = Object.keys(currentLesson.progress || {}).length - 1;
           const completionMessage =
             currentLessonLevel + 1 <= maxLevel
@@ -744,6 +1013,7 @@ export default function Lesson() {
       inputWord,
       triggerCelebration,
       renderScoreSnackbar,
+      persistSessionWcpm,
       rewardAudioEnabled,
       resolvedWords.length,
       saveProgress,
@@ -800,6 +1070,20 @@ export default function Lesson() {
       const levelKey = String((Number(currentLessonLevel) || 0) + 1);
       masteredWordsByLevelRef.current[levelKey] = new Set();
       setSessionCorrectCount(0);
+      timedSecondsRef.current = 0;
+      timedCorrectCountRef.current = 0;
+      currentWordTtsFinishedAtRef.current = null;
+      sessionStartAtRef.current = Date.now();
+      sessionGoalReachedAtRef.current = null;
+      sessionGoalAutoSaveCycleRef.current = 0;
+      sessionGoalAutoSaveInFlightRef.current = false;
+      sessionTimeGoalSnackbarShownRef.current = false;
+      sessionWcpmGoalSnackbarShownRef.current = false;
+      setSessionTimedSeconds(0);
+      setSessionTimedCorrectCount(0);
+      setSessionWcpm(0);
+      setSessionElapsedSeconds(0);
+      countdownGoalAutoSavedRef.current = false;
       firstCorrectCelebratedRef.current = false;
       quickWinCompletedRef.current = false;
       setQuickWinEnabledForRun(
@@ -889,6 +1173,16 @@ export default function Lesson() {
       const phase = event?.phase;
       const isReadyPhase =
         typeof phase === "string" && phase.toLowerCase().includes("ready");
+
+      if (phase === "flow-final-word-tts-finished") {
+        const now =
+          typeof performance !== "undefined" &&
+          typeof performance.now === "function"
+            ? performance.now()
+            : Date.now();
+        currentWordTtsFinishedAtRef.current = now;
+      }
+
       if (
         phase === "flow-started" ||
         phase === "flow-sequence-step" ||
@@ -920,6 +1214,9 @@ export default function Lesson() {
 
   useEffect(() => {
     return () => {
+      if (sessionTimerIntervalRef.current) {
+        clearInterval(sessionTimerIntervalRef.current);
+      }
       if (flowGuardTimeoutRef.current) {
         clearTimeout(flowGuardTimeoutRef.current);
       }
@@ -949,7 +1246,7 @@ export default function Lesson() {
         case "NumpadEnter":
         case "Return":
           if (enableInput) {
-            handleSubmit();
+            handleSubmit(true, "enter");
             return true;
           }
           return false;
@@ -1022,6 +1319,10 @@ export default function Lesson() {
   }, [enableInput, focusAnswerInput, lessonStarted, showOutputWord]);
 
   const save = () => {
+    if (!currentLesson) {
+      return Promise.resolve();
+    }
+
     clearWordPeek();
     const levelKey = String((Number(currentLessonLevel) || 0) + 1);
     const prevCorrectWords = Array.isArray(
@@ -1055,13 +1356,14 @@ export default function Lesson() {
         }
       : undefined;
 
-    saveProgress(progressOverride, {
+    return saveProgress(progressOverride, {
       masteredWordsByLevel: {
         [levelKey]: levelMasteredWords,
       },
-    }).then(() => {
+    }).then(async () => {
       masteredWordsByLevelRef.current[levelKey] = new Set();
       setIsSaved(true);
+      await persistSessionWcpm();
     });
   };
 
@@ -1076,12 +1378,14 @@ export default function Lesson() {
     setInputWord("");
     setEnableInput(false);
     setIsSaved(false);
+    currentWordTtsFinishedAtRef.current = null;
   };
 
   const handleSkipWord = () => {
     stopWordInfoSpeech();
     clearWordPeek();
-    handleSubmit(false);
+    currentWordTtsFinishedAtRef.current = null;
+    handleSubmit(false, "skip");
   };
 
   const handleShowWord = useCallback(() => {
@@ -1163,6 +1467,98 @@ export default function Lesson() {
       />
       <Container maxWidth="md">
         <Grid container spacing={2} direction="column">
+          <Grid item>
+            <Paper
+              style={{
+                padding: 12,
+                borderRadius: 12,
+                background:
+                  sessionTimeGoalReached || sessionWcpmGoalReached
+                    ? "linear-gradient(180deg, #edf8f1 0%, #e2f3ea 100%)"
+                    : "linear-gradient(180deg, #fbfcff 0%, #f4f7ff 100%)",
+                border:
+                  sessionTimeGoalReached || sessionWcpmGoalReached
+                    ? "1px solid #b9dfc8"
+                    : "1px solid #dfe6f5",
+              }}
+            >
+              <div style={{ fontWeight: 700, marginBottom: 6 }}>
+                Goal Status
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  gap: 8,
+                  marginBottom: 8,
+                  flexWrap: "wrap",
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 700,
+                    padding: "4px 8px",
+                    borderRadius: 999,
+                    border: sessionTimeGoalReached
+                      ? "1px solid #7dbb92"
+                      : "1px solid #c5d3e6",
+                    background: sessionTimeGoalReached ? "#e6f5ec" : "#f7f9fc",
+                    color: sessionTimeGoalReached ? "#1f6f45" : "#4d5f75",
+                  }}
+                >
+                  Time Goal:{" "}
+                  {sessionTimeGoalReached ? "Reached" : "In Progress"}
+                </span>
+                <span
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 700,
+                    padding: "4px 8px",
+                    borderRadius: 999,
+                    border: sessionWcpmGoalReached
+                      ? "1px solid #7dbb92"
+                      : "1px solid #c5d3e6",
+                    background: sessionWcpmGoalReached ? "#e6f5ec" : "#f7f9fc",
+                    color: sessionWcpmGoalReached ? "#1f6f45" : "#4d5f75",
+                  }}
+                >
+                  WCPM Goal:{" "}
+                  {sessionWcpmGoalReached ? "Reached" : "In Progress"}
+                </span>
+              </div>
+              <div style={{ fontSize: 14 }}>{sessionGoalStatusMessage}</div>
+            </Paper>
+          </Grid>
+
+          <Grid item>
+            <Paper
+              style={{
+                padding: 12,
+                borderRadius: 12,
+                background:
+                  sessionTimeGoalReached || sessionWcpmGoalReached
+                    ? "linear-gradient(180deg, #edf8f1 0%, #e2f3ea 100%)"
+                    : "linear-gradient(180deg, #fbfcff 0%, #f4f7ff 100%)",
+                border:
+                  sessionTimeGoalReached || sessionWcpmGoalReached
+                    ? "1px solid #b9dfc8"
+                    : "1px solid #dfe6f5",
+              }}
+            >
+              <div style={{ fontWeight: 700, marginBottom: 4 }}>
+                Goal Status
+              </div>
+              <div style={{ fontSize: 14 }}>{sessionGoalStatusMessage}</div>
+              <div style={{ fontSize: 13, marginTop: 2, color: "#4d4d4d" }}>
+                {Math.min(sessionWcpm, sessionWcpmGoal).toFixed(1)}/
+                {sessionWcpmGoal} WCPM ·{" "}
+                {Math.floor(sessionElapsedSeconds / 60)}:
+                {String(sessionElapsedSeconds % 60).padStart(2, "0")}/
+                {sessionMinutesGoal}:00
+              </div>
+            </Paper>
+          </Grid>
+
           <Grid item>
             <Paper
               style={{
@@ -1296,6 +1692,32 @@ export default function Lesson() {
             </Grid>
           )}
 
+          {lessonStarted && (
+            <Grid item>
+              <Paper
+                style={{
+                  padding: 12,
+                  borderRadius: 12,
+                  background:
+                    "linear-gradient(180deg, #f3f7ff 0%, #eef3ff 100%)",
+                  border: "1px solid #d7e2ff",
+                }}
+              >
+                <div style={{ fontWeight: 700, marginBottom: 4 }}>
+                  WCPM (Session)
+                </div>
+                <div style={{ fontSize: 14 }}>
+                  {sessionWcpm.toFixed(1)} words correct per minute
+                </div>
+                <div style={{ fontSize: 13, marginTop: 2, color: "#4d4d4d" }}>
+                  {sessionTimedCorrectCount} correct in{" "}
+                  {sessionTimedSeconds.toFixed(1)}s measured from final TTS to
+                  Enter.
+                </div>
+              </Paper>
+            </Grid>
+          )}
+
           <Grid item>
             <div
               style={{
@@ -1368,6 +1790,29 @@ export default function Lesson() {
               )}
             </div>
           </Grid>
+          <Grid item>
+            <Paper
+              style={{
+                padding: 12,
+                borderRadius: 12,
+                background: "#fbfcff",
+                border: "1px solid #dfe6f5",
+              }}
+            >
+              <div style={{ fontWeight: 700, marginBottom: 6 }}>
+                Session Time Goal ({sessionMinutesGoal} minutes)
+              </div>
+              <div style={{ marginBottom: 8, fontSize: 13, color: "#4d4d4d" }}>
+                Time remaining: {Math.floor(sessionSecondsRemaining / 60)}:
+                {String(sessionSecondsRemaining % 60).padStart(2, "0")}
+              </div>
+              <LinearProgress
+                variant="determinate"
+                value={sessionCountdownProgress}
+              />
+            </Paper>
+          </Grid>
+
           <Grid item>
             <LessonProgress
               variant="determinate"

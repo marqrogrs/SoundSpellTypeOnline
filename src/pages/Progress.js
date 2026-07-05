@@ -6,7 +6,8 @@ import {
   Grid,
   Paper,
   Typography,
-  ButtonGroup,
+  TextField,
+  MenuItem,
 } from "@material-ui/core";
 import ProgressList from "../components/ProgressList";
 import { useAuth } from "../hooks/useAuth";
@@ -15,12 +16,13 @@ import { UserContext } from "../providers/UserProvider";
 import { getLessonSubsection, buildActiveLessonWords } from "../util/functions";
 
 const REQUIRED_ACCURACY_FOR_CHECKMARK = 90;
-const DAILY_GOAL_OPTIONS = [
-  { value: "10_words", label: "10 words" },
-  { value: "1_lesson", label: "1 lesson" },
-  { value: "8_minutes", label: "8 minutes" },
-];
-const DAILY_GOAL_FALLBACK = "1_lesson";
+const SESSION_MINUTE_GOAL_OPTIONS = Array.from(
+  { length: 26 },
+  (_, index) => index + 5,
+);
+const WCPM_GOAL_OPTIONS = Array.from({ length: 30 }, (_, index) => index + 1);
+const DEFAULT_SESSION_MINUTE_GOAL = 10;
+const DEFAULT_WCPM_GOAL = 8;
 const MILESTONE_TARGETS = [25, 50, 100];
 
 const asObject = (value) =>
@@ -171,13 +173,32 @@ export default function Progress() {
   const hasFirstLessonAttempted = Boolean(
     userData?.firstLessonAttemptedAt || userData?.first_lesson_attempted_at,
   );
-  const storedDailyGoal = String(
-    userData?.dailyPracticeGoal || userData?.daily_practice_goal || "",
-  ).trim();
-  const selectedDailyGoal =
-    DAILY_GOAL_OPTIONS.find((option) => option.value === storedDailyGoal) ||
-    DAILY_GOAL_OPTIONS.find((option) => option.value === DAILY_GOAL_FALLBACK) ||
-    DAILY_GOAL_OPTIONS[0];
+  const selectedSessionMinutesGoal = (() => {
+    const raw = Number(
+      userData?.dailySessionMinutesGoal ||
+        userData?.daily_session_minutes_goal ||
+        DEFAULT_SESSION_MINUTE_GOAL,
+    );
+    if (SESSION_MINUTE_GOAL_OPTIONS.includes(raw)) {
+      return raw;
+    }
+    return DEFAULT_SESSION_MINUTE_GOAL;
+  })();
+  const selectedWcpmGoal = (() => {
+    const raw = Number(
+      userData?.dailyWcpmGoal || userData?.daily_wcpm_goal || DEFAULT_WCPM_GOAL,
+    );
+    if (WCPM_GOAL_OPTIONS.includes(raw)) {
+      return raw;
+    }
+    return DEFAULT_WCPM_GOAL;
+  })();
+  const latestSessionWcpm = Number(
+    userData?.latestSessionWcpm || userData?.latest_session_wcpm || 0,
+  );
+  const bestSessionWcpm = Number(
+    userData?.bestSessionWcpm || userData?.best_session_wcpm || 0,
+  );
   const currentStreak = Math.max(
     0,
     Number(
@@ -268,16 +289,26 @@ export default function Progress() {
     ? "Continue Lesson"
     : "Start Next Lesson";
 
-  const handleSelectDailyGoal = async (goalValue) => {
-    const normalizedGoal = String(goalValue || "").trim();
-    if (!normalizedGoal || normalizedGoal === storedDailyGoal) {
+  const handleUpdateGoalTargets = async (updates) => {
+    const nextMinutesGoal = Number(
+      updates?.dailySessionMinutesGoal ?? selectedSessionMinutesGoal,
+    );
+    const nextWcpmGoal = Number(updates?.dailyWcpmGoal ?? selectedWcpmGoal);
+
+    if (
+      nextMinutesGoal === selectedSessionMinutesGoal &&
+      nextWcpmGoal === selectedWcpmGoal
+    ) {
       return;
     }
 
     setSavingDailyGoal(true);
     try {
       await updateUserData({
-        dailyPracticeGoal: normalizedGoal,
+        dailySessionMinutesGoal: nextMinutesGoal,
+        daily_session_minutes_goal: nextMinutesGoal,
+        dailyWcpmGoal: nextWcpmGoal,
+        daily_wcpm_goal: nextWcpmGoal,
         dailyPracticeGoalUpdatedAt: new Date().toISOString(),
       });
     } finally {
@@ -345,10 +376,10 @@ export default function Progress() {
               <Grid item xs={12} sm={4}>
                 <Paper style={{ padding: 12, borderRadius: 12 }}>
                   <Typography variant="caption" color="textSecondary">
-                    Daily Goal
+                    Session Goal
                   </Typography>
                   <Typography variant="h6" style={{ marginTop: 4 }}>
-                    {selectedDailyGoal.label}
+                    {selectedSessionMinutesGoal} min · {selectedWcpmGoal} WCPM
                   </Typography>
                   <Typography variant="body2" color="textSecondary">
                     {lessonSummary.inProgressCount > 0
@@ -375,10 +406,18 @@ export default function Progress() {
               <Grid item xs={12} sm={4}>
                 <Paper style={{ padding: 12, borderRadius: 12 }}>
                   <Typography variant="caption" color="textSecondary">
-                    Words Mastered
+                    Session WCPM
                   </Typography>
                   <Typography variant="h6" style={{ marginTop: 4 }}>
-                    {Number(wordsMasteredTotal || 0)}
+                    {Number.isFinite(latestSessionWcpm)
+                      ? latestSessionWcpm.toFixed(1)
+                      : "0.0"}
+                  </Typography>
+                  <Typography variant="body2" color="textSecondary">
+                    Best:{" "}
+                    {Number.isFinite(bestSessionWcpm)
+                      ? bestSessionWcpm.toFixed(1)
+                      : "0.0"}
                   </Typography>
                 </Paper>
               </Grid>
@@ -440,29 +479,48 @@ export default function Progress() {
             <Grid container spacing={1} style={{ marginTop: 8 }}>
               <Grid item xs={12}>
                 <Typography variant="body2" color="textSecondary">
-                  Pick today&apos;s target:
+                  Pick today&apos;s targets:
                 </Typography>
               </Grid>
-              <Grid item xs={12}>
-                <ButtonGroup
-                  color="primary"
-                  variant="outlined"
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  select
+                  fullWidth
+                  label="Session Minutes"
+                  value={selectedSessionMinutesGoal}
                   disabled={savingDailyGoal}
+                  onChange={(event) => {
+                    handleUpdateGoalTargets({
+                      dailySessionMinutesGoal: Number(event.target.value),
+                    });
+                  }}
                 >
-                  {DAILY_GOAL_OPTIONS.map((option) => (
-                    <Button
-                      key={option.value}
-                      variant={
-                        selectedDailyGoal.value === option.value
-                          ? "contained"
-                          : "outlined"
-                      }
-                      onClick={() => handleSelectDailyGoal(option.value)}
-                    >
-                      {option.label}
-                    </Button>
+                  {SESSION_MINUTE_GOAL_OPTIONS.map((minutes) => (
+                    <MenuItem key={minutes} value={minutes}>
+                      {minutes} minutes
+                    </MenuItem>
                   ))}
-                </ButtonGroup>
+                </TextField>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  select
+                  fullWidth
+                  label="WCPM Goal"
+                  value={selectedWcpmGoal}
+                  disabled={savingDailyGoal}
+                  onChange={(event) => {
+                    handleUpdateGoalTargets({
+                      dailyWcpmGoal: Number(event.target.value),
+                    });
+                  }}
+                >
+                  {WCPM_GOAL_OPTIONS.map((wcpm) => (
+                    <MenuItem key={wcpm} value={wcpm}>
+                      {wcpm} WCPM
+                    </MenuItem>
+                  ))}
+                </TextField>
               </Grid>
             </Grid>
 
