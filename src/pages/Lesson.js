@@ -835,6 +835,7 @@ export default function Lesson() {
 
       const isCorrect =
         checkScore && inputWord.toLowerCase() === currentWord.toLowerCase();
+      let latestWcpmForProgress = Number(sessionWcpm || 0);
 
       if (checkScore && submitSource === "enter") {
         const startedAt = Number(currentWordTtsFinishedAtRef.current || 0);
@@ -857,6 +858,7 @@ export default function Lesson() {
             nextTimedSeconds > 0
               ? (nextTimedCorrectCount / nextTimedSeconds) * 60
               : 0;
+          latestWcpmForProgress = Number(nextWcpm.toFixed(1));
 
           setSessionTimedSeconds(nextTimedSeconds);
           setSessionTimedCorrectCount(nextTimedCorrectCount);
@@ -925,6 +927,15 @@ export default function Lesson() {
         setProgress(currentWordIndex + 1, {
           isCorrect,
           word: currentWord,
+          levelMetrics:
+            Number.isFinite(latestWcpmForProgress) && latestWcpmForProgress > 0
+              ? {
+                  latestSessionWcpm: latestWcpmForProgress,
+                  latest_session_wcpm: latestWcpmForProgress,
+                  lastSessionWcpmAt: new Date().toISOString(),
+                  last_session_wcpm_at: new Date().toISOString(),
+                }
+              : undefined,
         }) ||
         currentLessonProgress ||
         {};

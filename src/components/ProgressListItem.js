@@ -120,6 +120,18 @@ export default function ProgressListItem({
     );
   };
 
+  const getLevelLatestWcpm = (levelProgress) => {
+    const raw = Number(
+      levelProgress?.latestSessionWcpm || levelProgress?.latest_session_wcpm,
+    );
+
+    if (!Number.isFinite(raw) || raw <= 0) {
+      return "-";
+    }
+
+    return raw.toFixed(1);
+  };
+
   const activeLevelIndexes = LEVELS.map((_, index) => index);
   const isLevelMastered = (levelProgress) =>
     getLevelWordsCorrectPercent(levelProgress) >=
@@ -261,6 +273,7 @@ export default function ProgressListItem({
                   <TableRow>
                     <TableCell>Level</TableCell>
                     <TableCell>Words Correct</TableCell>
+                    <TableCell>Words Correct Per Minute</TableCell>
                     <TableCell>Status</TableCell>
                   </TableRow>
                 </TableHead>
@@ -288,6 +301,9 @@ export default function ProgressListItem({
                           {i + 1}
                         </TableCell>
                         <TableCell>{levelPercent}%</TableCell>
+                        <TableCell>
+                          {getLevelLatestWcpm(levelProgress)}
+                        </TableCell>
                         <TableCell>{levelStatus}</TableCell>
                       </TableRow>
                     );

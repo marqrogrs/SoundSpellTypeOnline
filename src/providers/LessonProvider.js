@@ -527,6 +527,12 @@ const LessonProvider = ({ children }) => {
         : isLegacyScoreIncrement;
     const submittedWord =
       typeof updatePayload === "object" ? updatePayload.word : undefined;
+    const levelMetrics =
+      typeof updatePayload === "object" &&
+      updatePayload.levelMetrics &&
+      typeof updatePayload.levelMetrics === "object"
+        ? updatePayload.levelMetrics
+        : null;
     const normalizedWord = String(submittedWord || "")
       .trim()
       .toUpperCase();
@@ -622,6 +628,13 @@ const LessonProvider = ({ children }) => {
     );
     nextProgress[level].score = nextScore;
     nextProgress[level].correct_words = nextCorrectWords;
+
+    if (levelMetrics) {
+      nextProgress[level] = {
+        ...nextProgress[level],
+        ...levelMetrics,
+      };
+    }
 
     // Set completed flag
     nextProgress[level].completed = nextProgress[level].completed
