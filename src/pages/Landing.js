@@ -12,7 +12,7 @@ const Landing = () => {
     <div id="landing-container" className="landing-only">
       <Paper className="landing-trust-card" elevation={0}>
         <Typography variant="overline" className="landing-kicker">
-          Structured Literacy Practice
+          Structured Literacy Spelling and Typing Practice
         </Typography>
         <Typography variant="h3" className="landing-title">
           Sound Spell Type Online
