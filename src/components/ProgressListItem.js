@@ -211,8 +211,9 @@ export default function ProgressListItem({
           {isRecommendedLesson ? (
             <span
               style={{
-                display: "inline-block",
-                marginLeft: 8,
+                display: "block",
+                marginTop: 6,
+                width: "fit-content",
                 padding: "2px 8px",
                 borderRadius: 999,
                 fontSize: 10,
@@ -229,8 +230,9 @@ export default function ProgressListItem({
           ) : null}
           <span
             style={{
-              display: "inline-block",
-              marginLeft: 8,
+              display: "block",
+              marginTop: 6,
+              width: "fit-content",
               padding: "2px 8px",
               borderRadius: 999,
               fontSize: 10,

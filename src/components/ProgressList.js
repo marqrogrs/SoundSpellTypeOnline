@@ -347,10 +347,10 @@ export default function ProgressList({ student }) {
           <TableHead>
             <TableRow>
               <TableCell style={{ width: 56 }} />
-              <TableCell style={{ width: 90, whiteSpace: "nowrap" }}>
+              <TableCell style={{ width: 190, whiteSpace: "nowrap" }}>
                 Lesson
               </TableCell>
-              <TableCell style={{ width: "45%" }}>Description</TableCell>
+              <TableCell>Description</TableCell>
               <TableCell
                 align="right"
                 style={{ width: 170, whiteSpace: "nowrap" }}
