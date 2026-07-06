@@ -1477,6 +1477,35 @@ export default function Lesson() {
         when={!isSaved}
       />
       <Container maxWidth="md">
+        {!currentLesson && !lessonsLoading && !currentLessonLoading ? (
+          <Paper
+            style={{
+              padding: 20,
+              borderRadius: 12,
+              background: "#fbfcff",
+              border: "1px solid #dfe6f5",
+            }}
+          >
+            <div style={{ fontWeight: 700, marginBottom: 8 }}>
+              Lesson not available
+            </div>
+            <div style={{ marginBottom: 12 }}>
+              We could not load this lesson route. Please return to Progress and
+              choose a lesson again.
+            </div>
+            <div style={{ fontSize: 12, color: "#5f6b76", marginBottom: 12 }}>
+              Route requested: {String(requestedLessonId || "(unknown)")}
+            </div>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={() => history.push("/progress")}
+            >
+              Back to Progress
+            </Button>
+          </Paper>
+        ) : null}
+
         <Grid container spacing={2} direction="column">
           <Grid item>
             <Paper
