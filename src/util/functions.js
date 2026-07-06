@@ -1,5 +1,10 @@
 export const getLessonSubsection = (lesson) => {
-  return lesson.lesson_id.substring(lesson.lesson_id.lastIndexOf(".") + 1);
+  const lessonId = String(lesson?.lesson_id ?? lesson?.id ?? "").trim();
+  if (!lessonId) {
+    return "0";
+  }
+
+  return lessonId.substring(lessonId.lastIndexOf(".") + 1);
 };
 
 export const buildActiveLessonWords = (words = [], lessonId = "") => {
