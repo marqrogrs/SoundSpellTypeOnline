@@ -334,6 +334,7 @@ const LessonProvider = ({ children }) => {
   const setLesson = useCallback(
     ({ lesson_id }) => {
       const requestedLessonId = normalizeLessonId(lesson_id);
+      const requestedLessonIsIntegerId = /^\d+$/.test(requestedLessonId);
       if (!requestedLessonId) {
         setCurrentLesson(undefined);
         setCurrentLessonProgress(undefined);
@@ -400,7 +401,10 @@ const LessonProvider = ({ children }) => {
         }
 
         const candidateNumeric = Number(candidateId);
+        const candidateIsIntegerId = /^\d+$/.test(candidateId);
         return (
+          requestedLessonIsIntegerId &&
+          candidateIsIntegerId &&
           Number.isFinite(requestedLessonNumeric) &&
           Number.isFinite(candidateNumeric) &&
           candidateNumeric === requestedLessonNumeric
@@ -429,7 +433,10 @@ const LessonProvider = ({ children }) => {
             return snapshot.docs[0];
           }
 
-          if (!Number.isFinite(requestedLessonNumeric)) {
+          if (
+            !requestedLessonIsIntegerId ||
+            !Number.isFinite(requestedLessonNumeric)
+          ) {
             return null;
           }
 
