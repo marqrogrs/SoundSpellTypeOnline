@@ -21,6 +21,28 @@ import { useStyles } from "../styles/material";
 
 const REQUIRED_ACCURACY_FOR_CHECKMARK = 90;
 
+const safeDecodeURIComponent = (value) => {
+  try {
+    return decodeURIComponent(value);
+  } catch (_error) {
+    return value;
+  }
+};
+
+const normalizeLessonIdForRoute = (value) => {
+  const rawValue = String(value ?? "").trim();
+  if (!rawValue) {
+    return "";
+  }
+
+  const decodedValue = safeDecodeURIComponent(rawValue);
+  if (decodedValue.includes("/")) {
+    return decodedValue.split("/").filter(Boolean).pop() || "";
+  }
+
+  return decodedValue;
+};
+
 function getMilestoneLabel(percentComplete, isCompleted, isInProgress) {
   if (isCompleted) {
     return "Part complete";
@@ -170,8 +192,26 @@ export default function ProgressListItem({
     String(recommendedLessonId || "").trim() ===
     String(lesson?.lesson_id || "").trim();
 
+  const normalizedLessonId = normalizeLessonIdForRoute(
+    lesson?.lesson_id ?? lesson?.id,
+  );
+  const customLessonId = String(lesson?.custom_lesson_id || "").trim();
+  const isCustomLesson =
+    normalizedLessonId.startsWith("custom:") ||
+    (Boolean(lesson?.isCustomLesson) && Boolean(customLessonId));
+  const routeLessonId = isCustomLesson
+    ? normalizedLessonId.startsWith("custom:")
+      ? normalizedLessonId.slice("custom:".length)
+      : customLessonId
+    : normalizedLessonId;
+  const lessonLink = routeLessonId
+    ? isCustomLesson
+      ? `/lessons/custom/${encodeURIComponent(routeLessonId)}`
+      : `/lessons/${encodeURIComponent(routeLessonId)}`
+    : "/progress";
+
   const button = isCompleted ? null : isInProgress ? (
-    <Link to={`/lessons/${lesson.lesson_id}`}>
+    <Link to={lessonLink}>
       <Button
         color="primary"
         variant="contained"
@@ -182,7 +222,7 @@ export default function ProgressListItem({
       </Button>
     </Link>
   ) : (
-    <Link to={`/lessons/${lesson.lesson_id}`}>
+    <Link to={lessonLink}>
       <Button
         color="primary"
         variant="outlined"

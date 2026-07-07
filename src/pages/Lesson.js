@@ -1329,7 +1329,7 @@ export default function Lesson() {
     return () => clearTimeout(id);
   }, [enableInput, focusAnswerInput, lessonStarted, showOutputWord]);
 
-  const save = () => {
+  function save() {
     if (!currentLesson) {
       return Promise.resolve();
     }
@@ -1376,7 +1376,7 @@ export default function Lesson() {
       setIsSaved(true);
       await persistSessionWcpm();
     });
-  };
+  }
 
   const handleRepeatWord = () => {
     if (!lessonStarted) {

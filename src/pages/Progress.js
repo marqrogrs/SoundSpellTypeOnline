@@ -3,7 +3,13 @@ import { Link, useParams } from "react-router-dom";
 import {
   Button,
   Container,
+  Dialog,
+  DialogContent,
+  DialogTitle,
   Grid,
+  List,
+  ListItem,
+  ListItemText,
   Paper,
   Typography,
   TextField,
@@ -24,6 +30,7 @@ const WCPM_GOAL_OPTIONS = Array.from({ length: 30 }, (_, index) => index + 1);
 const DEFAULT_SESSION_MINUTE_GOAL = 10;
 const DEFAULT_WCPM_GOAL = 8;
 const MILESTONE_TARGETS = [25, 50, 100];
+const POST_MAX_MILESTONE_STEP = 50;
 
 const asObject = (value) =>
   value && typeof value === "object" && !Array.isArray(value) ? value : {};
@@ -88,13 +95,21 @@ const getMasteredPercent = (lesson, levelProgress) => {
   return Math.round((masteredCount / totalWords) * 100);
 };
 
+const safeDecodeURIComponent = (value) => {
+  try {
+    return decodeURIComponent(value);
+  } catch (_error) {
+    return value;
+  }
+};
+
 const normalizeLessonIdForRoute = (value) => {
   const rawValue = String(value ?? "").trim();
   if (!rawValue) {
     return "";
   }
 
-  const decodedValue = decodeURIComponent(rawValue);
+  const decodedValue = safeDecodeURIComponent(rawValue);
   if (decodedValue.includes("/")) {
     return decodedValue.split("/").filter(Boolean).pop() || "";
   }
@@ -109,6 +124,9 @@ export default function Progress() {
     useContext(UserContext);
   const auth = useAuth();
   const [savingDailyGoal, setSavingDailyGoal] = useState(false);
+  const [milestoneWordsDialogOpen, setMilestoneWordsDialogOpen] =
+    useState(false);
+  const [selectedMilestoneTarget, setSelectedMilestoneTarget] = useState(0);
 
   const shouldShowUnifiedTodayPanel = !String(student || "").trim();
   const canShowAccountabilityPanel =
@@ -239,10 +257,36 @@ export default function Progress() {
     Number(userData?.streakSaveTokens || userData?.streak_save_tokens || 0) ||
       0,
   );
-  const nextMilestoneTarget =
-    MILESTONE_TARGETS.find(
-      (target) => Number(wordsMasteredTotal || 0) < target,
-    ) || MILESTONE_TARGETS[MILESTONE_TARGETS.length - 1];
+  const masteredWordCount = Number(wordsMasteredTotal || 0);
+  const highestReachedMilestone =
+    MILESTONE_TARGETS.filter((target) => masteredWordCount >= target).pop() ||
+    null;
+  const upcomingMilestoneFromTargets = MILESTONE_TARGETS.find(
+    (target) => masteredWordCount < target,
+  );
+  const nextUpcomingMilestone =
+    upcomingMilestoneFromTargets ||
+    MILESTONE_TARGETS[MILESTONE_TARGETS.length - 1] + POST_MAX_MILESTONE_STEP;
+  const visibleMilestoneTargets = [
+    ...(highestReachedMilestone ? [highestReachedMilestone] : []),
+    ...(nextUpcomingMilestone ? [nextUpcomingMilestone] : []),
+  ];
+  const masteredWords = useMemo(() => {
+    const byDifficulty = asObject(userData?.words_mastered_by_difficulty);
+    const rawWords =
+      byDifficulty[3] || byDifficulty["3"] || userData?.wordsMastered || [];
+    const normalizedWords = (Array.isArray(rawWords) ? rawWords : [])
+      .map((word) =>
+        String(word || "")
+          .trim()
+          .toUpperCase(),
+      )
+      .filter(Boolean);
+
+    return [...new Set(normalizedWords)].sort((left, right) =>
+      left.localeCompare(right),
+    );
+  }, [userData]);
   const showFirstSessionQuickWin =
     shouldShowUnifiedTodayPanel &&
     !hasFirstLessonAttempted &&
@@ -314,6 +358,15 @@ export default function Progress() {
   const primaryActionLabel = lessonSummary?.resumeLesson
     ? "Continue Lesson"
     : "Start Next Lesson";
+
+  const handleOpenMilestoneWordsDialog = (target) => {
+    setSelectedMilestoneTarget(Number(target) || 0);
+    setMilestoneWordsDialogOpen(true);
+  };
+
+  const handleCloseMilestoneWordsDialog = () => {
+    setMilestoneWordsDialogOpen(false);
+  };
 
   const handleUpdateGoalTargets = async (updates) => {
     const nextMinutesGoal = Number(
@@ -540,8 +593,8 @@ export default function Progress() {
                 unlock the next step.
               </Typography>
               <Grid container spacing={1} style={{ marginTop: 8 }}>
-                {MILESTONE_TARGETS.map((target) => {
-                  const mastered = Number(wordsMasteredTotal || 0);
+                {visibleMilestoneTargets.map((target) => {
+                  const mastered = masteredWordCount;
                   const reached = mastered >= target;
                   const remaining = Math.max(0, target - mastered);
 
@@ -557,6 +610,16 @@ export default function Progress() {
                           background: reached
                             ? "linear-gradient(180deg, #f3fbf6 0%, #e9f7ef 100%)"
                             : "#f9fbfd",
+                          cursor: "pointer",
+                        }}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => handleOpenMilestoneWordsDialog(target)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            handleOpenMilestoneWordsDialog(target);
+                          }
                         }}
                       >
                         <Typography variant="caption" color="textSecondary">
@@ -567,8 +630,8 @@ export default function Progress() {
                         </Typography>
                         <Typography variant="body2" color="textSecondary">
                           {reached
-                            ? "New mastery milestone unlocked."
-                            : target === nextMilestoneTarget
+                            ? "Current highest reached milestone."
+                            : target === nextUpcomingMilestone
                               ? "Next milestone."
                               : "Upcoming milestone."}
                         </Typography>
@@ -577,6 +640,13 @@ export default function Progress() {
                   );
                 })}
               </Grid>
+              <Typography
+                variant="caption"
+                color="textSecondary"
+                style={{ display: "block", marginTop: 8 }}
+              >
+                Next upcoming milestone: {nextUpcomingMilestone} words mastered.
+              </Typography>
             </Paper>
           </Paper>
         )}
@@ -633,6 +703,41 @@ export default function Progress() {
             )}
           </Paper>
         )}
+
+        <Dialog
+          open={milestoneWordsDialogOpen}
+          onClose={handleCloseMilestoneWordsDialog}
+          fullWidth
+          maxWidth="sm"
+          aria-labelledby="milestone-words-dialog-title"
+        >
+          <DialogTitle id="milestone-words-dialog-title">
+            {selectedMilestoneTarget > 0
+              ? `Mastered Words (Level 3) toward ${selectedMilestoneTarget}`
+              : "Mastered Words (Level 3)"}
+          </DialogTitle>
+          <DialogContent dividers>
+            {masteredWords.length === 0 ? (
+              <Typography variant="body2" color="textSecondary">
+                No Level 3 mastered words recorded yet.
+              </Typography>
+            ) : (
+              <>
+                <Typography variant="body2" color="textSecondary">
+                  Showing {masteredWords.length} mastered words credited from
+                  Difficulty Level 3.
+                </Typography>
+                <List dense>
+                  {masteredWords.map((word) => (
+                    <ListItem key={word}>
+                      <ListItemText primary={word} />
+                    </ListItem>
+                  ))}
+                </List>
+              </>
+            )}
+          </DialogContent>
+        </Dialog>
 
         <ProgressList student={student} />
       </Container>

@@ -562,10 +562,14 @@ const LessonProvider = ({ children }) => {
       // (including correct_words) is persisted at lesson save/completion via
       // saveProgress(), which already includes the correct_words array.
       const difficultyLevel = String(Number(level || 0) + 1);
-      if (typeof registerMasteredWord === "function") {
+      const isMasteryDifficultyLevel = difficultyLevel === "3";
+      if (
+        isMasteryDifficultyLevel &&
+        typeof registerMasteredWord === "function"
+      ) {
         registerMasteredWord(difficultyLevel, normalizedWord);
       }
-      if (user?.uid) {
+      if (isMasteryDifficultyLevel && user?.uid) {
         db.collection("users")
           .doc(user.uid)
           .set(

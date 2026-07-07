@@ -8,7 +8,13 @@ import MenuIcon from "@material-ui/icons/Menu";
 import {
   Box,
   Breadcrumbs,
+  Dialog,
+  DialogContent,
+  DialogTitle,
   Link,
+  List,
+  ListItem,
+  ListItemText,
   Menu,
   MenuItem,
   Typography,
@@ -29,6 +35,7 @@ export default function AppBar({ user }) {
   const history = useHistory();
   const [leftAnchorEl, setLeftAnchorEl] = useState(null);
   const [rightAnchorEl, setRightAnchorEl] = useState(null);
+  const [masteredWordsDialogOpen, setMasteredWordsDialogOpen] = useState(false);
 
   const rightMenuOpen = Boolean(rightAnchorEl);
   const leftMenuOpen = Boolean(leftAnchorEl);
@@ -47,6 +54,24 @@ export default function AppBar({ user }) {
   const hasFirstLessonAttempted = Boolean(
     userData?.firstLessonAttemptedAt || userData?.first_lesson_attempted_at,
   );
+  const masteredWords = useMemo(() => {
+    const byDifficulty =
+      userData && typeof userData === "object"
+        ? userData.words_mastered_by_difficulty || {}
+        : {};
+    const rawWords = byDifficulty[3] || byDifficulty["3"] || [];
+    const normalizedWords = (Array.isArray(rawWords) ? rawWords : [])
+      .map((word) =>
+        String(word || "")
+          .trim()
+          .toUpperCase(),
+      )
+      .filter(Boolean);
+
+    return [...new Set(normalizedWords)].sort((left, right) =>
+      left.localeCompare(right),
+    );
+  }, [userData]);
   const pathSegments = useMemo(() => pathname.split("/"), [pathname]);
   const customLessonId = useMemo(() => {
     if (
@@ -257,6 +282,14 @@ export default function AppBar({ user }) {
     history.push("/");
   };
 
+  const handleOpenMasteredWordsDialog = () => {
+    setMasteredWordsDialogOpen(true);
+  };
+
+  const handleCloseMasteredWordsDialog = () => {
+    setMasteredWordsDialogOpen(false);
+  };
+
   return (
     <div>
       <MaterialAppBar position="static">
@@ -386,12 +419,55 @@ export default function AppBar({ user }) {
                 </MenuItem> */}
               </Menu>
               {Number(wordsMasteredTotal || 0) > 0 && (
-                <Typography>Words Mastered: {wordsMasteredTotal}</Typography>
+                <Typography>
+                  <Link
+                    component="button"
+                    color="inherit"
+                    underline="always"
+                    onClick={handleOpenMasteredWordsDialog}
+                    style={{ cursor: "pointer" }}
+                  >
+                    Words Mastered:
+                  </Link>{" "}
+                  {wordsMasteredTotal}
+                </Typography>
               )}
             </>
           )}
         </Toolbar>
       </MaterialAppBar>
+      <Dialog
+        open={masteredWordsDialogOpen}
+        onClose={handleCloseMasteredWordsDialog}
+        fullWidth
+        maxWidth="sm"
+        aria-labelledby="appbar-mastered-words-dialog-title"
+      >
+        <DialogTitle id="appbar-mastered-words-dialog-title">
+          Mastered Words (Level 3): {Number(wordsMasteredTotal || 0)}
+        </DialogTitle>
+        <DialogContent dividers>
+          {masteredWords.length === 0 ? (
+            <Typography variant="body2" color="textSecondary">
+              No Level 3 mastered words recorded yet.
+            </Typography>
+          ) : (
+            <>
+              <Typography variant="body2" color="textSecondary">
+                Showing {masteredWords.length} mastered words credited from
+                Difficulty Level 3.
+              </Typography>
+              <List dense>
+                {masteredWords.map((word) => (
+                  <ListItem key={word}>
+                    <ListItemText primary={word} />
+                  </ListItem>
+                ))}
+              </List>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
       {user && (
         <Box className={classes.breadcrumbBar}>
           <Breadcrumbs aria-label="breadcrumb" className={classes.breadcrumbs}>
